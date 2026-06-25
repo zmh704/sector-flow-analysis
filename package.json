@@ -1,0 +1,7 @@
+{
+  "name": "stock-sector-chart",
+  "private": true,
+  "dependencies": {
+    "chart.js": "^4.4.1"
+  }
+}

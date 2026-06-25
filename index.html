@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A股板块资金流向分析</title>
+    <script src="chart.umd.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📈 A股板块资金流向分析</h1>
+            <div class="subtitle" id="dataDate">数据加载中...</div>
+        </header>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="industryCount">行业显示数量:</label>
+                <input type="number" id="industryCount" min="1" max="50" value="10">
+            </div>
+            <div class="control-group">
+                <label for="conceptCount">概念显示数量:</label>
+                <input type="number" id="conceptCount" min="1" max="100" value="10">
+            </div>
+            <button onclick="loadAllJsonFiles()" style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);">📂 加载数据</button>
+            <button onclick="updateCharts()">🔄 刷新图表</button>
+            <div class="control-group flow-control-group">
+                <label class="flow-option inflow">
+                    <input type="radio" name="flowFilter" value="inflow" checked onchange="updateCharts()">
+                    <span>流入</span>
+                </label>
+                <label class="flow-option outflow">
+                    <input type="radio" name="flowFilter" value="outflow" onchange="updateCharts()">
+                    <span>流出</span>
+                </label>
+            </div>
+        </div>
+        <div id="dateButtons" class="date-buttons"></div>
+        <div class="focus-section" id="focusSection">
+            <div class="focus-header">⭐ 重点关注</div>
+            <div class="focus-content" id="focusContent"></div>
+        </div>
+        <div id="loadStatus" style="text-align: center; color: #666; margin-bottom: 15px; font-size: 14px;"></div>
+
+        <div class="charts-container">
+            <div class="chart-box">
+                <div class="chart-title">
+                    <span>🏛️ 行业板块资金流向</span>
+                    <button class="view-all-btn" onclick="showAllData('行业板块资金流向')">查看全部</button>
+                </div>
+                <div class="chart-wrapper">
+                    <canvas id="industryChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-box">
+                <div class="chart-title">
+                    <span>💡 概念板块资金流向</span>
+                    <button class="view-all-btn" onclick="showAllData('概念板块资金流向')">查看全部</button>
+                </div>
+                <div class="chart-wrapper">
+                    <canvas id="conceptChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>数据来源：A股成交额TOP200 | 生成时间：<span id="generateTime"></span></p>
+        </footer>
+    </div>
+
+    <!-- 查看全部弹窗 -->
+    <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2 id="modalTitle">全部板块</h2>
+                <button class="modal-close" onclick="closeModal()">✕</button>
+            </div>
+            <table class="modal-table">
+                <thead>
+                    <tr>
+                        <th onclick="sortModalTable('name')" style="width:1%;white-space:nowrap">板块 <span class="sort-arrow" id="sortArrowName">▼</span></th>
+                        <th style="text-align:right;width:1%;white-space:nowrap" onclick="sortModalTable('net')">主力净额 <span class="sort-arrow" id="sortArrowNet">▼</span></th>
+                        <th style="text-align:right;width:1%;white-space:nowrap" onclick="sortModalTable('turnover')">成交额 <span class="sort-arrow" id="sortArrowTurnover"></span></th>
+                        <th style="text-align:center;width:1%;white-space:nowrap" onclick="sortModalTable('days')">连续流入天数 <span class="sort-arrow" id="sortArrowDays"></span></th>
+                        <th style="text-align:right;width:1%;white-space:nowrap" onclick="sortModalTable('count')">股票数 <span class="sort-arrow" id="sortArrowCount"></span></th>
+                        <th>涉及股票</th>
+                        <th id="filterToggleTh" style="text-align:right;cursor:default" onclick="event.stopPropagation()">
+                            <label style="font-weight:400;color:#666;font-size:12px;cursor:pointer" onclick="event.stopPropagation()">
+                                <input type="checkbox" id="filterInvalid" checked onchange="renderModalTable()"> 过滤无效
+                            </label>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody id="modalBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 趋势对比弹窗 -->
+    <div class="modal-overlay" id="trendModalOverlay" onclick="closeTrendModal(event)">
+        <div class="trend-modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2 id="trendModalTitle">行业名 ⤻ 概念名</h2>
+                <button class="modal-close" onclick="closeTrendModal()">✕</button>
+            </div>
+            <div class="trend-common-stocks" id="trendMatchedSectors"></div>
+            <div class="trend-charts-row">
+                <div class="trend-chart-box">
+                    <div class="chart-label" id="trendIndustryLabel" style="color:#2563eb;">行业板块</div>
+                    <div class="chart-wrap">
+                        <canvas id="trendIndustryChart"></canvas>
+                    </div>
+                </div>
+                <div class="trend-chart-box">
+                    <div class="chart-label" id="trendConceptLabel" style="color:#7c3aed;">概念板块</div>
+                    <div class="chart-wrap">
+                        <canvas id="trendConceptChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
