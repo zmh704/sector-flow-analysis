@@ -4,8 +4,7 @@ let currentDateFile = null;
 
 let industryChart = null;
 let conceptChart = null;
-let trendIndustryChart = null;
-let trendConceptChart = null;
+let trendChart = null;
 
 Chart.register({
     id: 'alternatingRows',
@@ -461,8 +460,12 @@ function updateCharts() {
 function parseStocks(stockStr) {
     if (!stockStr) return [];
     return stockStr.split(',').map(s => {
-        const m = s.trim().match(/^(.+?)\(/);
-        return m ? m[1] : null;
+        const m = s.trim().match(/^(.+?)\(([^)]+)\)$/);
+        if (m) {
+            return { name: m[1], change: m[2] };
+        }
+        const nameOnly = s.trim().match(/^(.+?)\(/);
+        return nameOnly ? { name: nameOnly[1], change: '' } : null;
     }).filter(Boolean);
 }
 
@@ -479,7 +482,7 @@ function updateFocusArea(activeData) {
         .map(i => ({
             name: i.板块,
             days: calcConsecutiveInflow(i.板块, '行业板块资金流向'),
-            stocks: new Set(parseStocks(i.涉及股票))
+            stocks: new Set(parseStocks(i.涉及股票).map(s => s.name))
         }))
         .filter(i => i.days > 1);
 
@@ -488,7 +491,7 @@ function updateFocusArea(activeData) {
         .map(c => ({
             name: c.板块,
             days: calcConsecutiveInflow(c.板块, '概念板块资金流向'),
-            stocks: new Set(parseStocks(c.涉及股票))
+            stocks: new Set(parseStocks(c.涉及股票).map(s => s.name))
         }))
         .filter(c => c.days > 1);
 
@@ -498,7 +501,7 @@ function updateFocusArea(activeData) {
         concepts.forEach(con => {
             const common = [...ind.stocks].filter(s => con.stocks.has(s));
             if (common.length > 0) {
-                allPairs.push({ industry: ind, concept: con, commonCount: common.length });
+                allPairs.push({ industry: ind, concept: con, commonCount: common.length, commonStocks: common });
             }
         });
     });
@@ -543,9 +546,14 @@ function updateFocusArea(activeData) {
             div.innerHTML = `<span style="color:#2563eb;font-weight:600;">${item.name}</span> <span style="font-size:11px;color:${daysColor};font-weight:700;">${item.days}天</span>`;
             const matchedConceptsForIndustry = allPairs
                 .filter(p => p.industry.name === item.name)
-                .map(p => ({ name: p.concept.name, days: p.concept.days }));
+                .map(p => ({ name: p.concept.name, days: p.concept.days, commonStocks: p.commonStocks }));
+            const industryStockStr = (industryList.find(i => i.板块 === item.name) || {}).涉及股票 || '';
+            const industryCommonStocks = new Set(
+                allPairs.filter(p => p.industry.name === item.name)
+                    .flatMap(p => p.commonStocks)
+            );
             div.onclick = function() {
-                showSingleTrendModal(item.name, '行业板块资金流向', '🏛️ ' + item.name + '（行业）', matchedConceptsForIndustry);
+                showSingleTrendModal(item.name, '行业板块资金流向', '🏛️ ' + item.name + '（行业）', matchedConceptsForIndustry, parseStocks(industryStockStr), industryCommonStocks);
             };
             indSection.appendChild(div);
         });
@@ -565,9 +573,14 @@ function updateFocusArea(activeData) {
             div.innerHTML = `<span style="color:#7c3aed;font-weight:600;">${item.name}</span> <span style="font-size:11px;color:${daysColor};font-weight:700;">${item.days}天</span>`;
             const matchedIndustriesForConcept = allPairs
                 .filter(p => p.concept.name === item.name)
-                .map(p => ({ name: p.industry.name, days: p.industry.days }));
+                .map(p => ({ name: p.industry.name, days: p.industry.days, commonStocks: p.commonStocks }));
+            const conceptStockStr = (conceptList.find(c => c.板块 === item.name) || {}).涉及股票 || '';
+            const conceptCommonStocks = new Set(
+                allPairs.filter(p => p.concept.name === item.name)
+                    .flatMap(p => p.commonStocks)
+            );
             div.onclick = function() {
-                showSingleTrendModal(item.name, '概念板块资金流向', '💡 ' + item.name + '（概念）', matchedIndustriesForConcept);
+                showSingleTrendModal(item.name, '概念板块资金流向', '💡 ' + item.name + '（概念）', matchedIndustriesForConcept, parseStocks(conceptStockStr), conceptCommonStocks);
             };
             conSection.appendChild(div);
         });
@@ -866,48 +879,109 @@ function createBarChart(ctx, trendData, existingChart) {
     return chart;
 }
 
-function showSingleTrendModal(sectorName, type, label, matchedSectors) {
-    if (trendIndustryChart) {
-        trendIndustryChart.destroy();
-        trendIndustryChart = null;
-    }
-    if (trendConceptChart) {
-        trendConceptChart.destroy();
-        trendConceptChart = null;
-    }
+function getCurrentActiveData() {
+    const activeData = allDataByDate[currentDateFile];
+    return activeData ? activeData.data : null;
+}
 
-    document.getElementById('trendModalTitle').textContent = label;
-    document.getElementById('trendIndustryLabel').textContent = label;
+function showStocksInPanel(sectorName, type, commonStockNames) {
+    const panelList = document.getElementById('stockPanelList');
+    const panelTitle = document.getElementById('stockPanelTitle');
+    if (!panelList) return;
 
-    const trendBoxes = document.querySelectorAll('.trend-chart-box');
-    if (trendBoxes.length >= 2) {
-        trendBoxes[0].style.display = '';
-        trendBoxes[1].style.display = 'none';
+    const activeData = getCurrentActiveData();
+    if (!activeData) {
+        panelList.innerHTML = '<span style="color:#999;">暂无数据</span>';
+        return;
     }
 
-    // 渲染匹配的对面板块列表
+    const sectorList = activeData[type] || [];
+    const sector = sectorList.find(s => s.板块 === sectorName);
+    if (!sector) {
+        panelList.innerHTML = '<span style="color:#999;">未找到该板块数据</span>';
+        return;
+    }
+
+    const stocks = parseStocks(sector.涉及股票);
+
+    if (panelTitle) {
+        const typeLabel = type === '行业板块资金流向' ? '🏛️' : '💡';
+        panelTitle.textContent = `${typeLabel} ${sectorName}`;
+    }
+
+    panelList.innerHTML = '';
+    if (stocks.length === 0) {
+        panelList.innerHTML = '<span style="color:#999;">无涉及股票数据</span>';
+        return;
+    }
+
+    const commonSet = commonStockNames || new Set();
+    const commonStocks = stocks.filter(s => commonSet.has(s.name));
+    const otherStocks = stocks.filter(s => !commonSet.has(s.name));
+    // 共同股票按涨跌幅从高到低排序
+    commonStocks.sort((a, b) => {
+        const ca = parseFloat(a.change) || -999;
+        const cb = parseFloat(b.change) || -999;
+        return cb - ca;
+    });
+    const sortedStocks = [...commonStocks, ...otherStocks];
+    sortedStocks.forEach((stock, i) => {
+        const div = document.createElement('div');
+        div.className = 'stock-item';
+        const isCommon = commonSet.has(stock.name);
+        if (stock.change) {
+            const changeNum = parseFloat(stock.change);
+            const changeColor = changeNum >= 0 ? 'color:#e53935;' : 'color:#43a047;';
+            const bgStyle = isCommon ? 'font-weight:700' : '';
+            div.innerHTML = `<span style="${bgStyle}">${i + 1}. <span style="color:#333;">${stock.name}</span> <span style="${changeColor}font-weight:600;">${stock.change}</span></span>`;
+        } else {
+            const bgStyle = isCommon ? 'font-weight:700' : '';
+            div.innerHTML = `<span style="${bgStyle}">${i + 1}. ${stock.name}</span>`;
+        }
+        panelList.appendChild(div);
+    });
+}
+
+function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, commonStockNames) {
+    if (trendChart) {
+        trendChart.destroy();
+        trendChart = null;
+    }
+
+    const typeIcon = type === '行业板块资金流向' ? '🏛️' : '💡';
+    const titleEl = document.getElementById('trendModalTitle');
+    titleEl.innerHTML = `${typeIcon} <span id="trendModalTitleSpan" style="color:#667eea;">${sectorName}</span>`;
+    titleEl.style.cursor = 'pointer';
+    titleEl.title = '点击查看涉及股票';
+    titleEl.onclick = null;
+    titleEl.onclick = function() {
+        showStocksInPanel(sectorName, type, commonStockNames);
+    };
+
+    // 渲染匹配的对面板块列表（可点击）
     const matchedContainer = document.getElementById('trendMatchedSectors');
     if (matchedContainer) {
         matchedContainer.innerHTML = '';
         if (matchedSectors && matchedSectors.length > 0) {
             matchedContainer.style.display = '';
             const otherType = type === '行业板块资金流向' ? '概念' : '行业';
+            const otherDataType = type === '行业板块资金流向' ? '概念板块资金流向' : '行业板块资金流向';
             const otherColor = type === '行业板块资金流向' ? '#7c3aed' : '#2563eb';
             const titleSpan = document.createElement('span');
             titleSpan.style.cssText = 'font-weight:600;margin-right:6px;';
             titleSpan.textContent = `匹配的${otherType}：`;
             matchedContainer.appendChild(titleSpan);
-            matchedSectors.sort((a, b) => b.days - a.days).forEach((s, i) => {
+            matchedSectors.sort((a, b) => b.days - a.days).forEach((s) => {
                 const tag = document.createElement('span');
-                tag.className = 'pair';
-                tag.style.display = 'inline-block';
-                tag.style.margin = '2px 6px 2px 0';
-                tag.style.padding = '2px 10px';
-                tag.style.background = '#fef3c7';
-                tag.style.borderRadius = '6px';
-                tag.style.fontWeight = '600';
+                tag.className = 'pair clickable';
                 const sDaysColor = s.days >= 3 ? '#dc2626' : otherColor;
                 tag.innerHTML = `<span style="color:${otherColor};">${s.name}</span> <span style="color:${sDaysColor};font-size:11px;">${s.days}天</span>`;
+                tag.title = '点击查看涉及股票';
+                const sCommonStocks = s.commonStocks || [];
+                tag.onclick = function(e) {
+                    e.stopPropagation();
+                    showStocksInPanel(s.name, otherDataType, new Set(sCommonStocks));
+                };
                 matchedContainer.appendChild(tag);
             });
         } else {
@@ -915,10 +989,50 @@ function showSingleTrendModal(sectorName, type, label, matchedSectors) {
         }
     }
 
-    const trend = getTrendData(sectorName, type);
+    // 默认显示当前板块的股票（共同股票优先）
+    if (stocks && stocks.length > 0) {
+        const panelTitle = document.getElementById('stockPanelTitle');
+        if (panelTitle) {
+            panelTitle.textContent = `${typeIcon} ${sectorName}`;
+        }
+        const panelList = document.getElementById('stockPanelList');
+        if (panelList) {
+            panelList.innerHTML = '';
+            const commonSet = commonStockNames || new Set();
+            const commonStocks = stocks.filter(s => commonSet.has(s.name));
+            const otherStocks = stocks.filter(s => !commonSet.has(s.name));
+            // 共同股票：按涨跌幅从高到低排序
+            commonStocks.sort((a, b) => {
+                const ca = parseFloat(a.change) || -999;
+                const cb = parseFloat(b.change) || -999;
+                return cb - ca;
+            });
+            const sortedStocks = [...commonStocks, ...otherStocks];
+            sortedStocks.forEach((stock, i) => {
+                const div = document.createElement('div');
+                div.className = 'stock-item';
+                const isCommon = commonSet.has(stock.name);
+                if (stock.change) {
+                    const changeNum = parseFloat(stock.change);
+                    const changeColor = changeNum >= 0 ? 'color:#e53935;' : 'color:#43a047;';
+                    const bgStyle = isCommon ? 'font-weight:700' : '';
+                    const prefix = isCommon ? '⭐ ' : (i + 1 - commonStocks.length + commonStocks.length < sortedStocks.length + 1 ? '' : '');
+                    div.innerHTML = `<span style="${bgStyle}">${i + 1}. <span style="color:#333;">${stock.name}</span> <span style="${changeColor}font-weight:600;">${stock.change}</span></span>`;
+                } else {
+                    const bgStyle = isCommon ? 'font-weight:700' : '';
+                    div.innerHTML = `<span style="${bgStyle}">${i + 1}. ${stock.name}</span>`;
+                }
+                panelList.appendChild(div);
+            });
+        }
+    } else {
+        showStocksInPanel(sectorName, type);
+    }
 
-    const ctx1 = document.getElementById('trendIndustryChart').getContext('2d');
-    trendIndustryChart = createBarChart(ctx1, trend, trendIndustryChart);
+    // 绘制趋势图
+    const trend = getTrendData(sectorName, type);
+    const ctx = document.getElementById('trendChart').getContext('2d');
+    trendChart = createBarChart(ctx, trend, trendChart);
 
     document.getElementById('trendModalOverlay').classList.add('active');
 }
@@ -927,23 +1041,8 @@ function closeTrendModal(event) {
     if (event && event.target !== event.currentTarget) return;
     document.getElementById('trendModalOverlay').classList.remove('active');
 
-    const trendBoxes = document.querySelectorAll('.trend-chart-box');
-    if (trendBoxes.length >= 2) {
-        trendBoxes[0].style.display = '';
-        trendBoxes[1].style.display = '';
-    }
-
-    const matchedContainer = document.getElementById('trendMatchedSectors');
-    if (matchedContainer) {
-        matchedContainer.style.display = '';
-    }
-
-    if (trendIndustryChart) {
-        trendIndustryChart.destroy();
-        trendIndustryChart = null;
-    }
-    if (trendConceptChart) {
-        trendConceptChart.destroy();
-        trendConceptChart = null;
+    if (trendChart) {
+        trendChart.destroy();
+        trendChart = null;
     }
 }

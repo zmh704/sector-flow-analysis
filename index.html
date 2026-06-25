@@ -101,21 +101,21 @@
     <div class="modal-overlay" id="trendModalOverlay" onclick="closeTrendModal(event)">
         <div class="trend-modal-content" onclick="event.stopPropagation()">
             <div class="modal-header">
-                <h2 id="trendModalTitle">行业名 ⤻ 概念名</h2>
+                <h2 id="trendModalTitle">板块</h2>
                 <button class="modal-close" onclick="closeTrendModal()">✕</button>
             </div>
-            <div class="trend-common-stocks" id="trendMatchedSectors"></div>
-            <div class="trend-charts-row">
-                <div class="trend-chart-box">
-                    <div class="chart-label" id="trendIndustryLabel" style="color:#2563eb;">行业板块</div>
-                    <div class="chart-wrap">
-                        <canvas id="trendIndustryChart"></canvas>
+            <div class="trend-modal-body">
+                <div class="trend-common-stocks" id="trendMatchedSectors"></div>
+                <div class="trend-main-row">
+                    <div class="trend-left">
+                        <div class="chart-wrap">
+                            <canvas id="trendChart"></canvas>
+                        </div>
                     </div>
-                </div>
-                <div class="trend-chart-box">
-                    <div class="chart-label" id="trendConceptLabel" style="color:#7c3aed;">概念板块</div>
-                    <div class="chart-wrap">
-                        <canvas id="trendConceptChart"></canvas>
+                    <div class="trend-right">
+                        <div class="stock-panel-header">📊 涉及股票</div>
+                        <div class="stock-panel-title" id="stockPanelTitle"></div>
+                        <div class="stock-panel-list" id="stockPanelList"></div>
                     </div>
                 </div>
             </div>
