@@ -185,9 +185,21 @@ async function loadAllJsonFiles() {
         } else {
             throw new Error('服务器 API 不可用，状态码: ' + response.status);
         }
-    } catch (error) {
-        statusDiv.textContent = '⚠️ 连接服务器失败: ' + error.message + '。请确保已启动服务器（双击 start.cmd），然后访问 http://localhost:3000';
-        return;
+    } catch (_error) {
+        // 本地服务器不可用时，回退到 list.json（GitHub Pages 模式）
+        statusDiv.textContent = '⚠️ 本地服务器不可用，尝试通过静态列表加载...';
+        try {
+            const fallbackResp = await fetch('list.json?t=' + Date.now());
+            if (fallbackResp.ok) {
+                fileList = await fallbackResp.json();
+                statusDiv.textContent = '📄 静态列表返回了 ' + fileList.length + ' 个文件';
+            } else {
+                throw new Error('list.json 加载失败');
+            }
+        } catch (_fallbackError) {
+            statusDiv.textContent = '⚠️ 数据加载失败：本地服务器和静态列表均不可用。请确保已启动服务器（双击 start.cmd）或部署到 GitHub Pages';
+            return;
+        }
     }
 
     if (fileList.length === 0) {
@@ -462,11 +474,55 @@ function parseStocks(stockStr) {
     return stockStr.split(',').map(s => {
         const m = s.trim().match(/^(.+?)\(([^)]+)\)$/);
         if (m) {
-            return { name: m[1], change: m[2] };
+            const parts = m[2].split('|');
+            return {
+                name: m[1],
+                code: parts[0] || '',
+                amount: parts[1] || '',
+                net: parts[2] || '',
+                change: parts[3] || ''
+            };
         }
         const nameOnly = s.trim().match(/^(.+?)\(/);
-        return nameOnly ? { name: nameOnly[1], change: '' } : null;
+        return nameOnly ? { name: nameOnly[1], code: '', amount: '', net: '', change: '' } : null;
     }).filter(Boolean);
+}
+
+// 股票名称 → 代码缓存
+let stockCodeCache = {};
+
+// 通过新浪API查询股票代码
+async function getStockCode(stockName) {
+    if (stockCodeCache[stockName]) return stockCodeCache[stockName];
+    try {
+        const url = 'https://suggest3.sinajs.cn/suggest/?type=11&key=' + encodeURIComponent(stockName);
+        const resp = await fetch(url);
+        const text = await resp.text();
+        const m = text.match(/[^,]+,\d+,([^,]+),([a-z]{2}\d+),[^,]*/);
+        if (m) {
+            const code = m[1];
+            const fullCode = m[2];
+            const exchange = fullCode.startsWith('sh') ? 'SH' : 'SZ';
+            const result = { code, fullCode: exchange + code };
+            stockCodeCache[stockName] = result;
+            return result;
+        }
+    } catch (e) {
+        console.error('查询股票代码失败:', stockName, e);
+    }
+    return null;
+}
+
+// 点击股票 → 打开东方财富个股详情页
+function openInTDX(stockName, stockCode) {
+    if (!stockCode) {
+        alert('未找到股票「' + stockName + '」的代码');
+        return;
+    }
+    // A股市场判断：6开头 → sh(上海)，其余 → sz(深圳)
+    const exchange = stockCode.startsWith('6') ? 'sh' : 'sz';
+    const url = 'https://quote.eastmoney.com/' + exchange + stockCode + '.html';
+    window.open(url, '_blank');
 }
 
 function updateFocusArea(activeData) {
@@ -916,30 +972,41 @@ function showStocksInPanel(sectorName, type, commonStockNames) {
     }
 
     const commonSet = commonStockNames || new Set();
-    const commonStocks = stocks.filter(s => commonSet.has(s.name));
-    const otherStocks = stocks.filter(s => !commonSet.has(s.name));
-    // 共同股票按涨跌幅从高到低排序
-    commonStocks.sort((a, b) => {
-        const ca = parseFloat(a.change) || -999;
-        const cb = parseFloat(b.change) || -999;
-        return cb - ca;
-    });
+    // 标星放前面，非标星放后面，各自按主力净额降序
+    const commonStocks = stocks.filter(s => commonSet.has(s.name))
+        .sort((a, b) => (parseFloat(b.net) || -999) - (parseFloat(a.net) || -999));
+    const otherStocks = stocks.filter(s => !commonSet.has(s.name))
+        .sort((a, b) => (parseFloat(b.net) || -999) - (parseFloat(a.net) || -999));
     const sortedStocks = [...commonStocks, ...otherStocks];
+    // 创建表格
+    const table = document.createElement('table');
+    table.className = 'stock-table';
+    const thead = document.createElement('thead');
+    thead.innerHTML = '<tr><th>#</th><th>股票名称</th><th>成交额</th><th>主力净额</th><th>涨跌幅</th></tr>';
+    table.appendChild(thead);
+    const tbody = document.createElement('tbody');
     sortedStocks.forEach((stock, i) => {
-        const div = document.createElement('div');
-        div.className = 'stock-item';
+        const tr = document.createElement('tr');
         const isCommon = commonSet.has(stock.name);
-        if (stock.change) {
-            const changeNum = parseFloat(stock.change);
-            const changeColor = changeNum >= 0 ? 'color:#e53935;' : 'color:#43a047;';
-            const bgStyle = isCommon ? 'font-weight:700' : '';
-            div.innerHTML = `<span style="${bgStyle}">${i + 1}. <span style="color:#333;">${stock.name}</span> <span style="${changeColor}font-weight:600;">${stock.change}</span></span>`;
-        } else {
-            const bgStyle = isCommon ? 'font-weight:700' : '';
-            div.innerHTML = `<span style="${bgStyle}">${i + 1}. ${stock.name}</span>`;
+        if (isCommon) {
+            tr.classList.add('stock-common');
         }
-        panelList.appendChild(div);
+        const escName = stock.name.replace(/'/g, "\\'");
+        const changeNum = parseFloat(stock.change);
+        const changeColor = changeNum >= 0 ? 'color:#e53935;' : 'color:#43a047;';
+        const changeArrow = changeNum >= 0 ? '▲' : '▼';
+        tr.innerHTML = `
+            <td>${i + 1}</td>
+            <td><a href="javascript:void(0)" onclick="openInTDX('${escName}','${stock.code}')" style="color:#1976d2;text-decoration:none;cursor:pointer;">${isCommon ? '⭐ ' : ''}${stock.name}</a></td>
+            <td style="color:#888;font-size:12px;">${stock.code}</td>
+            <td>${stock.amount}</td>
+            <td style="${changeColor}">${stock.net}</td>
+            <td style="${changeColor}font-weight:600;">${changeArrow} ${stock.change}</td>
+        `;
+        tbody.appendChild(tr);
     });
+    table.appendChild(tbody);
+    panelList.appendChild(table);
 }
 
 function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, commonStockNames) {
@@ -999,31 +1066,42 @@ function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, c
         if (panelList) {
             panelList.innerHTML = '';
             const commonSet = commonStockNames || new Set();
-            const commonStocks = stocks.filter(s => commonSet.has(s.name));
-            const otherStocks = stocks.filter(s => !commonSet.has(s.name));
-            // 共同股票：按涨跌幅从高到低排序
-            commonStocks.sort((a, b) => {
-                const ca = parseFloat(a.change) || -999;
-                const cb = parseFloat(b.change) || -999;
-                return cb - ca;
-            });
+            // 标星放前面，非标星放后面，各自按主力净额降序
+            const commonStocks = stocks.filter(s => commonSet.has(s.name))
+                .sort((a, b) => (parseFloat(b.net) || -999) - (parseFloat(a.net) || -999));
+            const otherStocks = stocks.filter(s => !commonSet.has(s.name))
+                .sort((a, b) => (parseFloat(b.net) || -999) - (parseFloat(a.net) || -999));
             const sortedStocks = [...commonStocks, ...otherStocks];
+            // 创建表格
+            const table = document.createElement('table');
+            table.className = 'stock-table';
+            const thead = document.createElement('thead');
+            thead.innerHTML = '<tr><th>#</th><th>股票名称</th><th>成交额</th><th>主力净额</th><th>涨跌幅</th></tr>';
+            table.appendChild(thead);
+            const tbody = document.createElement('tbody');
             sortedStocks.forEach((stock, i) => {
-                const div = document.createElement('div');
-                div.className = 'stock-item';
+                const tr = document.createElement('tr');
                 const isCommon = commonSet.has(stock.name);
-                if (stock.change) {
-                    const changeNum = parseFloat(stock.change);
-                    const changeColor = changeNum >= 0 ? 'color:#e53935;' : 'color:#43a047;';
-                    const bgStyle = isCommon ? 'font-weight:700' : '';
-                    const prefix = isCommon ? '⭐ ' : (i + 1 - commonStocks.length + commonStocks.length < sortedStocks.length + 1 ? '' : '');
-                    div.innerHTML = `<span style="${bgStyle}">${i + 1}. <span style="color:#333;">${stock.name}</span> <span style="${changeColor}font-weight:600;">${stock.change}</span></span>`;
-                } else {
-                    const bgStyle = isCommon ? 'font-weight:700' : '';
-                    div.innerHTML = `<span style="${bgStyle}">${i + 1}. ${stock.name}</span>`;
+                if (isCommon) {
+                    tr.classList.add('stock-common');
                 }
-                panelList.appendChild(div);
+                const escName = stock.name.replace(/'/g, "\\'");
+                const changeNum = parseFloat(stock.change);
+                const changeColor = changeNum >= 0 ? 'color:#e53935;' : 'color:#43a047;';
+                const changeArrow = changeNum >= 0 ? '▲' : '▼';
+                tr.innerHTML = `
+                    <td>${i + 1}</td>
+                    <td>${isCommon ? '⭐ ' : ''}${stock.name}</td>
+                    <td>${stock.amount}</td>
+                    <td style="${changeColor}">${stock.net}</td>
+                    <td style="${changeColor}font-weight:600;">${changeArrow} ${stock.change}</td>
+                `;
+                tr.style.cursor = 'pointer';
+                tr.onclick = function() { openInTDX(escName, stock.code); };
+                tbody.appendChild(tr);
             });
+            table.appendChild(tbody);
+            panelList.appendChild(table);
         }
     } else {
         showStocksInPanel(sectorName, type);

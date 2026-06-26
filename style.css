@@ -479,7 +479,7 @@ footer {
 }
 
 .trend-right {
-    width: 280px;
+    width: 340px;
     flex-shrink: 0;
     background: #f8f9fa;
     border-radius: 12px;
@@ -518,6 +518,78 @@ footer {
 
 .stock-item:last-child {
     border-bottom: none;
+}
+
+/* 股票表格样式 */
+.stock-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.stock-table thead th {
+    position: sticky;
+    top: 0;
+    background: #f0f4ff;
+    padding: 5px 3px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 11px;
+    color: #555;
+    border-bottom: 2px solid #d0d8e8;
+}
+
+.stock-table thead th:first-child {
+    width: 28px;
+    text-align: center;
+}
+
+.stock-table thead th:nth-child(2) {
+    width: 100px;
+}
+
+.stock-table thead th:nth-child(3) {
+    width: 88px;
+}
+
+.stock-table thead th:nth-child(4) {
+    width: 88px;
+}
+
+.stock-table thead th:nth-child(5) {
+    width: 76px;
+}
+
+.stock-table tbody td {
+    padding: 3px 3px;
+    border-bottom: 1px solid #eee;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+.stock-table tbody td:first-child {
+    text-align: center;
+    color: #999;
+    font-size: 11px;
+}
+
+.stock-table tbody td:nth-child(3),
+.stock-table tbody td:nth-child(4),
+.stock-table tbody td:nth-child(5) {
+    text-align: right;
+}
+
+.stock-table tbody tr:hover {
+    background: #f5f7ff;
+}
+
+.stock-table tbody tr.stock-common {
+    background: #fffde7;
+}
+
+.stock-table tbody tr.stock-common:hover {
+    background: #fff9c4;
 }
 
 .trend-common-stocks {
