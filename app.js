@@ -265,7 +265,9 @@ window.onload = function() {
 function prepareChartData(data, count, prevDayData, flowFilter) {
     let positive = [];
     let negative = [];
-    if (flowFilter === 'outflow') {
+    if (flowFilter === 'inflow') {
+        positive = data.filter(item => Number(item.主力净额) > 0);
+    } else if (flowFilter === 'outflow') {
         negative = data.filter(item => Number(item.主力净额) < 0);
     } else {
         positive = data.filter(item => Number(item.主力净额) > 0);
