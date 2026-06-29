@@ -45,6 +45,21 @@ function extractDateLabel(filename) {
     return filename.replace(/_.*$/, '');
 }
 
+/** 将日期标签（如"6月18日"）转为可排序的数字（如 618），解决跨月排序问题 */
+function toDateNum(label) {
+    const m = label.match(/(\d{1,2})月(\d{1,2})日/);
+    return m ? Number(m[1]) * 100 + Number(m[2]) : 0;
+}
+
+/** 按日期标签排序 dateFileList，返回排序后的新数组 */
+function sortDateFileList() {
+    return [...dateFileList].sort((a, b) => {
+        const labelA = allDataByDate[a]?.dateLabel || a;
+        const labelB = allDataByDate[b]?.dateLabel || b;
+        return toDateNum(labelA) - toDateNum(labelB);
+    });
+}
+
 function storeDataForDate(filename, data) {
     const key = filename;
     allDataByDate[key] = {
@@ -96,11 +111,7 @@ function renderDateButtons() {
         return;
     }
 
-    const sorted = [...dateFileList].sort((a, b) => {
-        const itemA = allDataByDate[a];
-        const itemB = allDataByDate[b];
-        return (itemA?.dateLabel || a).localeCompare(itemB?.dateLabel || b);
-    });
+    const sorted = sortDateFileList();
 
     const isOverflow = sorted.length > 10;
     const shown = isOverflow ? sorted.slice(-10) : sorted;
@@ -208,16 +219,23 @@ async function loadAllJsonFiles() {
     }
 
     let loadedCount = 0;
-    for (const filename of fileList) {
+    const nowTs = Date.now();
+    const results = await Promise.all(fileList.map(async (filename) => {
         try {
-            const response = await fetch(filename + '?t=' + Date.now());
+            const response = await fetch(filename + '?t=' + nowTs);
             if (response.ok) {
                 const data = await response.json();
-                storeDataForDate(filename, data);
-                loadedCount++;
+                return { filename, data };
             }
         } catch (error) {
             console.error(`加载文件 ${filename} 失败:`, error);
+        }
+        return null;
+    }));
+    for (const result of results) {
+        if (result) {
+            storeDataForDate(result.filename, result.data);
+            loadedCount++;
         }
     }
 
@@ -421,11 +439,7 @@ function getPrevDayData() {
     if (dateFileList.length < 2) return null;
     if (!currentDateFile) return null;
 
-    const sorted = [...dateFileList].sort((a, b) => {
-        const itemA = allDataByDate[a];
-        const itemB = allDataByDate[b];
-        return (itemA?.dateLabel || a).localeCompare(itemB?.dateLabel || b);
-    });
+    const sorted = sortDateFileList();
 
     const idx = sorted.indexOf(currentDateFile);
     if (idx <= 0) return null;
@@ -486,31 +500,6 @@ function parseStocks(stockStr) {
         const nameOnly = s.trim().match(/^(.+?)\(/);
         return nameOnly ? { name: nameOnly[1], code: '', amount: '', net: '', change: '' } : null;
     }).filter(Boolean);
-}
-
-// 股票名称 → 代码缓存
-let stockCodeCache = {};
-
-// 通过新浪API查询股票代码
-async function getStockCode(stockName) {
-    if (stockCodeCache[stockName]) return stockCodeCache[stockName];
-    try {
-        const url = 'https://suggest3.sinajs.cn/suggest/?type=11&key=' + encodeURIComponent(stockName);
-        const resp = await fetch(url);
-        const text = await resp.text();
-        const m = text.match(/[^,]+,\d+,([^,]+),([a-z]{2}\d+),[^,]*/);
-        if (m) {
-            const code = m[1];
-            const fullCode = m[2];
-            const exchange = fullCode.startsWith('sh') ? 'SH' : 'SZ';
-            const result = { code, fullCode: exchange + code };
-            stockCodeCache[stockName] = result;
-            return result;
-        }
-    } catch (e) {
-        console.error('查询股票代码失败:', stockName, e);
-    }
-    return null;
 }
 
 // 点击股票 → 打开东方财富个股详情页
@@ -648,11 +637,7 @@ function calcConsecutiveInflow(sectorName, type) {
     if (dateFileList.length < 2) return 1;
     if (!currentDateFile) return 1;
 
-    const sorted = [...dateFileList].sort((a, b) => {
-        const itemA = allDataByDate[a];
-        const itemB = allDataByDate[b];
-        return (itemA?.dateLabel || a).localeCompare(itemB?.dateLabel || b);
-    });
+    const sorted = sortDateFileList();
 
     const idx = sorted.indexOf(currentDateFile);
     if (idx < 0) return 1;
@@ -813,11 +798,7 @@ function closeModal(event) {
 // ===== 趋势对比弹窗 =====
 
 function getTrendData(sectorName, type) {
-    const sorted = [...dateFileList].sort((a, b) => {
-        const itemA = allDataByDate[a];
-        const itemB = allDataByDate[b];
-        return (itemA?.dateLabel || a).localeCompare(itemB?.dateLabel || b);
-    });
+    const sorted = sortDateFileList();
 
     let available = sorted;
     if (currentDateFile) {
@@ -940,6 +921,51 @@ function getCurrentActiveData() {
     return activeData ? activeData.data : null;
 }
 
+/** 渲染股票表格（抽取公共逻辑，两处复用） */
+function renderStockTable(panelList, stocks, commonSet) {
+    panelList.innerHTML = '';
+    if (!stocks || stocks.length === 0) {
+        panelList.innerHTML = '<span style="color:#999;">无涉及股票数据</span>';
+        return;
+    }
+
+    const cs = commonSet || new Set();
+    // 标星放前面，非标星放后面，各自按主力净额降序
+    const commonStocks = stocks.filter(s => cs.has(s.name))
+        .sort((a, b) => (parseFloat(b.net) || -999) - (parseFloat(a.net) || -999));
+    const otherStocks = stocks.filter(s => !cs.has(s.name))
+        .sort((a, b) => (parseFloat(b.net) || -999) - (parseFloat(a.net) || -999));
+    const sortedStocks = [...commonStocks, ...otherStocks];
+
+    const table = document.createElement('table');
+    table.className = 'stock-table';
+    const thead = document.createElement('thead');
+    thead.innerHTML = '<tr><th>#</th><th>股票名称</th><th>成交额</th><th>主力净额</th><th>涨跌幅</th></tr>';
+    table.appendChild(thead);
+    const tbody = document.createElement('tbody');
+    sortedStocks.forEach((stock, i) => {
+        const tr = document.createElement('tr');
+        const isCommon = cs.has(stock.name);
+        if (isCommon) tr.classList.add('stock-common');
+        const escName = stock.name.replace(/'/g, "\\'");
+        const changeNum = parseFloat(stock.change);
+        const changeColor = changeNum >= 0 ? 'color:#e53935;' : 'color:#43a047;';
+        const changeArrow = changeNum >= 0 ? '▲' : '▼';
+        tr.innerHTML = `
+            <td>${i + 1}</td>
+            <td>${isCommon ? '⭐ ' : ''}${stock.name}</td>
+            <td>${stock.amount}</td>
+            <td style="${changeColor}">${stock.net}</td>
+            <td style="${changeColor}font-weight:600;">${changeArrow} ${stock.change}</td>
+        `;
+        tr.style.cursor = 'pointer';
+        tr.onclick = function() { openInTDX(escName, stock.code); };
+        tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    panelList.appendChild(table);
+}
+
 function showStocksInPanel(sectorName, type, commonStockNames) {
     const panelList = document.getElementById('stockPanelList');
     const panelTitle = document.getElementById('stockPanelTitle');
@@ -965,48 +991,7 @@ function showStocksInPanel(sectorName, type, commonStockNames) {
         panelTitle.textContent = `${typeLabel} ${sectorName}`;
     }
 
-    panelList.innerHTML = '';
-    if (stocks.length === 0) {
-        panelList.innerHTML = '<span style="color:#999;">无涉及股票数据</span>';
-        return;
-    }
-
-    const commonSet = commonStockNames || new Set();
-    // 标星放前面，非标星放后面，各自按主力净额降序
-    const commonStocks = stocks.filter(s => commonSet.has(s.name))
-        .sort((a, b) => (parseFloat(b.net) || -999) - (parseFloat(a.net) || -999));
-    const otherStocks = stocks.filter(s => !commonSet.has(s.name))
-        .sort((a, b) => (parseFloat(b.net) || -999) - (parseFloat(a.net) || -999));
-    const sortedStocks = [...commonStocks, ...otherStocks];
-    // 创建表格
-    const table = document.createElement('table');
-    table.className = 'stock-table';
-    const thead = document.createElement('thead');
-    thead.innerHTML = '<tr><th>#</th><th>股票名称</th><th>成交额</th><th>主力净额</th><th>涨跌幅</th></tr>';
-    table.appendChild(thead);
-    const tbody = document.createElement('tbody');
-    sortedStocks.forEach((stock, i) => {
-        const tr = document.createElement('tr');
-        const isCommon = commonSet.has(stock.name);
-        if (isCommon) {
-            tr.classList.add('stock-common');
-        }
-        const escName = stock.name.replace(/'/g, "\\'");
-        const changeNum = parseFloat(stock.change);
-        const changeColor = changeNum >= 0 ? 'color:#e53935;' : 'color:#43a047;';
-        const changeArrow = changeNum >= 0 ? '▲' : '▼';
-        tr.innerHTML = `
-            <td>${i + 1}</td>
-            <td><a href="javascript:void(0)" onclick="openInTDX('${escName}','${stock.code}')" style="color:#1976d2;text-decoration:none;cursor:pointer;">${isCommon ? '⭐ ' : ''}${stock.name}</a></td>
-            <td style="color:#888;font-size:12px;">${stock.code}</td>
-            <td>${stock.amount}</td>
-            <td style="${changeColor}">${stock.net}</td>
-            <td style="${changeColor}font-weight:600;">${changeArrow} ${stock.change}</td>
-        `;
-        tbody.appendChild(tr);
-    });
-    table.appendChild(tbody);
-    panelList.appendChild(table);
+    renderStockTable(panelList, stocks, commonStockNames);
 }
 
 function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, commonStockNames) {
@@ -1064,44 +1049,7 @@ function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, c
         }
         const panelList = document.getElementById('stockPanelList');
         if (panelList) {
-            panelList.innerHTML = '';
-            const commonSet = commonStockNames || new Set();
-            // 标星放前面，非标星放后面，各自按主力净额降序
-            const commonStocks = stocks.filter(s => commonSet.has(s.name))
-                .sort((a, b) => (parseFloat(b.net) || -999) - (parseFloat(a.net) || -999));
-            const otherStocks = stocks.filter(s => !commonSet.has(s.name))
-                .sort((a, b) => (parseFloat(b.net) || -999) - (parseFloat(a.net) || -999));
-            const sortedStocks = [...commonStocks, ...otherStocks];
-            // 创建表格
-            const table = document.createElement('table');
-            table.className = 'stock-table';
-            const thead = document.createElement('thead');
-            thead.innerHTML = '<tr><th>#</th><th>股票名称</th><th>成交额</th><th>主力净额</th><th>涨跌幅</th></tr>';
-            table.appendChild(thead);
-            const tbody = document.createElement('tbody');
-            sortedStocks.forEach((stock, i) => {
-                const tr = document.createElement('tr');
-                const isCommon = commonSet.has(stock.name);
-                if (isCommon) {
-                    tr.classList.add('stock-common');
-                }
-                const escName = stock.name.replace(/'/g, "\\'");
-                const changeNum = parseFloat(stock.change);
-                const changeColor = changeNum >= 0 ? 'color:#e53935;' : 'color:#43a047;';
-                const changeArrow = changeNum >= 0 ? '▲' : '▼';
-                tr.innerHTML = `
-                    <td>${i + 1}</td>
-                    <td>${isCommon ? '⭐ ' : ''}${stock.name}</td>
-                    <td>${stock.amount}</td>
-                    <td style="${changeColor}">${stock.net}</td>
-                    <td style="${changeColor}font-weight:600;">${changeArrow} ${stock.change}</td>
-                `;
-                tr.style.cursor = 'pointer';
-                tr.onclick = function() { openInTDX(escName, stock.code); };
-                tbody.appendChild(tr);
-            });
-            table.appendChild(tbody);
-            panelList.appendChild(table);
+            renderStockTable(panelList, stocks, commonStockNames);
         }
     } else {
         showStocksInPanel(sectorName, type);
@@ -1122,5 +1070,46 @@ function closeTrendModal(event) {
     if (trendChart) {
         trendChart.destroy();
         trendChart = null;
+    }
+}
+
+// ==================== 解析数据 ====================
+
+function parseExcelFile() {
+    document.getElementById('excelFileInput').click();
+}
+
+async function handleExcelFile(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const statusDiv = document.getElementById('loadStatus');
+    statusDiv.textContent = '⏳ 正在上传并解析Excel文件...';
+
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await fetch('/api/parse', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(errText || '服务器解析失败');
+        }
+
+        const result = await response.json();
+        statusDiv.textContent = `✅ 解析完成：${result.industries} 个行业，${result.concepts} 个概念`;
+
+        // 刷新数据
+        await loadAllJsonFiles();
+
+    } catch (err) {
+        console.error('解析失败:', err);
+        statusDiv.textContent = '❌ 解析失败: ' + err.message;
+    } finally {
+        event.target.value = '';
     }
 }
