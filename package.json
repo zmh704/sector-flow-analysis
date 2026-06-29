@@ -2,10 +2,6 @@
   "name": "stock-sector-chart",
   "private": true,
   "dependencies": {
-    "chart.js": "^4.4.1",
-    "express": "^5.2.1",
-    "multer": "^2.2.0",
-    "sql.js": "^1.14.1",
-    "xlsx": "^0.18.5"
+    "chart.js": "^4.4.1"
   }
 }

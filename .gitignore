@@ -1,10 +1,1 @@
 node_modules/
-uploads/
-data.db
-server.log
-test_*.xlsx
-*.new.js
-fix-stock-*.js
-check-debug.js
-analyze_fund_flow*.py
-list.new.json
