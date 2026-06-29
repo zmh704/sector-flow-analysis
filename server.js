@@ -230,54 +230,44 @@ function writeToSQLite(filename, datePart, result) {
     const dateLabel = datePart;
     const generatedAt = result.生成时间;
 
-    db.run('BEGIN TRANSACTION');
-    try {
-        // 删除同日期旧数据（用于重写覆盖）
-        const existing = db.exec(`SELECT id FROM data_files WHERE date_label = ?`, [dateLabel]);
-        if (existing.length > 0 && existing[0].values.length > 0) {
-            const oldId = existing[0].values[0][0];
-            db.run(`DELETE FROM stocks WHERE sector_id IN (SELECT id FROM sectors WHERE file_id = ?)`, [oldId]);
-            db.run(`DELETE FROM sectors WHERE file_id = ?`, [oldId]);
-            db.run(`DELETE FROM data_files WHERE id = ?`, [oldId]);
-            console.log(`[DB] 已删除旧数据: ${dateLabel} (file_id=${oldId})`);
-        }
-
-        // 插入 data_files
-        db.run(`INSERT INTO data_files (filename, date_label, generated_at, source_file) VALUES (?, ?, ?, ?)`,
-            [filename, dateLabel, generatedAt, result.数据来源]);
-        const fileId = db.exec(`SELECT last_insert_rowid()`)[0].values[0][0];
-
-        // 插入行业板块
-        for (const row of result.行业板块资金流向 || []) {
-            db.run(`INSERT INTO sectors (file_id, type, name, turnover, net_amount, stock_count, raw_stocks) VALUES (?, 'industry', ?, ?, ?, ?, ?)`,
-                [fileId, row['板块'], row['成交额'], row['主力净额'], row['股票数量'], row['涉及股票']]);
-            const sectorId = db.exec(`SELECT last_insert_rowid()`)[0].values[0][0];
-            const parsedStocks = parseStockStr(row['涉及股票']);
-            for (const stk of parsedStocks) {
-                db.run(`INSERT INTO stocks (sector_id, name, code, amount, net, change_pct) VALUES (?, ?, ?, ?, ?, ?)`,
-                    [sectorId, stk.name, stk.code, stk.amount, stk.net, stk.change]);
-            }
-        }
-
-        // 插入概念板块
-        for (const row of result.概念板块资金流向 || []) {
-            db.run(`INSERT INTO sectors (file_id, type, name, turnover, net_amount, stock_count, raw_stocks) VALUES (?, 'concept', ?, ?, ?, ?, ?)`,
-                [fileId, row['板块'], row['成交额'], row['主力净额'], row['股票数量'], row['涉及股票']]);
-            const sectorId = db.exec(`SELECT last_insert_rowid()`)[0].values[0][0];
-            const parsedStocks = parseStockStr(row['涉及股票']);
-            for (const stk of parsedStocks) {
-                db.run(`INSERT INTO stocks (sector_id, name, code, amount, net, change_pct) VALUES (?, ?, ?, ?, ?, ?)`,
-                    [sectorId, stk.name, stk.code, stk.amount, stk.net, stk.change]);
-            }
-        }
-
-        db.run('COMMIT');
-        saveDatabase();
-        console.log(`[DB] 已写入: ${dateLabel} (${(result.行业板块资金流向 || []).length}行业, ${(result.概念板块资金流向 || []).length}概念)`);
-    } catch (err) {
-        db.run('ROLLBACK');
-        console.error(`[DB] 写入失败 ${dateLabel}:`, err.message);
+    // 删除同日期旧数据（用于重写覆盖）
+    const existing = db.exec(`SELECT id FROM data_files WHERE date_label = ?`, [dateLabel]);
+    if (existing.length > 0 && existing[0].values.length > 0) {
+        const oldId = existing[0].values[0][0];
+        db.run(`DELETE FROM stocks WHERE sector_id IN (SELECT id FROM sectors WHERE file_id = ?)`, [oldId]);
+        db.run(`DELETE FROM sectors WHERE file_id = ?`, [oldId]);
+        db.run(`DELETE FROM data_files WHERE id = ?`, [oldId]);
     }
+
+    // 插入 data_files
+    db.run(`INSERT INTO data_files (filename, date_label, generated_at, source_file) VALUES (?, ?, ?, ?)`, [filename, dateLabel, generatedAt, result.数据来源]);
+    const fileId = db.exec(`SELECT last_insert_rowid()`)[0].values[0][0];
+
+    // 插入行业板块
+    const insertSector = db.prepare(`INSERT INTO sectors (file_id, type, name, turnover, net_amount, stock_count, raw_stocks) VALUES (?, ?, ?, ?, ?, ?, ?)`);
+    const insertStock = db.prepare(`INSERT INTO stocks (sector_id, name, code, amount, net, change_pct) VALUES (?, ?, ?, ?, ?, ?)`);
+
+    for (const row of result.行业板块资金流向 || []) {
+        insertSector.run([fileId, 'industry', row['板块'], row['成交额'], row['主力净额'], row['股票数量'], row['涉及股票']]);
+        const sectorId = db.exec(`SELECT last_insert_rowid()`)[0].values[0][0];
+        const parsedStocks = parseStockStr(row['涉及股票']);
+        for (const stk of parsedStocks) {
+            insertStock.run([sectorId, stk.name, stk.code, stk.amount, stk.net, stk.change]);
+        }
+    }
+
+    // 插入概念板块
+    for (const row of result.概念板块资金流向 || []) {
+        insertSector.run([fileId, 'concept', row['板块'], row['成交额'], row['主力净额'], row['股票数量'], row['涉及股票']]);
+        const sectorId = db.exec(`SELECT last_insert_rowid()`)[0].values[0][0];
+        const parsedStocks = parseStockStr(row['涉及股票']);
+        for (const stk of parsedStocks) {
+            insertStock.run([sectorId, stk.name, stk.code, stk.amount, stk.net, stk.change]);
+        }
+    }
+
+    saveDatabase();
+    console.log(`[DB] 已写入: ${dateLabel} (${(result.行业板块资金流向 || []).length}行业, ${(result.概念板块资金流向 || []).length}概念)`);
 }
 
 // ==================== Express 应用 ====================
