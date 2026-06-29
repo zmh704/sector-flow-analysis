@@ -1,6 +1,7 @@
 let allDataByDate = {};
 let dateFileList = [];
 let currentDateFile = null;
+let _sortedDateFileList = null;
 
 let industryChart = null;
 let conceptChart = null;
@@ -51,13 +52,15 @@ function toDateNum(label) {
     return m ? Number(m[1]) * 100 + Number(m[2]) : 0;
 }
 
-/** 按日期标签排序 dateFileList，返回排序后的新数组 */
+/** 按日期标签排序 dateFileList，返回排序后的新数组（带缓存） */
 function sortDateFileList() {
-    return [...dateFileList].sort((a, b) => {
+    if (_sortedDateFileList) return _sortedDateFileList;
+    _sortedDateFileList = [...dateFileList].sort((a, b) => {
         const labelA = allDataByDate[a]?.dateLabel || a;
         const labelB = allDataByDate[b]?.dateLabel || b;
         return toDateNum(labelA) - toDateNum(labelB);
     });
+    return _sortedDateFileList;
 }
 
 function storeDataForDate(filename, data) {
@@ -70,6 +73,16 @@ function storeDataForDate(filename, data) {
 
     if (!dateFileList.includes(key)) {
         dateFileList.push(key);
+        _sortedDateFileList = null;
+    }
+
+    // 预解析涉及股票并缓存
+    const industryList = data.行业板块资金流向 || [];
+    const conceptList = data.概念板块资金流向 || [];
+    for (const item of [...industryList, ...conceptList]) {
+        if (item.涉及股票) {
+            item._parsedStocks = parseStocks(item.涉及股票);
+        }
     }
 }
 
@@ -117,20 +130,7 @@ function renderDateButtons() {
     const shown = isOverflow ? sorted.slice(-10) : sorted;
 
     shown.forEach(filename => {
-        const item = allDataByDate[filename];
-        const btn = document.createElement('button');
-        btn.className = 'date-btn';
-        btn.textContent = item?.dateLabel || filename;
-        btn.onclick = function() {
-            currentDateFile = filename;
-            document.querySelectorAll('.date-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            updateCharts();
-        };
-        if (filename === currentDateFile) {
-            btn.classList.add('active');
-        }
-        container.appendChild(btn);
+        container.appendChild(createDateButton(filename));
     });
 
     if (isOverflow) {
@@ -140,20 +140,7 @@ function renderDateButtons() {
         moreBtn.onclick = function() {
             container.innerHTML = '';
             sorted.forEach(filename => {
-                const item = allDataByDate[filename];
-                const btn = document.createElement('button');
-                btn.className = 'date-btn';
-                btn.textContent = item?.dateLabel || filename;
-                btn.onclick = function() {
-                    currentDateFile = filename;
-                    container.querySelectorAll('.date-btn').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    updateCharts();
-                };
-                if (filename === currentDateFile) {
-                    btn.classList.add('active');
-                }
-                container.appendChild(btn);
+                container.appendChild(createDateButton(filename));
             });
             const collapseBtn = document.createElement('button');
             collapseBtn.className = 'date-btn';
@@ -175,10 +162,29 @@ function renderDateButtons() {
     }
 }
 
+/** 创建日期切换按钮 */
+function createDateButton(filename) {
+    const item = allDataByDate[filename];
+    const btn = document.createElement('button');
+    btn.className = 'date-btn';
+    btn.textContent = item?.dateLabel || filename;
+    btn.onclick = function() {
+        currentDateFile = filename;
+        document.querySelectorAll('.date-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        updateCharts();
+    };
+    if (filename === currentDateFile) {
+        btn.classList.add('active');
+    }
+    return btn;
+}
+
 function resetLoadedData() {
     allDataByDate = {};
     dateFileList = [];
     currentDateFile = null;
+    _sortedDateFileList = null;
 }
 
 async function loadAllJsonFiles() {
@@ -257,13 +263,9 @@ window.onload = function() {
 };
 
 function prepareChartData(data, count, prevDayData, flowFilter) {
-    flowFilter = flowFilter || 'inflow';
-
     let positive = [];
     let negative = [];
-    if (flowFilter === 'inflow') {
-        positive = data.filter(item => Number(item.主力净额) > 0);
-    } else if (flowFilter === 'outflow') {
+    if (flowFilter === 'outflow') {
         negative = data.filter(item => Number(item.主力净额) < 0);
     } else {
         positive = data.filter(item => Number(item.主力净额) > 0);
@@ -275,11 +277,7 @@ function prepareChartData(data, count, prevDayData, flowFilter) {
 
     const topPositive = positive.slice(0, count);
     const topNegative = negative.slice(0, count);
-
-    const combined = [
-        ...topPositive.sort((a, b) => Number(b.主力净额) - Number(a.主力净额)),
-        ...topNegative.sort((a, b) => Number(a.主力净额) - Number(b.主力净额))
-    ];
+    const combined = [...topPositive, ...topNegative];
 
     const hasPrev = prevDayData && Array.isArray(prevDayData) && prevDayData.length > 0;
     let prevMap = {};
@@ -527,7 +525,7 @@ function updateFocusArea(activeData) {
         .map(i => ({
             name: i.板块,
             days: calcConsecutiveInflow(i.板块, '行业板块资金流向'),
-            stocks: new Set(parseStocks(i.涉及股票).map(s => s.name))
+            stocks: new Set((i._parsedStocks || parseStocks(i.涉及股票)).map(s => s.name))
         }))
         .filter(i => i.days > 1);
 
@@ -536,7 +534,7 @@ function updateFocusArea(activeData) {
         .map(c => ({
             name: c.板块,
             days: calcConsecutiveInflow(c.板块, '概念板块资金流向'),
-            stocks: new Set(parseStocks(c.涉及股票).map(s => s.name))
+            stocks: new Set((c._parsedStocks || parseStocks(c.涉及股票)).map(s => s.name))
         }))
         .filter(c => c.days > 1);
 
@@ -813,24 +811,28 @@ function getTrendData(sectorName, type) {
     const dates = [];
     const values = [];
 
-    recent.forEach(filename => {
+    for (const filename of recent) {
         const entry = allDataByDate[filename];
         dates.push(entry?.dateLabel || filename);
 
         const dayData = entry?.data;
         if (!dayData) {
             values.push(0);
-            return;
+            continue;
         }
 
         const sectorList = dayData[type] || [];
-        const sector = sectorList.find(s => s.板块 === sectorName);
+        const sectorMap = new Map();
+        for (const s of sectorList) {
+            sectorMap.set(s.板块, s);
+        }
+        const sector = sectorMap.get(sectorName);
         if (sector) {
             values.push(Number(sector.主力净额) / 100000000);
         } else {
             values.push(0);
         }
-    });
+    }
 
     return { dates, values };
 }
@@ -984,7 +986,7 @@ function showStocksInPanel(sectorName, type, commonStockNames) {
         return;
     }
 
-    const stocks = parseStocks(sector.涉及股票);
+    const stocks = sector._parsedStocks || parseStocks(sector.涉及股票);
 
     if (panelTitle) {
         const typeLabel = type === '行业板块资金流向' ? '🏛️' : '💡';
