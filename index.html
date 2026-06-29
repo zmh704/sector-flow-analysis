@@ -23,8 +23,10 @@
                 <label for="conceptCount">概念显示数量:</label>
                 <input type="number" id="conceptCount" min="1" max="100" value="10">
             </div>
+            <button onclick="parseExcelFile()" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">📊 解析数据</button>
             <button onclick="loadAllJsonFiles()" style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);">📂 加载数据</button>
             <button onclick="updateCharts()">🔄 刷新图表</button>
+            <input type="file" id="excelFileInput" accept=".xlsx,.xls" style="display:none" onchange="handleExcelFile(event)">
             <div class="control-group flow-control-group">
                 <label class="flow-option inflow">
                     <input type="radio" name="flowFilter" value="inflow" checked onchange="updateCharts()">
