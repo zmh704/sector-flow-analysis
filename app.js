@@ -644,6 +644,7 @@ function updateLeaderArea(activeData) {
 
     // 建立当前日期 股票→所属板块 的映射（过滤占位板块）
     const stockSectors = new Map();
+    const stockChange = new Map(); // 股票→涨跌幅
     for (const sector of allCurrentSectors) {
         if (sector.板块 === '所属行业' || sector.板块 === '所属概念') continue;
         const isIndustry = industryList.includes(sector);
@@ -653,6 +654,7 @@ function updateLeaderArea(activeData) {
         for (const stock of stocks) {
             if (!stockSectors.has(stock.name)) {
                 stockSectors.set(stock.name, []);
+                stockChange.set(stock.name, stock.change);
             }
             stockSectors.get(stock.name).push({
                 name: sector.板块,
@@ -685,6 +687,7 @@ function updateLeaderArea(activeData) {
         leaders.push({
             name: stockName,
             stockDays: stockDays,
+            change: stockChange.get(stockName) || '',
             sectors: sectorNames,
             _allSectors: stockSectors.get(stockName)
         });
@@ -702,9 +705,13 @@ function updateLeaderArea(activeData) {
 
     const html = leaders.map(leader => {
         const secJson = JSON.stringify(leader._allSectors).replace(/'/g, "\\'");
+        const changeNum = parseFloat(leader.change);
+        const changeColor = changeNum >= 0 ? '#e53935' : '#43a047';
+        const changeArrow = changeNum >= 0 ? '▲' : '▼';
         return `<span class="leader-item leader-clickable" title="连续流入${leader.stockDays}天 | 所属板块: ${leader.sectors.join('、')}" onclick='showStockLeader("${leader.name}", ${secJson})'>
             <span class="leader-name">${leader.name}</span>
             <span class="leader-days">${leader.stockDays}天</span>
+            <span class="leader-change" style="color:${changeColor}">${changeArrow} ${leader.change}</span>
         </span>`;
     }).join('');
     container.innerHTML = html;

@@ -424,6 +424,12 @@ button:hover {
     border-radius: 10px;
 }
 
+.leader-change {
+    font-size: 11px;
+    font-weight: 700;
+    margin-left: 4px;
+}
+
 .focus-header {
     font-size: 16px;
     font-weight: 700;
