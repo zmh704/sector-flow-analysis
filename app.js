@@ -1225,9 +1225,7 @@ function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, c
             const otherType = type === '行业板块资金流向' ? '概念' : '行业';
             const otherDataType = type === '行业板块资金流向' ? '概念板块资金流向' : '行业板块资金流向';
             const otherColor = type === '行业板块资金流向' ? '#7c3aed' : '#2563eb';
-            // 当匹配板块来自多个类型时，改用统一标签
-            const hasMixed = matchedSectors.some(s => s._dataType);
-            const matchLabel = hasMixed ? '关联' : otherType;
+            const matchLabel = type === '行业板块资金流向' ? '相关概念' : '相关行业';
             const titleSpan = document.createElement('span');
             titleSpan.style.cssText = 'font-weight:600;margin-right:6px;';
             titleSpan.textContent = `匹配的${matchLabel}：`;
