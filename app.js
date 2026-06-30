@@ -569,36 +569,44 @@ function calcStockConsecutiveDays() {
     return stockDays;
 }
 
-/** 判断某股票当日成交额是否小于前一日（减小为真） */
+/** 判断某股票当日成交额是否小于近5日内最大成交额 */
 function isStockTurnoverDecreased(stockName, activeData) {
     const sorted = sortDateFileList();
     const currentIdx = sorted.indexOf(currentDateFile);
     if (currentIdx <= 0) return true;
 
-    const prevData = allDataByDate[sorted[currentIdx - 1]]?.data;
-    if (!prevData) return true;
+    // 取近5日（含当日）数据
+    const startIdx = Math.max(0, currentIdx - 4);
+    const amounts = [];
 
-    // 从板块数据中找股票的成交额
-    function findAmount(data) {
+    for (let i = startIdx; i <= currentIdx; i++) {
+        const dayData = allDataByDate[sorted[i]]?.data;
+        if (!dayData) { amounts.push(null); continue; }
+        let found = null;
         const allSectors = [
-            ...(data.行业板块资金流向 || []),
-            ...(data.概念板块资金流向 || [])
+            ...(dayData.行业板块资金流向 || []),
+            ...(dayData.概念板块资金流向 || [])
         ];
         for (const sector of allSectors) {
             const stocks = sector._parsedStocks || parseStocks(sector.涉及股票);
             for (const stock of stocks) {
                 if (stock.name === stockName) {
-                    return parseFloat(stock.amount);
+                    found = parseFloat(stock.amount);
+                    break;
                 }
             }
+            if (found !== null) break;
         }
-        return null;
+        amounts.push(found);
     }
 
-    const currAmount = findAmount(activeData);
-    const prevAmount = findAmount(prevData);
-    if (currAmount === null || prevAmount === null) return true;
-    return currAmount < prevAmount;
+    // 需要至少2天数据（含当日）
+    const validAmounts = amounts.filter(a => a !== null);
+    if (validAmounts.length < 2) return true;
+
+    const current = validAmounts[validAmounts.length - 1];
+    const maxPrev = Math.max(...validAmounts.slice(0, -1));
+    return current < maxPrev;
 }
 
 function updateLeaderArea(activeData) {
