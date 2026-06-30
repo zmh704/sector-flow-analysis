@@ -367,6 +367,59 @@ button:hover {
     border: 1px solid #fde68a;
 }
 
+/* 今日龙头 */
+.leader-section {
+    margin-top: 15px;
+    padding: 15px;
+    background: linear-gradient(135deg, #fef2f2 0%, #fff7ed 100%);
+    border-radius: 12px;
+    border: 1px solid #fecaca;
+}
+
+.leader-header {
+    font-size: 16px;
+    font-weight: 700;
+    color: #991b1b;
+    margin-bottom: 12px;
+}
+
+.leader-content {
+    font-size: 13px;
+    color: #555;
+    line-height: 2;
+}
+
+.leader-item {
+    display: inline-block;
+    margin: 3px 8px 3px 0;
+    padding: 4px 12px;
+    background: linear-gradient(135deg, #fee2e2 0%, #fef3c7 100%);
+    border-radius: 20px;
+    border: 1px solid #fca5a5;
+    cursor: default;
+    transition: all 0.2s;
+}
+
+.leader-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 3px 10px rgba(153, 27, 27, 0.15);
+}
+
+.leader-name {
+    color: #991b1b;
+    font-weight: 700;
+    margin-right: 4px;
+}
+
+.leader-days {
+    color: #dc2626;
+    font-size: 11px;
+    font-weight: 700;
+    background: rgba(255,255,255,0.6);
+    padding: 1px 6px;
+    border-radius: 10px;
+}
+
 .focus-header {
     font-size: 16px;
     font-weight: 700;

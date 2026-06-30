@@ -476,6 +476,7 @@ function updateCharts() {
         const ctx2 = document.getElementById('conceptChart').getContext('2d');
         conceptChart = createChart(ctx2, conceptData, '概念板块资金流向', conceptChart);
 
+        updateLeaderArea(activeData);
         updateFocusArea(activeData);
     } catch (error) {
         console.error('❌ updateCharts 错误:', error);
@@ -512,6 +513,131 @@ function openInTDX(stockName, stockCode) {
     const exchange = stockCode.startsWith('6') ? 'sh' : 'sz';
     const url = 'https://quote.eastmoney.com/' + exchange + stockCode + '.html';
     window.open(url, '_blank');
+}
+
+/** 计算每个股票在连续日期中主力净额>0的天数 */
+function calcStockConsecutiveDays() {
+    const sorted = sortDateFileList();
+    const currentIdx = sorted.indexOf(currentDateFile);
+    if (currentIdx < 0) return new Map();
+
+    // stockName -> consecutive positive net days
+    const stockDays = new Map();
+
+    for (let i = 0; i <= currentIdx; i++) {
+        const dayData = allDataByDate[sorted[i]]?.data;
+        if (!dayData) continue;
+
+        const allSectors = [
+            ...(dayData.行业板块资金流向 || []),
+            ...(dayData.概念板块资金流向 || [])
+        ];
+
+        // 收集今天出现的股票及其主力净额是否为正
+        const todayStocks = new Map();
+        for (const sector of allSectors) {
+            const stocks = sector._parsedStocks || parseStocks(sector.涉及股票);
+            for (const stock of stocks) {
+                if (!todayStocks.has(stock.name)) {
+                    const netNum = parseFloat(stock.net);
+                    todayStocks.set(stock.name, !isNaN(netNum) && netNum > 0);
+                }
+            }
+        }
+
+        // 更新连续天数
+        for (const [name, netPositive] of todayStocks) {
+            if (netPositive) {
+                stockDays.set(name, (stockDays.get(name) || 0) + 1);
+            } else {
+                stockDays.set(name, 0);
+            }
+        }
+
+        // 今天没出现的股票连续天数归零
+        for (const [name] of stockDays) {
+            if (!todayStocks.has(name)) {
+                stockDays.set(name, 0);
+            }
+        }
+    }
+
+    return stockDays;
+}
+
+function updateLeaderArea(activeData) {
+    const container = document.getElementById('leaderContent');
+    if (!container) return;
+
+    const industryList = activeData.行业板块资金流向 || [];
+    const conceptList = activeData.概念板块资金流向 || [];
+    const allCurrentSectors = [...industryList, ...conceptList];
+
+    if (allCurrentSectors.length === 0) {
+        container.innerHTML = '<span style="color:#999;">暂无数据</span>';
+        return;
+    }
+
+    // 计算所有股票的连续流入天数
+    const stockConsecutiveDays = calcStockConsecutiveDays();
+
+    // 建立当前日期 股票→所属板块 的映射
+    const stockSectors = new Map();
+    for (const sector of allCurrentSectors) {
+        const isIndustry = industryList.includes(sector);
+        const type = isIndustry ? '行业板块资金流向' : '概念板块资金流向';
+        const sectorDays = calcConsecutiveInflow(sector.板块, type);
+        const stocks = sector._parsedStocks || parseStocks(sector.涉及股票);
+        for (const stock of stocks) {
+            if (!stockSectors.has(stock.name)) {
+                stockSectors.set(stock.name, []);
+            }
+            stockSectors.get(stock.name).push({
+                name: sector.板块,
+                type: isIndustry ? '行业' : '概念',
+                days: sectorDays
+            });
+        }
+    }
+
+    // 筛选龙头股票
+    const leaders = [];
+    for (const [stockName, sectors] of stockSectors) {
+        const stockDays = stockConsecutiveDays.get(stockName) || 0;
+        if (stockDays < 2) continue;
+
+        const maxSectorDays = Math.max(...sectors.map(s => s.days));
+        if (stockDays >= maxSectorDays) {
+            // 收集所属板块名称
+            const sectorNames = sectors
+                .filter(s => s.days >= 2)
+                .map(s => `${s.name}(${s.type}${s.days}天)`);
+            leaders.push({
+                name: stockName,
+                stockDays: stockDays,
+                maxSectorDays: maxSectorDays,
+                sectors: sectorNames
+            });
+        }
+    }
+
+    // 渲染
+    container.innerHTML = '';
+    if (leaders.length === 0) {
+        container.innerHTML = '<span style="color:#999;">暂无符合条件的龙头股票</span>';
+        return;
+    }
+
+    // 按股票连续天数降序排列
+    leaders.sort((a, b) => b.stockDays - a.stockDays || a.name.localeCompare(b.name));
+
+    const html = leaders.map(leader => `
+        <span class="leader-item" title="连续流入${leader.stockDays}天 | 所属板块: ${leader.sectors.join('、')}">
+            <span class="leader-name">${leader.name}</span>
+            <span class="leader-days">${leader.stockDays}天</span>
+        </span>
+    `).join('');
+    container.innerHTML = html;
 }
 
 function updateFocusArea(activeData) {
