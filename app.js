@@ -628,6 +628,10 @@ function updateLeaderArea(activeData) {
         const inFocus = sectors.some(s => focusSectors.has(s.name));
         if (!inFocus) continue;
 
+        // 股票净流入天数 >= 所有所属板块的最大净流入天数
+        const maxSectorDays = Math.max(...sectors.map(s => s.days));
+        if (stockDays < maxSectorDays) continue;
+
         const sectorNames = sectors
             .filter(s => s.days >= 2)
             .map(s => `${s.name}(${s.type}${s.days}天)`);
