@@ -1140,6 +1140,30 @@ function showStocksInPanel(sectorName, type, commonStockNames) {
     renderStockTable(panelList, stocks, commonStockNames);
 }
 
+/** 切换趋势弹窗的图表和股票面板到指定板块 */
+function switchTrendView(sectorName, type, commonStockNames) {
+    // 更新图表
+    if (trendChart) {
+        trendChart.destroy();
+        trendChart = null;
+    }
+    const trend = getTrendData(sectorName, type);
+    const ctx = document.getElementById('trendChart').getContext('2d');
+    trendChart = createBarChart(ctx, trend, trendChart);
+
+    // 更新股票面板
+    showStocksInPanel(sectorName, type, commonStockNames);
+
+    // 更新标题
+    const typeIcon = type === '行业板块资金流向' ? '🏛️' : '💡';
+    const titleEl = document.getElementById('trendModalTitle');
+    titleEl.innerHTML = `${typeIcon} <span id="trendModalTitleSpan" style="color:#667eea;">${sectorName}</span>`;
+    titleEl.onclick = null;
+    titleEl.onclick = function() {
+        switchTrendView(sectorName, type, commonStockNames);
+    };
+}
+
 function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, commonStockNames) {
     if (trendChart) {
         trendChart.destroy();
@@ -1150,10 +1174,10 @@ function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, c
     const titleEl = document.getElementById('trendModalTitle');
     titleEl.innerHTML = `${typeIcon} <span id="trendModalTitleSpan" style="color:#667eea;">${sectorName}</span>`;
     titleEl.style.cursor = 'pointer';
-    titleEl.title = '点击查看涉及股票';
+    titleEl.title = '切换图表和股票到该板块';
     titleEl.onclick = null;
     titleEl.onclick = function() {
-        showStocksInPanel(sectorName, type, commonStockNames);
+        switchTrendView(sectorName, type, commonStockNames);
     };
 
     // 渲染匹配的对面板块列表（可点击）
@@ -1182,7 +1206,7 @@ function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, c
                 tag.onclick = function(e) {
                     e.stopPropagation();
                     const dataType = s._dataType || otherDataType;
-                    showStocksInPanel(s.name, dataType, new Set(sCommonStocks));
+                    switchTrendView(s.name, dataType, new Set(sCommonStocks));
                 };
                 matchedContainer.appendChild(tag);
             });
