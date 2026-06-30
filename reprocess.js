@@ -18,7 +18,7 @@ function formatCurrency(num) {
 function parseSectors(raw) {
     if (!raw || ['--', 'None', 'nan', ''].includes(raw.trim())) return [];
     return raw.replace(/\n/g, ',').replace(/;/g, ',').replace(/，/g, ',')
-        .split(',').map(s => s.trim()).filter(s => s && !['--', 'None', 'nan', ''].includes(s));
+        .split(',').map(s => s.trim()).filter(s => s && !['--', 'None', 'nan', '', '所属行业', '所属概念'].includes(s));
 }
 
 function analyzeFundFlow(workbook) {

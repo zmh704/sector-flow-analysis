@@ -45,7 +45,7 @@ function parseSectors(raw) {
         .replace(/\n/g, ',').replace(/;/g, ',').replace(/，/g, ',')
         .split(',')
         .map(s => s.trim())
-        .filter(s => s && !['--', 'None', 'nan', ''].includes(s));
+        .filter(s => s && !['--', 'None', 'nan', '', '所属行业', '所属概念'].includes(s));
 }
 
 function analyzeFundFlow(workbook) {

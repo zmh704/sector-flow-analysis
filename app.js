@@ -625,24 +625,27 @@ function updateLeaderArea(activeData) {
     // 计算所有股票的连续流入天数
     const stockConsecutiveDays = calcStockConsecutiveDays();
 
-    // 计算哪些板块会在重点关注中显示（净额>0 且 连续流入>1）
+    // 计算哪些板块会在关注板块中显示（净额>0 且 连续流入>=3）
     const focusSectors = new Set();
     for (const sector of industryList) {
+        if (sector.板块 === '所属行业' || sector.板块 === '所属概念') continue;
         if (Number(sector.主力净额) > 0) {
             const d = calcConsecutiveInflow(sector.板块, '行业板块资金流向');
             if (d >= 3) focusSectors.add(sector.板块);
         }
     }
     for (const sector of conceptList) {
+        if (sector.板块 === '所属行业' || sector.板块 === '所属概念') continue;
         if (Number(sector.主力净额) > 0 && Number(sector.股票数量) > 1) {
             const d = calcConsecutiveInflow(sector.板块, '概念板块资金流向');
             if (d >= 3) focusSectors.add(sector.板块);
         }
     }
 
-    // 建立当前日期 股票→所属板块 的映射
+    // 建立当前日期 股票→所属板块 的映射（过滤占位板块）
     const stockSectors = new Map();
     for (const sector of allCurrentSectors) {
+        if (sector.板块 === '所属行业' || sector.板块 === '所属概念') continue;
         const isIndustry = industryList.includes(sector);
         const type = isIndustry ? '行业板块资金流向' : '概念板块资金流向';
         const sectorDays = calcConsecutiveInflow(sector.板块, type);
@@ -716,7 +719,7 @@ function updateFocusArea(activeData) {
     const conceptList = activeData.概念板块资金流向 || [];
 
     const industries = industryList
-        .filter(i => Number(i.主力净额) > 0)
+        .filter(i => Number(i.主力净额) > 0 && i.板块 !== '所属行业' && i.板块 !== '所属概念')
         .map(i => ({
             name: i.板块,
             days: calcConsecutiveInflow(i.板块, '行业板块资金流向'),
@@ -725,7 +728,7 @@ function updateFocusArea(activeData) {
         .filter(i => i.days >= 3);
 
     const concepts = conceptList
-        .filter(c => Number(c.主力净额) > 0 && Number(c.股票数量) > 1)
+        .filter(c => Number(c.主力净额) > 0 && Number(c.股票数量) > 1 && c.板块 !== '所属行业' && c.板块 !== '所属概念')
         .map(c => ({
             name: c.板块,
             days: calcConsecutiveInflow(c.板块, '概念板块资金流向'),
