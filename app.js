@@ -622,7 +622,7 @@ function updateLeaderArea(activeData) {
     const leaders = [];
     for (const [stockName, sectors] of stockSectors) {
         const stockDays = stockConsecutiveDays.get(stockName) || 0;
-        if (stockDays < 2) continue;
+        if (stockDays < 3) continue;
 
         // 至少有一个所属板块在重点关注中
         const inFocus = sectors.some(s => focusSectors.has(s.name));
