@@ -631,7 +631,8 @@ function updateLeaderArea(activeData) {
         leaders.push({
             name: stockName,
             stockDays: stockDays,
-            sectors: sectorNames
+            sectors: sectorNames,
+            _allSectors: stockSectors.get(stockName)
         });
     }
 
@@ -645,12 +646,13 @@ function updateLeaderArea(activeData) {
     // 按股票连续天数降序排列
     leaders.sort((a, b) => b.stockDays - a.stockDays || a.name.localeCompare(b.name));
 
-    const html = leaders.map(leader => `
-        <span class="leader-item" title="连续流入${leader.stockDays}天 | 所属板块: ${leader.sectors.join('、')}">
+    const html = leaders.map(leader => {
+        const secJson = JSON.stringify(leader._allSectors).replace(/'/g, "\\'");
+        return `<span class="leader-item leader-clickable" title="连续流入${leader.stockDays}天 | 所属板块: ${leader.sectors.join('、')}" onclick='showStockLeader("${leader.name}", ${secJson})'>
             <span class="leader-name">${leader.name}</span>
             <span class="leader-days">${leader.stockDays}天</span>
-        </span>
-    `).join('');
+        </span>`;
+    }).join('');
     container.innerHTML = html;
 }
 
@@ -1163,9 +1165,12 @@ function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, c
             const otherType = type === '行业板块资金流向' ? '概念' : '行业';
             const otherDataType = type === '行业板块资金流向' ? '概念板块资金流向' : '行业板块资金流向';
             const otherColor = type === '行业板块资金流向' ? '#7c3aed' : '#2563eb';
+            // 当匹配板块来自多个类型时，改用统一标签
+            const hasMixed = matchedSectors.some(s => s._dataType);
+            const matchLabel = hasMixed ? '关联' : otherType;
             const titleSpan = document.createElement('span');
             titleSpan.style.cssText = 'font-weight:600;margin-right:6px;';
-            titleSpan.textContent = `匹配的${otherType}：`;
+            titleSpan.textContent = `匹配的${matchLabel}：`;
             matchedContainer.appendChild(titleSpan);
             matchedSectors.sort((a, b) => b.days - a.days).forEach((s) => {
                 const tag = document.createElement('span');
@@ -1176,7 +1181,8 @@ function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, c
                 const sCommonStocks = s.commonStocks || [];
                 tag.onclick = function(e) {
                     e.stopPropagation();
-                    showStocksInPanel(s.name, otherDataType, new Set(sCommonStocks));
+                    const dataType = s._dataType || otherDataType;
+                    showStocksInPanel(s.name, dataType, new Set(sCommonStocks));
                 };
                 matchedContainer.appendChild(tag);
             });
@@ -1215,6 +1221,41 @@ function closeTrendModal(event) {
         trendChart.destroy();
         trendChart = null;
     }
+}
+
+// ==================== 今日龙头弹窗 ====================
+
+function showStockLeader(stockName, sectors) {
+    // 选择连续天数最多的板块作为默认显示
+    const best = [...sectors].sort((a, b) => b.days - a.days)[0];
+    if (!best) return;
+
+    const type = best.type === '行业' ? '行业板块资金流向' : '概念板块资金流向';
+    const activeData = getCurrentActiveData();
+    if (!activeData) return;
+
+    const sectorList = activeData[type] || [];
+    const sector = sectorList.find(s => s.板块 === best.name);
+    if (!sector) return;
+
+    const stocks = sector._parsedStocks || parseStocks(sector.涉及股票);
+
+    // 将股票所属的所有其他板块作为匹配板块展示
+    const matchedSectors = sectors
+        .filter(s => s.name !== best.name)
+        .map(s => ({
+            name: s.name,
+            days: s.days,
+            commonStocks: [stockName],
+            _dataType: s.type === '行业' ? '行业板块资金流向' : '概念板块资金流向'
+        }));
+
+    showSingleTrendModal(
+        best.name, type,
+        `🐉 ${stockName} → ${best.name}(${best.type})`,
+        matchedSectors, stocks,
+        new Set([stockName])
+    );
 }
 
 // ==================== 解析数据 ====================

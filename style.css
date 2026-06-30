@@ -400,7 +400,11 @@ button:hover {
     transition: all 0.2s;
 }
 
-.leader-item:hover {
+.leader-item.leader-clickable {
+    cursor: pointer;
+}
+
+.leader-item.leader-clickable:hover {
     transform: translateY(-2px);
     box-shadow: 0 3px 10px rgba(153, 27, 27, 0.15);
 }
