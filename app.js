@@ -606,6 +606,10 @@ function updateLeaderArea(activeData) {
         const stockDays = stockConsecutiveDays.get(stockName) || 0;
         if (stockDays < 2) continue;
 
+        // 至少有一个板块连续流入天数 >= 2
+        const hasSectorWithDays = sectors.some(s => s.days >= 2);
+        if (!hasSectorWithDays) continue;
+
         const maxSectorDays = Math.max(...sectors.map(s => s.days));
         if (stockDays >= maxSectorDays) {
             // 收集所属板块名称
