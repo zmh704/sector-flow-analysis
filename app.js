@@ -589,13 +589,13 @@ function updateLeaderArea(activeData) {
     for (const sector of industryList) {
         if (Number(sector.主力净额) > 0) {
             const d = calcConsecutiveInflow(sector.板块, '行业板块资金流向');
-            if (d > 1) focusSectors.add(sector.板块);
+            if (d >= 3) focusSectors.add(sector.板块);
         }
     }
     for (const sector of conceptList) {
         if (Number(sector.主力净额) > 0 && Number(sector.股票数量) > 1) {
             const d = calcConsecutiveInflow(sector.板块, '概念板块资金流向');
-            if (d > 1) focusSectors.add(sector.板块);
+            if (d >= 3) focusSectors.add(sector.板块);
         }
     }
 
@@ -678,7 +678,7 @@ function updateFocusArea(activeData) {
             days: calcConsecutiveInflow(i.板块, '行业板块资金流向'),
             stocks: new Set((i._parsedStocks || parseStocks(i.涉及股票)).map(s => s.name))
         }))
-        .filter(i => i.days > 1);
+        .filter(i => i.days >= 3);
 
     const concepts = conceptList
         .filter(c => Number(c.主力净额) > 0 && Number(c.股票数量) > 1)
