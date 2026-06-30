@@ -518,51 +518,52 @@ function openInTDX(stockName, stockCode) {
     window.open(url, '_blank');
 }
 
-/** 计算每个股票在连续日期中主力净额>0的天数 */
+/** 计算每只股票从当天往前连续主力净额>0的天数 */
 function calcStockConsecutiveDays() {
     const sorted = sortDateFileList();
     const currentIdx = sorted.indexOf(currentDateFile);
     if (currentIdx < 0) return new Map();
 
-    // stockName -> consecutive positive net days
-    const stockDays = new Map();
-
+    // 预处理：每日期所有股票及其净额状态
+    const dateStockMaps = [];
     for (let i = 0; i <= currentIdx; i++) {
         const dayData = allDataByDate[sorted[i]]?.data;
-        if (!dayData) continue;
-
-        const allSectors = [
-            ...(dayData.行业板块资金流向 || []),
-            ...(dayData.概念板块资金流向 || [])
-        ];
-
-        // 收集今天出现的股票及其主力净额是否为正
-        const todayStocks = new Map();
-        for (const sector of allSectors) {
-            const stocks = sector._parsedStocks || parseStocks(sector.涉及股票);
-            for (const stock of stocks) {
-                if (!todayStocks.has(stock.name)) {
-                    const netNum = parseFloat(stock.net);
-                    todayStocks.set(stock.name, !isNaN(netNum) && netNum > 0);
+        const dayMap = new Map();
+        if (dayData) {
+            const allSectors = [
+                ...(dayData.行业板块资金流向 || []),
+                ...(dayData.概念板块资金流向 || [])
+            ];
+            for (const sector of allSectors) {
+                const stocks = sector._parsedStocks || parseStocks(sector.涉及股票);
+                for (const stock of stocks) {
+                    if (!dayMap.has(stock.name)) {
+                        const netNum = parseFloat(stock.net);
+                        dayMap.set(stock.name, !isNaN(netNum) && netNum > 0);
+                    }
                 }
             }
         }
+        dateStockMaps.push(dayMap);
+    }
 
-        // 更新连续天数
-        for (const [name, netPositive] of todayStocks) {
-            if (netPositive) {
-                stockDays.set(name, (stockDays.get(name) || 0) + 1);
+    // 从当天往前查连续天数
+    const stockDays = new Map();
+    const allNames = new Set();
+    for (const dayMap of dateStockMaps) {
+        for (const name of dayMap.keys()) allNames.add(name);
+    }
+    for (const name of allNames) {
+        let count = 0;
+        for (let i = currentIdx; i >= 0; i--) {
+            const netPositive = dateStockMaps[i].get(name);
+            if (netPositive === true) {
+                count++;
             } else {
-                stockDays.set(name, 0);
+                break;
             }
         }
-
-        // 今天没出现的股票连续天数归零
-        for (const [name] of stockDays) {
-            if (!todayStocks.has(name)) {
-                stockDays.set(name, 0);
-            }
-        }
+        stockDays.set(name, count);
     }
 
     return stockDays;
