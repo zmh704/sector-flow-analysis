@@ -569,6 +569,38 @@ function calcStockConsecutiveDays() {
     return stockDays;
 }
 
+/** 判断某股票当日成交额是否小于前一日（减小为真） */
+function isStockTurnoverDecreased(stockName, activeData) {
+    const sorted = sortDateFileList();
+    const currentIdx = sorted.indexOf(currentDateFile);
+    if (currentIdx <= 0) return true;
+
+    const prevData = allDataByDate[sorted[currentIdx - 1]]?.data;
+    if (!prevData) return true;
+
+    // 从板块数据中找股票的成交额
+    function findAmount(data) {
+        const allSectors = [
+            ...(data.行业板块资金流向 || []),
+            ...(data.概念板块资金流向 || [])
+        ];
+        for (const sector of allSectors) {
+            const stocks = sector._parsedStocks || parseStocks(sector.涉及股票);
+            for (const stock of stocks) {
+                if (stock.name === stockName) {
+                    return parseFloat(stock.amount);
+                }
+            }
+        }
+        return null;
+    }
+
+    const currAmount = findAmount(activeData);
+    const prevAmount = findAmount(prevData);
+    if (currAmount === null || prevAmount === null) return true;
+    return currAmount < prevAmount;
+}
+
 function updateLeaderArea(activeData) {
     const container = document.getElementById('leaderContent');
     if (!container) return;
@@ -632,6 +664,9 @@ function updateLeaderArea(activeData) {
         // 股票净流入天数 >= 所有所属板块的最大净流入天数
         const maxSectorDays = Math.max(...sectors.map(s => s.days));
         if (stockDays < maxSectorDays) continue;
+
+        // 成交额小于前一日
+        if (!isStockTurnoverDecreased(stockName, activeData)) continue;
 
         const sectorNames = sectors
             .filter(s => s.days >= 2)
