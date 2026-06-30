@@ -1171,15 +1171,6 @@ function switchTrendView(sectorName, type, commonStockNames) {
 
     // 更新股票面板
     showStocksInPanel(sectorName, type, commonStockNames);
-
-    // 更新标题
-    const typeIcon = type === '行业板块资金流向' ? '🏛️' : '💡';
-    const titleEl = document.getElementById('trendModalTitle');
-    titleEl.innerHTML = `${typeIcon} <span id="trendModalTitleSpan" style="color:#667eea;">${sectorName}</span>`;
-    titleEl.onclick = null;
-    titleEl.onclick = function() {
-        switchTrendView(sectorName, type, commonStockNames);
-    };
 }
 
 function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, commonStockNames) {
