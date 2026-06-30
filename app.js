@@ -581,6 +581,21 @@ function updateLeaderArea(activeData) {
     // 计算所有股票的连续流入天数
     const stockConsecutiveDays = calcStockConsecutiveDays();
 
+    // 计算哪些板块会在重点关注中显示（净额>0 且 连续流入>1）
+    const focusSectors = new Set();
+    for (const sector of industryList) {
+        if (Number(sector.主力净额) > 0) {
+            const d = calcConsecutiveInflow(sector.板块, '行业板块资金流向');
+            if (d > 1) focusSectors.add(sector.板块);
+        }
+    }
+    for (const sector of conceptList) {
+        if (Number(sector.主力净额) > 0 && Number(sector.股票数量) > 1) {
+            const d = calcConsecutiveInflow(sector.板块, '概念板块资金流向');
+            if (d > 1) focusSectors.add(sector.板块);
+        }
+    }
+
     // 建立当前日期 股票→所属板块 的映射
     const stockSectors = new Map();
     for (const sector of allCurrentSectors) {
@@ -606,23 +621,18 @@ function updateLeaderArea(activeData) {
         const stockDays = stockConsecutiveDays.get(stockName) || 0;
         if (stockDays < 2) continue;
 
-        // 至少有一个板块连续流入天数 >= 2
-        const hasSectorWithDays = sectors.some(s => s.days >= 2);
-        if (!hasSectorWithDays) continue;
+        // 至少有一个所属板块在重点关注中
+        const inFocus = sectors.some(s => focusSectors.has(s.name));
+        if (!inFocus) continue;
 
-        const maxSectorDays = Math.max(...sectors.map(s => s.days));
-        if (stockDays >= maxSectorDays) {
-            // 收集所属板块名称
-            const sectorNames = sectors
-                .filter(s => s.days >= 2)
-                .map(s => `${s.name}(${s.type}${s.days}天)`);
-            leaders.push({
-                name: stockName,
-                stockDays: stockDays,
-                maxSectorDays: maxSectorDays,
-                sectors: sectorNames
-            });
-        }
+        const sectorNames = sectors
+            .filter(s => s.days >= 2)
+            .map(s => `${s.name}(${s.type}${s.days}天)`);
+        leaders.push({
+            name: stockName,
+            stockDays: stockDays,
+            sectors: sectorNames
+        });
     }
 
     // 渲染
