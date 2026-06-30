@@ -392,12 +392,13 @@ button:hover {
 .leader-item {
     display: inline-block;
     margin: 3px 8px 3px 0;
-    padding: 4px 12px;
+    padding: 4px 10px 4px 14px;
     background: linear-gradient(135deg, #fee2e2 0%, #fef3c7 100%);
     border-radius: 20px;
     border: 1px solid #fca5a5;
     cursor: default;
     transition: all 0.2s;
+    white-space: nowrap;
 }
 
 .leader-item.leader-clickable {
@@ -412,22 +413,19 @@ button:hover {
 .leader-name {
     color: #991b1b;
     font-weight: 700;
-    margin-right: 4px;
+    margin-right: 6px;
 }
 
 .leader-days {
-    color: #dc2626;
+    color: #888;
     font-size: 11px;
-    font-weight: 700;
-    background: rgba(255,255,255,0.6);
-    padding: 1px 6px;
-    border-radius: 10px;
+    font-weight: 400;
+    margin-right: 6px;
 }
 
 .leader-change {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
-    margin-left: 4px;
 }
 
 .focus-header {
