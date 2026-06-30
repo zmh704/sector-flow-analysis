@@ -1144,7 +1144,18 @@ function showStocksInPanel(sectorName, type, commonStockNames) {
         panelTitle.textContent = `${typeLabel} ${sectorName}`;
     }
 
-    renderStockTable(panelList, stocks, commonStockNames);
+    // 计算标的星：股票净流入天数 >= 板块净流入天数
+    const sectorDays = calcConsecutiveInflow(sectorName, type);
+    const stockDaysMap = calcStockConsecutiveDays();
+    const starSet = new Set();
+    for (const stock of stocks) {
+        const sDays = stockDaysMap.get(stock.name) || 0;
+        if (sDays >= sectorDays) {
+            starSet.add(stock.name);
+        }
+    }
+
+    renderStockTable(panelList, stocks, starSet);
 }
 
 /** 切换趋势弹窗的图表和股票面板到指定板块 */
@@ -1230,7 +1241,17 @@ function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, c
         }
         const panelList = document.getElementById('stockPanelList');
         if (panelList) {
-            renderStockTable(panelList, stocks, commonStockNames);
+            // 计算标的星：股票净流入天数 >= 板块净流入天数
+            const sectorDays = calcConsecutiveInflow(sectorName, type);
+            const stockDaysMap = calcStockConsecutiveDays();
+            const starSet = new Set();
+            for (const stock of stocks) {
+                const sDays = stockDaysMap.get(stock.name) || 0;
+                if (sDays >= sectorDays) {
+                    starSet.add(stock.name);
+                }
+            }
+            renderStockTable(panelList, stocks, starSet);
         }
     } else {
         showStocksInPanel(sectorName, type);
