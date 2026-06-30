@@ -741,6 +741,17 @@ function updateFocusArea(activeData) {
         return;
     }
 
+    // 建立行业↔概念共同股票配对（供弹窗展示关联板块使用）
+    const allPairs = [];
+    industries.forEach(ind => {
+        concepts.forEach(con => {
+            const common = [...ind.stocks].filter(s => con.stocks.has(s));
+            if (common.length > 0) {
+                allPairs.push({ industry: ind, concept: con, commonCount: common.length, commonStocks: common });
+            }
+        });
+    });
+
     // 渲染行业部分
     {
         const indSection = document.createElement('div');
@@ -755,7 +766,14 @@ function updateFocusArea(activeData) {
             div.innerHTML = `<span style="color:#2563eb;font-weight:600;">${item.name}</span> <span style="font-size:11px;color:${daysColor};font-weight:700;">${item.days}天</span>`;
             const industryStockStr = (industryList.find(i => i.板块 === item.name) || {}).涉及股票 || '';
             div.onclick = function() {
-                showSingleTrendModal(item.name, '行业板块资金流向', '🏛️ ' + item.name + '（行业）', [], parseStocks(industryStockStr), new Set());
+                const matchedConceptsForIndustry = allPairs
+                    .filter(p => p.industry.name === item.name)
+                    .map(p => ({ name: p.concept.name, days: p.concept.days, commonStocks: p.commonStocks }));
+                const industryCommonStocks = new Set(
+                    allPairs.filter(p => p.industry.name === item.name)
+                        .flatMap(p => p.commonStocks)
+                );
+                showSingleTrendModal(item.name, '行业板块资金流向', '🏛️ ' + item.name + '（行业）', matchedConceptsForIndustry, parseStocks(industryStockStr), industryCommonStocks);
             };
             indSection.appendChild(div);
         });
@@ -775,7 +793,14 @@ function updateFocusArea(activeData) {
             div.innerHTML = `<span style="color:#7c3aed;font-weight:600;">${item.name}</span> <span style="font-size:11px;color:${daysColor};font-weight:700;">${item.days}天</span>`;
             const conceptStockStr = (conceptList.find(c => c.板块 === item.name) || {}).涉及股票 || '';
             div.onclick = function() {
-                showSingleTrendModal(item.name, '概念板块资金流向', '💡 ' + item.name + '（概念）', [], parseStocks(conceptStockStr), new Set());
+                const matchedIndustriesForConcept = allPairs
+                    .filter(p => p.concept.name === item.name)
+                    .map(p => ({ name: p.industry.name, days: p.industry.days, commonStocks: p.commonStocks }));
+                const conceptCommonStocks = new Set(
+                    allPairs.filter(p => p.concept.name === item.name)
+                        .flatMap(p => p.commonStocks)
+                );
+                showSingleTrendModal(item.name, '概念板块资金流向', '💡 ' + item.name + '（概念）', matchedIndustriesForConcept, parseStocks(conceptStockStr), conceptCommonStocks);
             };
             conSection.appendChild(div);
         });
