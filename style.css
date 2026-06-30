@@ -540,7 +540,7 @@ footer {
 }
 
 .trend-right {
-    width: 340px;
+    width: 390px;
     flex-shrink: 0;
     background: #f8f9fa;
     border-radius: 12px;
@@ -596,19 +596,24 @@ footer {
 }
 
 .stock-table thead th:nth-child(2) {
-    width: 100px;
+    width: 90px;
 }
 
 .stock-table thead th:nth-child(3) {
-    width: 88px;
+    width: 74px;
 }
 
 .stock-table thead th:nth-child(4) {
-    width: 88px;
+    width: 74px;
 }
 
 .stock-table thead th:nth-child(5) {
-    width: 76px;
+    width: 66px;
+}
+
+.stock-table thead th:nth-child(6) {
+    width: 56px;
+    text-align: center;
 }
 
 .stock-table tbody td {

@@ -1108,7 +1108,7 @@ function getCurrentActiveData() {
 }
 
 /** 渲染股票表格 */
-function renderStockTable(panelList, stocks, bgSet, starSet) {
+function renderStockTable(panelList, stocks, bgSet, starSet, stockDaysMap) {
     panelList.innerHTML = '';
     if (!stocks || stocks.length === 0) {
         panelList.innerHTML = '<span style="color:#999;">无涉及股票数据</span>';
@@ -1117,6 +1117,7 @@ function renderStockTable(panelList, stocks, bgSet, starSet) {
 
     const bs = bgSet || new Set();
     const ss = starSet || bs;
+    const sdm = stockDaysMap || new Map();
 
     // 排序：共同股票（背景色）放前面，其余放后面，各自按主力净额降序
     const commonStocks = stocks.filter(s => bs.has(s.name))
@@ -1128,7 +1129,7 @@ function renderStockTable(panelList, stocks, bgSet, starSet) {
     const table = document.createElement('table');
     table.className = 'stock-table';
     const thead = document.createElement('thead');
-    thead.innerHTML = '<tr><th>#</th><th>股票名称</th><th>成交额</th><th>主力净额</th><th>涨跌幅</th></tr>';
+    thead.innerHTML = '<tr><th>#</th><th>股票名称</th><th>成交额</th><th>主力净额</th><th>涨跌幅</th><th>连续天数</th></tr>';
     table.appendChild(thead);
     const tbody = document.createElement('tbody');
     sortedStocks.forEach((stock, i) => {
@@ -1140,12 +1141,14 @@ function renderStockTable(panelList, stocks, bgSet, starSet) {
         const changeNum = parseFloat(stock.change);
         const changeColor = changeNum >= 0 ? 'color:#e53935;' : 'color:#43a047;';
         const changeArrow = changeNum >= 0 ? '▲' : '▼';
+        const stockDays = sdm.get(stock.name) || 0;
         tr.innerHTML = `
             <td>${i + 1}</td>
             <td>${isStarred ? '⭐ ' : ''}${stock.name}</td>
             <td>${stock.amount}</td>
             <td style="${changeColor}">${stock.net}</td>
             <td style="${changeColor}font-weight:600;">${changeArrow} ${stock.change}</td>
+            <td style="text-align:center;color:#888;font-size:11px;">${stockDays > 0 ? stockDays + '天' : '-'}</td>
         `;
         tr.style.cursor = 'pointer';
         tr.onclick = function() { openInTDX(escName, stock.code); };
@@ -1189,7 +1192,7 @@ function showStocksInPanel(sectorName, type, commonStockNames) {
         if (sDays >= sectorDays) starSet.add(stock.name);
     }
 
-    renderStockTable(panelList, stocks, commonStockNames, starSet);
+    renderStockTable(panelList, stocks, commonStockNames, starSet, stockDaysMap);
 }
 
 /** 切换趋势弹窗的图表和股票面板到指定板块 */
@@ -1214,8 +1217,9 @@ function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, c
     }
 
     const typeIcon = type === '行业板块资金流向' ? '🏛️' : '💡';
+    const sectorDays = calcConsecutiveInflow(sectorName, type);
     const titleEl = document.getElementById('trendModalTitle');
-    titleEl.innerHTML = `${typeIcon} <span id="trendModalTitleSpan" style="color:#667eea;">${sectorName}</span>`;
+    titleEl.innerHTML = `${typeIcon} <span id="trendModalTitleSpan" style="color:#667eea;">${sectorName}</span> <span style="font-size:14px;color:#dc2626;font-weight:700;">${sectorDays}天</span>`;
     titleEl.style.cursor = 'pointer';
     titleEl.title = '切换图表和股票到该板块';
     titleEl.onclick = null;
@@ -1272,7 +1276,7 @@ function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, c
                 const sDays = stockDaysMap.get(stock.name) || 0;
                 if (sDays >= sectorDays) starSet.add(stock.name);
             }
-            renderStockTable(panelList, stocks, commonStockNames, starSet);
+            renderStockTable(panelList, stocks, commonStockNames, starSet, stockDaysMap);
         }
     } else {
         showStocksInPanel(sectorName, type);
