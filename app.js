@@ -1074,19 +1074,21 @@ function getCurrentActiveData() {
     return activeData ? activeData.data : null;
 }
 
-/** 渲染股票表格（抽取公共逻辑，两处复用） */
-function renderStockTable(panelList, stocks, commonSet) {
+/** 渲染股票表格 */
+function renderStockTable(panelList, stocks, bgSet, starSet) {
     panelList.innerHTML = '';
     if (!stocks || stocks.length === 0) {
         panelList.innerHTML = '<span style="color:#999;">无涉及股票数据</span>';
         return;
     }
 
-    const cs = commonSet || new Set();
-    // 标星放前面，非标星放后面，各自按主力净额降序
-    const commonStocks = stocks.filter(s => cs.has(s.name))
+    const bs = bgSet || new Set();
+    const ss = starSet || bs;
+
+    // 排序：共同股票（背景色）放前面，其余放后面，各自按主力净额降序
+    const commonStocks = stocks.filter(s => bs.has(s.name))
         .sort((a, b) => (parseFloat(b.net) || -999) - (parseFloat(a.net) || -999));
-    const otherStocks = stocks.filter(s => !cs.has(s.name))
+    const otherStocks = stocks.filter(s => !bs.has(s.name))
         .sort((a, b) => (parseFloat(b.net) || -999) - (parseFloat(a.net) || -999));
     const sortedStocks = [...commonStocks, ...otherStocks];
 
@@ -1098,15 +1100,16 @@ function renderStockTable(panelList, stocks, commonSet) {
     const tbody = document.createElement('tbody');
     sortedStocks.forEach((stock, i) => {
         const tr = document.createElement('tr');
-        const isCommon = cs.has(stock.name);
-        if (isCommon) tr.classList.add('stock-common');
+        const isBg = bs.has(stock.name);
+        const isStarred = ss.has(stock.name);
+        if (isBg) tr.classList.add('stock-common');
         const escName = stock.name.replace(/'/g, "\\'");
         const changeNum = parseFloat(stock.change);
         const changeColor = changeNum >= 0 ? 'color:#e53935;' : 'color:#43a047;';
         const changeArrow = changeNum >= 0 ? '▲' : '▼';
         tr.innerHTML = `
             <td>${i + 1}</td>
-            <td>${isCommon ? '⭐ ' : ''}${stock.name}</td>
+            <td>${isStarred ? '⭐ ' : ''}${stock.name}</td>
             <td>${stock.amount}</td>
             <td style="${changeColor}">${stock.net}</td>
             <td style="${changeColor}font-weight:600;">${changeArrow} ${stock.change}</td>
@@ -1144,7 +1147,16 @@ function showStocksInPanel(sectorName, type, commonStockNames) {
         panelTitle.textContent = `${typeLabel} ${sectorName}`;
     }
 
-    renderStockTable(panelList, stocks, commonStockNames);
+    // 计算五角星：股票净流入天数 >= 板块净流入天数
+    const sectorDays = calcConsecutiveInflow(sectorName, type);
+    const stockDaysMap = calcStockConsecutiveDays();
+    const starSet = new Set();
+    for (const stock of stocks) {
+        const sDays = stockDaysMap.get(stock.name) || 0;
+        if (sDays >= sectorDays) starSet.add(stock.name);
+    }
+
+    renderStockTable(panelList, stocks, commonStockNames, starSet);
 }
 
 /** 切换趋势弹窗的图表和股票面板到指定板块 */
@@ -1221,7 +1233,15 @@ function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, c
         }
         const panelList = document.getElementById('stockPanelList');
         if (panelList) {
-            renderStockTable(panelList, stocks, commonStockNames);
+            // 计算五角星：股票净流入天数 >= 板块净流入天数
+            const sectorDays = calcConsecutiveInflow(sectorName, type);
+            const stockDaysMap = calcStockConsecutiveDays();
+            const starSet = new Set();
+            for (const stock of stocks) {
+                const sDays = stockDaysMap.get(stock.name) || 0;
+                if (sDays >= sectorDays) starSet.add(stock.name);
+            }
+            renderStockTable(panelList, stocks, commonStockNames, starSet);
         }
     } else {
         showStocksInPanel(sectorName, type);
