@@ -687,7 +687,7 @@ function updateFocusArea(activeData) {
             days: calcConsecutiveInflow(c.板块, '概念板块资金流向'),
             stocks: new Set((c._parsedStocks || parseStocks(c.涉及股票)).map(s => s.name))
         }))
-        .filter(c => c.days > 1);
+        .filter(c => c.days >= 3);
 
     // 1. 建立所有多对多配对
     const allPairs = [];
