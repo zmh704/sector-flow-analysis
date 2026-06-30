@@ -484,11 +484,13 @@ function updateCharts() {
     }
 }
 
+/** 解析涉及股票字符串为结构化数组 */
 function parseStocks(stockStr) {
     if (!stockStr) return [];
     return stockStr.split(',').map(s => {
         const m = s.trim().match(/^(.+?)\(([^)]+)\)$/);
         if (m) {
+            if (!m[1] || m[1] === '股票简称') return null;
             const parts = m[2].split('|');
             return {
                 name: m[1],
@@ -499,6 +501,7 @@ function parseStocks(stockStr) {
             };
         }
         const nameOnly = s.trim().match(/^(.+?)\(/);
+        if (nameOnly && nameOnly[1] === '股票简称') return null;
         return nameOnly ? { name: nameOnly[1], code: '', amount: '', net: '', change: '' } : null;
     }).filter(Boolean);
 }
