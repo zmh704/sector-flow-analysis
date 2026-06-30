@@ -733,92 +733,46 @@ function updateFocusArea(activeData) {
         }))
         .filter(c => c.days >= 3);
 
-    // 1. 建立所有多对多配对
-    const allPairs = [];
-    industries.forEach(ind => {
-        concepts.forEach(con => {
-            const common = [...ind.stocks].filter(s => con.stocks.has(s));
-            if (common.length > 0) {
-                allPairs.push({ industry: ind, concept: con, commonCount: common.length, commonStocks: common });
-            }
-        });
-    });
-
-    if (allPairs.length === 0) {
-        container.innerHTML = '<span style="color:#999;">暂无符合条件的重点关注数据</span>';
+    if (industries.length === 0 && concepts.length === 0) {
+        container.innerHTML = '<span style="color:#999;">暂无符合条件的关注板块</span>';
         return;
     }
 
-    // 2. 所有只要能配对成功的行业和概念都收集起来（多对多，各自去重）
-    const matchedIndustrySet = new Set();
-    const matchedConceptSet = new Set();
-    const matchedIndustries = [];
-    const matchedConcepts = [];
-    allPairs.forEach(pair => {
-        if (!matchedIndustrySet.has(pair.industry.name)) {
-            matchedIndustrySet.add(pair.industry.name);
-            matchedIndustries.push(pair.industry);
-        }
-        if (!matchedConceptSet.has(pair.concept.name)) {
-            matchedConceptSet.add(pair.concept.name);
-            matchedConcepts.push(pair.concept);
-        }
-    });
-
-    if (matchedIndustries.length === 0 && matchedConcepts.length === 0) {
-        container.innerHTML = '<span style="color:#999;">暂无符合条件的重点关注数据</span>';
-        return;
-    }
-
-    // 3. 渲染行业部分
+    // 渲染行业部分
     {
         const indSection = document.createElement('div');
         indSection.style.marginBottom = '10px';
 
-        matchedIndustries.sort((a, b) => b.days - a.days).forEach(item => {
+        industries.sort((a, b) => b.days - a.days).forEach(item => {
             const div = document.createElement('div');
             div.className = 'pair clickable';
             div.style.display = 'inline-block';
-            div.title = `连续流入${item.days}天\\n点击查看最近10日趋势及匹配的概念`;
+            div.title = `连续流入${item.days}天\\n点击查看最近10日趋势`;
             const daysColor = item.days >= 3 ? '#dc2626' : '#2563eb';
             div.innerHTML = `<span style="color:#2563eb;font-weight:600;">${item.name}</span> <span style="font-size:11px;color:${daysColor};font-weight:700;">${item.days}天</span>`;
-            const matchedConceptsForIndustry = allPairs
-                .filter(p => p.industry.name === item.name)
-                .map(p => ({ name: p.concept.name, days: p.concept.days, commonStocks: p.commonStocks }));
             const industryStockStr = (industryList.find(i => i.板块 === item.name) || {}).涉及股票 || '';
-            const industryCommonStocks = new Set(
-                allPairs.filter(p => p.industry.name === item.name)
-                    .flatMap(p => p.commonStocks)
-            );
             div.onclick = function() {
-                showSingleTrendModal(item.name, '行业板块资金流向', '🏛️ ' + item.name + '（行业）', matchedConceptsForIndustry, parseStocks(industryStockStr), industryCommonStocks);
+                showSingleTrendModal(item.name, '行业板块资金流向', '🏛️ ' + item.name + '（行业）', [], parseStocks(industryStockStr), new Set());
             };
             indSection.appendChild(div);
         });
         container.appendChild(indSection);
     }
 
-    // 4. 渲染概念部分
+    // 2. 渲染概念部分
     {
         const conSection = document.createElement('div');
 
-        matchedConcepts.sort((a, b) => b.days - a.days).forEach(item => {
+        concepts.sort((a, b) => b.days - a.days).forEach(item => {
             const div = document.createElement('div');
             div.className = 'pair clickable';
             div.style.display = 'inline-block';
-            div.title = `连续流入${item.days}天\\n点击查看最近10日趋势及匹配的行业`;
+            div.title = `连续流入${item.days}天\\n点击查看最近10日趋势`;
             const daysColor = item.days >= 3 ? '#dc2626' : '#7c3aed';
             div.innerHTML = `<span style="color:#7c3aed;font-weight:600;">${item.name}</span> <span style="font-size:11px;color:${daysColor};font-weight:700;">${item.days}天</span>`;
-            const matchedIndustriesForConcept = allPairs
-                .filter(p => p.concept.name === item.name)
-                .map(p => ({ name: p.industry.name, days: p.industry.days, commonStocks: p.commonStocks }));
             const conceptStockStr = (conceptList.find(c => c.板块 === item.name) || {}).涉及股票 || '';
-            const conceptCommonStocks = new Set(
-                allPairs.filter(p => p.concept.name === item.name)
-                    .flatMap(p => p.commonStocks)
-            );
             div.onclick = function() {
-                showSingleTrendModal(item.name, '概念板块资金流向', '💡 ' + item.name + '（概念）', matchedIndustriesForConcept, parseStocks(conceptStockStr), conceptCommonStocks);
+                showSingleTrendModal(item.name, '概念板块资金流向', '💡 ' + item.name + '（概念）', [], parseStocks(conceptStockStr), new Set());
             };
             conSection.appendChild(div);
         });
