@@ -678,7 +678,7 @@ function updateLeaderArea(activeData) {
         if (!isStockTurnoverDecreased(stockName, activeData)) continue;
 
         const sectorNames = sectors
-            .filter(s => s.days >= 2)
+            .filter(s => s.days >= 1)
             .map(s => `${s.name}(${s.type}${s.days}天)`);
         leaders.push({
             name: stockName,
@@ -812,17 +812,17 @@ function updateFocusArea(activeData) {
 }
 
 function calcConsecutiveInflow(sectorName, type) {
-    if (dateFileList.length < 2) return 1;
-    if (!currentDateFile) return 1;
+    if (dateFileList.length < 2) return 0;
+    if (!currentDateFile) return 0;
 
     const sorted = sortDateFileList();
 
     const idx = sorted.indexOf(currentDateFile);
-    if (idx < 0) return 1;
+    if (idx < 0) return 0;
 
-    let count = 1;
+    let count = 0;
 
-    for (let i = idx - 1; i >= 0; i--) {
+    for (let i = idx; i >= 0; i--) {
         const dayData = allDataByDate[sorted[i]]?.data;
         if (!dayData) break;
 
