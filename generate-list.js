@@ -18,7 +18,7 @@ function generateFileList() {
         let files = [];
         if (fs.existsSync(DATA_DIR)) {
             files = fs.readdirSync(DATA_DIR)
-                .filter(file => JSON_PATTERN.test(file))
+                .filter(file => JSON_PATTERN.test(file) && !file.includes('.bak_'))
                 .map(file => 'data/' + file); // 添加 data/ 前缀，用正斜杠
         } else {
             // 回退：扫描当前目录
