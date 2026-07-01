@@ -247,12 +247,6 @@ const server = http.createServer((req, res) => {
                 const jsonFilename = `${datePart}_板块资金流向.json`;
                 const jsonPath = path.join(DATA_DIR, jsonFilename);
 
-                if (fs.existsSync(jsonPath)) {
-                    const bakPath = jsonPath.replace(/\.json$/, `.bak_${Date.now()}.json`);
-                    fs.copyFileSync(jsonPath, bakPath);
-                    console.log('[解析] 原文件已备份:', path.basename(bakPath));
-                }
-
                 fs.mkdirSync(DATA_DIR, { recursive: true });
                 fs.writeFileSync(jsonPath, JSON.stringify(result, null, 2), 'utf-8');
                 console.log('[解析] JSON 已生成:', jsonFilename);
