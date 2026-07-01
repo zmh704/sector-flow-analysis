@@ -625,20 +625,20 @@ function updateLeaderArea(activeData) {
     // 计算所有股票的连续流入天数
     const stockConsecutiveDays = calcStockConsecutiveDays();
 
-    // 计算哪些板块会在关注板块中显示（净额>0 且 连续流入>=3）
+    // 计算哪些板块会在关注板块中显示（净额>0 且 连续流入>=2）
     const focusSectors = new Set();
     for (const sector of industryList) {
         if (sector.板块 === '所属行业' || sector.板块 === '所属概念') continue;
         if (Number(sector.主力净额) > 0) {
             const d = calcConsecutiveInflow(sector.板块, '行业板块资金流向');
-            if (d >= 3) focusSectors.add(sector.板块);
+            if (d >= 2) focusSectors.add(sector.板块);
         }
     }
     for (const sector of conceptList) {
         if (sector.板块 === '所属行业' || sector.板块 === '所属概念') continue;
         if (Number(sector.主力净额) > 0 && Number(sector.股票数量) > 1) {
             const d = calcConsecutiveInflow(sector.板块, '概念板块资金流向');
-            if (d >= 3) focusSectors.add(sector.板块);
+            if (d >= 2) focusSectors.add(sector.板块);
         }
     }
 
@@ -668,7 +668,7 @@ function updateLeaderArea(activeData) {
     const leaders = [];
     for (const [stockName, sectors] of stockSectors) {
         const stockDays = stockConsecutiveDays.get(stockName) || 0;
-        if (stockDays < 3) continue;
+        if (stockDays < 2) continue;
 
         // 至少有一个所属板块在重点关注中
         const inFocus = sectors.some(s => focusSectors.has(s.name));
@@ -728,7 +728,7 @@ function updateFocusArea(activeData) {
             days: calcConsecutiveInflow(i.板块, '行业板块资金流向'),
             stocks: new Set((i._parsedStocks || parseStocks(i.涉及股票)).map(s => s.name))
         }))
-        .filter(i => i.days >= 3);
+        .filter(i => i.days >= 2);
 
     const concepts = conceptList
         .filter(c => Number(c.主力净额) > 0 && Number(c.股票数量) > 1 && c.板块 !== '所属行业' && c.板块 !== '所属概念')
@@ -737,7 +737,7 @@ function updateFocusArea(activeData) {
             days: calcConsecutiveInflow(c.板块, '概念板块资金流向'),
             stocks: new Set((c._parsedStocks || parseStocks(c.涉及股票)).map(s => s.name))
         }))
-        .filter(c => c.days >= 3);
+        .filter(c => c.days >= 2);
 
     if (industries.length === 0 && concepts.length === 0) {
         container.innerHTML = '<span style="color:#999;">暂无符合条件的关注板块</span>';
