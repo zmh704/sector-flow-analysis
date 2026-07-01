@@ -690,6 +690,68 @@ footer {
     box-shadow: 0 2px 8px rgba(146, 64, 14, 0.15);
 }
 
+/* ===== 4天重点标记 ===== */
+
+.leader-item.leader-key-4 {
+    background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+    border-color: #b91c1c;
+    color: white;
+    font-weight: 700;
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+    position: relative;
+}
+
+.leader-item.leader-key-4:hover {
+    transform: scale(1.05) translateY(-2px);
+    box-shadow: 0 6px 20px rgba(220, 38, 38, 0.4);
+}
+
+.leader-item.leader-key-4 .leader-name {
+    color: white;
+}
+
+.leader-item.leader-key-4 .leader-days {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.leader-item.leader-key-4 .leader-change {
+    color: white !important;
+}
+
+.leader-badge {
+    display: inline-block;
+    background: rgba(255, 255, 255, 0.25);
+    color: white;
+    font-size: 10px;
+    padding: 1px 7px;
+    border-radius: 8px;
+    margin-right: 4px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.stock-table tbody tr.stock-key-4 {
+    background: #fef2f2;
+    font-weight: 700;
+}
+
+.stock-table tbody tr.stock-key-4:hover {
+    background: #fee2e2;
+}
+
+.stock-table tbody tr.stock-key-4 .stock-badge-4 {
+    display: inline-block;
+    background: #dc2626;
+    color: white;
+    font-size: 9px;
+    padding: 0 5px;
+    border-radius: 6px;
+    margin-left: 3px;
+    font-weight: 700;
+    line-height: 1.6;
+}
+
 @media (max-width: 768px) {
     .charts-container {
         grid-template-columns: 1fr;
