@@ -625,20 +625,20 @@ function updateLeaderArea(activeData) {
     // 计算所有股票的连续流入天数
     const stockConsecutiveDays = calcStockConsecutiveDays();
 
-    // 计算哪些板块会在关注板块中显示（净额>0 且 连续流入>=3）
+    // 计算哪些板块会在关注板块中显示（净额>0 且 连续流入>=2）
     const focusSectors = new Set();
     for (const sector of industryList) {
         if (sector.板块 === '所属行业' || sector.板块 === '所属概念') continue;
         if (Number(sector.主力净额) > 0) {
             const d = calcConsecutiveInflow(sector.板块, '行业板块资金流向');
-            if (d >= 3) focusSectors.add(sector.板块);
+            if (d >= 2) focusSectors.add(sector.板块);
         }
     }
     for (const sector of conceptList) {
         if (sector.板块 === '所属行业' || sector.板块 === '所属概念') continue;
         if (Number(sector.主力净额) > 0 && Number(sector.股票数量) > 1) {
             const d = calcConsecutiveInflow(sector.板块, '概念板块资金流向');
-            if (d >= 3) focusSectors.add(sector.板块);
+            if (d >= 2) focusSectors.add(sector.板块);
         }
     }
 
@@ -732,7 +732,7 @@ function updateFocusArea(activeData) {
             days: calcConsecutiveInflow(i.板块, '行业板块资金流向'),
             stocks: new Set((i._parsedStocks || parseStocks(i.涉及股票)).map(s => s.name))
         }))
-        .filter(i => i.days >= 3);
+        .filter(i => i.days >= 2);
 
     const concepts = conceptList
         .filter(c => Number(c.主力净额) > 0 && Number(c.股票数量) > 1 && c.板块 !== '所属行业' && c.板块 !== '所属概念')
@@ -741,7 +741,7 @@ function updateFocusArea(activeData) {
             days: calcConsecutiveInflow(c.板块, '概念板块资金流向'),
             stocks: new Set((c._parsedStocks || parseStocks(c.涉及股票)).map(s => s.name))
         }))
-        .filter(c => c.days >= 3);
+        .filter(c => c.days >= 2);
 
     if (industries.length === 0 && concepts.length === 0) {
         container.innerHTML = '<span style="color:#999;">暂无符合条件的关注板块</span>';
@@ -769,7 +769,7 @@ function updateFocusArea(activeData) {
             div.className = 'pair clickable';
             div.style.display = 'inline-block';
             div.title = `连续流入${item.days}天\\n点击查看最近10日趋势`;
-            const daysColor = item.days >= 3 ? '#dc2626' : '#2563eb';
+            const daysColor = item.days >= 2 ? '#dc2626' : '#2563eb';
             div.innerHTML = `<span style="color:#2563eb;font-weight:600;">${item.name}</span> <span style="font-size:11px;color:${daysColor};font-weight:700;">${item.days}天</span>`;
             const industryStockStr = (industryList.find(i => i.板块 === item.name) || {}).涉及股票 || '';
             div.onclick = function() {
@@ -796,7 +796,7 @@ function updateFocusArea(activeData) {
             div.className = 'pair clickable';
             div.style.display = 'inline-block';
             div.title = `连续流入${item.days}天\\n点击查看最近10日趋势`;
-            const daysColor = item.days >= 3 ? '#dc2626' : '#7c3aed';
+            const daysColor = item.days >= 2 ? '#dc2626' : '#7c3aed';
             div.innerHTML = `<span style="color:#7c3aed;font-weight:600;">${item.name}</span> <span style="font-size:11px;color:${daysColor};font-weight:700;">${item.days}天</span>`;
             const conceptStockStr = (conceptList.find(c => c.板块 === item.name) || {}).涉及股票 || '';
             div.onclick = function() {
@@ -1244,7 +1244,7 @@ function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, c
             matchedSectors.sort((a, b) => b.days - a.days).forEach((s) => {
                 const tag = document.createElement('span');
                 tag.className = 'pair clickable';
-                const sDaysColor = s.days >= 3 ? '#dc2626' : otherColor;
+                const sDaysColor = s.days >= 2 ? '#dc2626' : otherColor;
                 tag.innerHTML = `<span style="color:${otherColor};">${s.name}</span> <span style="color:${sDaysColor};font-size:11px;">${s.days}天</span>`;
                 tag.title = '点击查看涉及股票';
                 const sCommonStocks = s.commonStocks || [];
