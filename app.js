@@ -677,6 +677,10 @@ function updateLeaderArea(activeData) {
         // 成交额小于前一日
         if (!isStockTurnoverDecreased(stockName, activeData)) continue;
 
+        // 股票连续流入天数 >= 所有所属板块最大天数-1
+        const maxSectorDays = Math.max(...sectors.map(s => s.days));
+        if (stockDays < maxSectorDays - 1) continue;
+
         const sectorNames = sectors
             .filter(s => s.days >= 1)
             .map(s => `${s.name}(${s.type}${s.days}天)`);
