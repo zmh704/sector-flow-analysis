@@ -625,20 +625,20 @@ function updateLeaderArea(activeData) {
     // 计算所有股票的连续流入天数
     const stockConsecutiveDays = calcStockConsecutiveDays();
 
-    // 计算哪些板块会在关注板块中显示（净额>0 且 连续流入>=3）
+    // 计算哪些板块会在关注板块中显示（净额>0 且 连续流入>=2）
     const focusSectors = new Set();
     for (const sector of industryList) {
         if (sector.板块 === '所属行业' || sector.板块 === '所属概念') continue;
         if (Number(sector.主力净额) > 0) {
             const d = calcConsecutiveInflow(sector.板块, '行业板块资金流向');
-            if (d >= 3) focusSectors.add(sector.板块);
+            if (d >= 2) focusSectors.add(sector.板块);
         }
     }
     for (const sector of conceptList) {
         if (sector.板块 === '所属行业' || sector.板块 === '所属概念') continue;
         if (Number(sector.主力净额) > 0 && Number(sector.股票数量) > 1) {
             const d = calcConsecutiveInflow(sector.板块, '概念板块资金流向');
-            if (d >= 3) focusSectors.add(sector.板块);
+            if (d >= 2) focusSectors.add(sector.板块);
         }
     }
 
