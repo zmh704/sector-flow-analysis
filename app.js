@@ -759,23 +759,12 @@ function updateFocusArea(activeData) {
         });
     });
 
-    // 行业板块和概念板块必须有共同股票才显示
-    const pairedIndustryNames = new Set(allPairs.map(p => p.industry.name));
-    const pairedConceptNames = new Set(allPairs.map(p => p.concept.name));
-    const filteredIndustries = industries.filter(i => pairedIndustryNames.has(i.name));
-    const filteredConcepts = concepts.filter(c => pairedConceptNames.has(c.name));
-
-    if (filteredIndustries.length === 0 && filteredConcepts.length === 0) {
-        container.innerHTML = '<span style="color:#999;">暂无符合条件的关注板块</span>';
-        return;
-    }
-
     // 渲染行业部分
     {
         const indSection = document.createElement('div');
         indSection.style.marginBottom = '10px';
 
-        filteredIndustries.sort((a, b) => b.days - a.days).forEach(item => {
+        industries.sort((a, b) => b.days - a.days).forEach(item => {
             const div = document.createElement('div');
             div.className = 'pair clickable';
             div.style.display = 'inline-block';
@@ -802,7 +791,7 @@ function updateFocusArea(activeData) {
     {
         const conSection = document.createElement('div');
 
-        filteredConcepts.sort((a, b) => b.days - a.days).forEach(item => {
+        concepts.sort((a, b) => b.days - a.days).forEach(item => {
             const div = document.createElement('div');
             div.className = 'pair clickable';
             div.style.display = 'inline-block';
