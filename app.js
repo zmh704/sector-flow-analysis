@@ -674,10 +674,6 @@ function updateLeaderArea(activeData) {
         const inFocus = sectors.some(s => focusSectors.has(s.name));
         if (!inFocus) continue;
 
-        // 股票净流入天数 >= 所有所属板块的最大净流入天数
-        const maxSectorDays = Math.max(...sectors.map(s => s.days));
-        if (stockDays < maxSectorDays) continue;
-
         // 成交额小于前一日
         if (!isStockTurnoverDecreased(stockName, activeData)) continue;
 
@@ -708,10 +704,8 @@ function updateLeaderArea(activeData) {
         const changeNum = parseFloat(leader.change);
         const changeColor = changeNum >= 0 ? '#e53935' : '#43a047';
         const changeArrow = changeNum >= 0 ? '▲' : '▼';
-        const isKey4 = leader.stockDays === 4;
-        const badge4 = isKey4 ? '<span class="leader-badge">重点</span>' : '';
-        return `<span class="leader-item leader-clickable${isKey4 ? ' leader-key-4' : ''}" title="连续流入${leader.stockDays}天 | 所属板块: ${leader.sectors.join('、')}" onclick='showStockLeader("${leader.name}", ${secJson})'>
-            ${badge4}<span class="leader-name">${leader.name}</span>
+        return `<span class="leader-item leader-clickable" title="连续流入${leader.stockDays}天 | 所属板块: ${leader.sectors.join('、')}" onclick='showStockLeader("${leader.name}", ${secJson})'>
+            <span class="leader-name">${leader.name}</span>
             <span class="leader-days">${leader.stockDays}天</span>
             <span class="leader-change" style="color:${changeColor}">${changeArrow} ${leader.change}</span>
         </span>`;
@@ -899,21 +893,16 @@ function renderModalTable() {
         const turnover = (item._turnover / 100000000).toFixed(2);
         const sign = val >= 0 ? '+' : '';
 
-        const sectorStyle = item._highlighted && item._days === 4
-            ? 'color:#dc2626;font-weight:700;background:#fef2f2'
-            : item._highlighted
-                ? 'color:#e53935;font-weight:700'
-                : '';
-        const daysStyle = item._days === 4
-            ? 'color:#dc2626;font-weight:700;background:#fef2f2;'
-            : item._days >= 2 && item._days !== '-'
-                ? 'color:#e53935;font-weight:700'
-                : 'color:#555;';
+        const sectorStyle = item._highlighted
+            ? 'color:#e53935;font-weight:700'
+            : '';
+        const daysStyle = item._days >= 2 && item._days !== '-'
+            ? 'color:#e53935;font-weight:700'
+            : 'color:#555';
 
-        const sectorBadge = item._days === 4 ? ' <span style="display:inline-block;background:#dc2626;color:white;font-size:9px;padding:0 5px;border-radius:6px;font-weight:700;line-height:1.6;">重点</span>' : '';
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td style="${sectorStyle}white-space:nowrap">${item.板块}${sectorBadge}</td>
+            <td style="${sectorStyle}white-space:nowrap">${item.板块}</td>
             <td style="text-align:right;white-space:nowrap">${sign}${formattedVal} 亿</td>
             <td style="text-align:right;white-space:nowrap">${turnover} 亿</td>
             <td style="text-align:center;${daysStyle}white-space:nowrap">${item._days}</td>
@@ -1143,22 +1132,19 @@ function renderStockTable(panelList, stocks, bgSet, starSet, stockDaysMap) {
         const tr = document.createElement('tr');
         const isBg = bs.has(stock.name);
         const isStarred = ss.has(stock.name);
-        const stockDays = sdm.get(stock.name) || 0;
-        const isKey4 = stockDays === 4;
         if (isBg) tr.classList.add('stock-common');
-        if (isKey4) tr.classList.add('stock-key-4');
         const escName = stock.name.replace(/'/g, "\\'");
         const changeNum = parseFloat(stock.change);
         const changeColor = changeNum >= 0 ? 'color:#e53935;' : 'color:#43a047;';
         const changeArrow = changeNum >= 0 ? '▲' : '▼';
-        const badge4 = isKey4 ? ' <span class="stock-badge-4">重点</span>' : '';
+        const stockDays = sdm.get(stock.name) || 0;
         tr.innerHTML = `
             <td>${i + 1}</td>
-            <td>${isStarred ? '⭐ ' : ''}${stock.name}${badge4}</td>
+            <td>${isStarred ? '⭐ ' : ''}${stock.name}</td>
             <td>${stock.amount}</td>
             <td style="${changeColor}">${stock.net}</td>
             <td style="${changeColor}font-weight:600;">${changeArrow} ${stock.change}</td>
-            <td style="text-align:center;${isKey4 ? 'color:#dc2626;font-weight:700;' : 'color:#888;'}font-size:11px;">${stockDays > 0 ? stockDays + '天' : '-'}</td>
+            <td style="text-align:center;color:#888;font-size:11px;">${stockDays > 0 ? stockDays + '天' : '-'}</td>
         `;
         tr.style.cursor = 'pointer';
         tr.onclick = function() { openInTDX(escName, stock.code); };
