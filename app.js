@@ -1184,13 +1184,13 @@ function showStocksInPanel(sectorName, type, commonStockNames) {
         panelTitle.textContent = `${typeLabel} ${sectorName}`;
     }
 
-    // 计算五角星：股票连续流入天数 >= 板块连续流入天数-1 且 成交额小于5日内最大成交额
+    // 计算五角星：股票连续流入天数 >= 板块连续流入天数-1 且 成交量小于5日内最大成交量
     const sectorDays = calcConsecutiveInflow(sectorName, type);
     const stockDaysMap = calcStockConsecutiveDays();
     const starSet = new Set();
     for (const stock of stocks) {
         const sDays = stockDaysMap.get(stock.name) || 0;
-        if (sDays >= sectorDays - 1 && isStockTurnoverDecreased(stock.name)) starSet.add(stock.name);
+        if (sDays >= sectorDays - 1 && isStockVolumeDecreased(stock.name, activeData)) starSet.add(stock.name);
     }
 
     renderStockTable(panelList, stocks, commonStockNames, starSet, stockDaysMap);
@@ -1269,13 +1269,14 @@ function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, c
         }
         const panelList = document.getElementById('stockPanelList');
         if (panelList) {
-            // 计算五角星：股票连续流入天数 >= 板块连续流入天数-1 且 成交额小于5日内最大成交额
+            // 计算五角星：股票连续流入天数 >= 板块连续流入天数-1 且 成交量小于5日内最大成交量
             const sectorDays = calcConsecutiveInflow(sectorName, type);
             const stockDaysMap = calcStockConsecutiveDays();
+            const activeData = getCurrentActiveData();
             const starSet = new Set();
             for (const stock of stocks) {
                 const sDays = stockDaysMap.get(stock.name) || 0;
-                if (sDays >= sectorDays - 1 && isStockTurnoverDecreased(stock.name)) starSet.add(stock.name);
+                if (sDays >= sectorDays - 1 && activeData && isStockVolumeDecreased(stock.name, activeData)) starSet.add(stock.name);
             }
             renderStockTable(panelList, stocks, commonStockNames, starSet, stockDaysMap);
         }
