@@ -140,7 +140,7 @@ function isStockTurnoverNotTooLow(stockName) {
     const prevNum = parseFloat(prev);
     if (isNaN(currNum) || isNaN(prevNum)) return true;
 
-    return currNum > prevNum * 0.9;
+    return currNum > prevNum * 0.85;
 }
 
 /** 判断股票当日成交额是否 < 前一日成交额 * 1.5（防止放量过快） */
@@ -236,20 +236,47 @@ function isSectorTurnoverDecreased(sectorName, type) {
     return Number(curr.成交额) < Number(prev.成交额) * 1.5;
 }
 
-/** 判断板块当日成交额是否 > 前一日成交额 * 0.85（防止缩量过快） */
+/** 判断板块当日成交额是否满足成交额趋势条件
+ *  前两日连续变小 → 当日 > 前一日 × 0.85
+ *  前一日变大     → 当日也变大
+ */
 function isSectorTurnoverNotTooLow(sectorName, type) {
     const sorted = sortDateFileList();
     const currentIdx = sorted.indexOf(currentDateFile);
     if (currentIdx <= 0) return true;
 
+    const currSectorList = (getCurrentData()?.data || {})[type] || [];
     const prevData = allDataByDate[sorted[currentIdx - 1]]?.data;
     if (!prevData) return true;
 
-    const currSectorList = (getCurrentData()?.data || {})[type] || [];
     const prevSectorList = prevData[type] || [];
     const curr = currSectorList.find(s => s.板块 === sectorName);
     const prev = prevSectorList.find(s => s.板块 === sectorName);
     if (!curr || !prev) return true;
 
-    return Number(curr.成交额) > Number(prev.成交额) * 0.85;
+    const currVal = Number(curr.成交额);
+    const prevVal = Number(prev.成交额);
+
+    // 取前两日数据（day-2），判断趋势
+    if (currentIdx >= 2) {
+        const prev2Data = allDataByDate[sorted[currentIdx - 2]]?.data;
+        if (prev2Data) {
+            const prev2SectorList = prev2Data[type] || [];
+            const prev2 = prev2SectorList.find(s => s.板块 === sectorName);
+            if (prev2) {
+                const prev2Val = Number(prev2.成交额);
+                // 前两日连续变小 → 当日 > 前一日 × 0.85
+                if (prev2Val > prevVal) {
+                    return currVal > prevVal * 0.85;
+                }
+                // 前一日变大 → 当日也变大
+                if (prevVal > prev2Val) {
+                    return currVal > prevVal;
+                }
+            }
+        }
+    }
+
+    // 数据不足或无prev2时，兜底用 0.85 阈值
+    return currVal > prevVal * 0.85;
 }
