@@ -570,8 +570,8 @@ function calcStockConsecutiveDays() {
     return stockDays;
 }
 
-/** 判断某股票当日成交额是否小于近5日内最大成交额 */
-function isStockTurnoverDecreased(stockName, activeData) {
+/** 判断某股票当日成交量是否小于近5日内最大成交量 */
+function isStockVolumeDecreased(stockName, activeData) {
     const sorted = sortDateFileList();
     const currentIdx = sorted.indexOf(currentDateFile);
     if (currentIdx <= 0) return true;
@@ -592,7 +592,7 @@ function isStockTurnoverDecreased(stockName, activeData) {
             const stocks = sector._parsedStocks || parseStocks(sector.涉及股票);
             for (const stock of stocks) {
                 if (stock.name === stockName) {
-                    found = parseFloat(stock.amount);
+                    found = parseFloat(stock.volume);
                     break;
                 }
             }
@@ -676,7 +676,7 @@ function updateLeaderArea(activeData) {
         if (!inFocus) continue;
 
         // 成交额小于前一日
-        if (!isStockTurnoverDecreased(stockName, activeData)) continue;
+        if (!isStockVolumeDecreased(stockName, activeData)) continue;
 
         // 股票连续流入天数 >= 所有所属板块最大天数-1
         const maxSectorDays = Math.max(...sectors.map(s => s.days));
