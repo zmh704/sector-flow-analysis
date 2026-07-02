@@ -104,6 +104,7 @@ function updateFocusArea(activeData) {
 
     const industries = industryList
         .filter(i => Number(i.主力净额) > 0 && i.板块 !== '所属行业' && i.板块 !== '所属概念')
+        .filter(i => isSectorTurnoverDecreased(i.板块, '行业板块资金流向'))
         .map(i => ({
             name: i.板块,
             days: calcConsecutiveInflow(i.板块, '行业板块资金流向'),
@@ -113,6 +114,7 @@ function updateFocusArea(activeData) {
 
     const concepts = conceptList
         .filter(c => Number(c.主力净额) > 0 && Number(c.股票数量) > 1 && c.板块 !== '所属行业' && c.板块 !== '所属概念')
+        .filter(c => isSectorTurnoverDecreased(c.板块, '概念板块资金流向'))
         .map(c => ({
             name: c.板块,
             days: calcConsecutiveInflow(c.板块, '概念板块资金流向'),
