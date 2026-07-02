@@ -54,6 +54,9 @@ function updateLeaderArea(activeData) {
         // 当日成交量小于近 VOLUME_WINDOW 日内最大成交量
         if (!isStockVolumeDecreased(stockName)) continue;
 
+        // 当日成交额 > 前一日成交额 * 0.9
+        if (!isStockTurnoverNotTooLow(stockName)) continue;
+
         // 股票连续流入天数 >= 所有所属板块最大天数 - LEADER_GAP
         const maxSectorDays = Math.max(...sectors.map(s => s.days));
         if (stockDays < maxSectorDays - LEADER_GAP) continue;
