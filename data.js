@@ -96,6 +96,14 @@ function getCurrentData() {
     return currentDateFile ? allDataByDate[currentDateFile] : null;
 }
 
+/** 切换当前选中日期，并失效依赖于该日期的缓存（连续天数/连续流入） */
+function setCurrentDateFile(filename) {
+    if (currentDateFile === filename) return;
+    currentDateFile = filename;
+    _consecutiveInflowCache = null;
+    _stockDaysCache = null;
+}
+
 function getActiveData() {
     return getCurrentData()?.data || {
         行业板块资金流向: [],
@@ -160,7 +168,7 @@ function renderDateButtons() {
     }
 
     if (!currentDateFile && dateFileList.length > 0) {
-        currentDateFile = sorted[sorted.length - 1];
+        setCurrentDateFile(sorted[sorted.length - 1]);
         const btns = container.querySelectorAll('.date-btn');
         if (btns.length > 0) {
             btns[btns.length - 1].classList.add('active');
@@ -175,7 +183,7 @@ function createDateButton(filename) {
     btn.className = 'date-btn';
     btn.textContent = item?.dateLabel || filename;
     btn.onclick = function() {
-        currentDateFile = filename;
+        setCurrentDateFile(filename);
         document.querySelectorAll('.date-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         updateCharts();
