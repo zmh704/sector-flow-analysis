@@ -125,7 +125,7 @@ function isStockVolumeDecreased(stockName) {
     return current < maxPrev;
 }
 
-/** 判断某股票当日成交额是否 > 前一日成交额 * 0.9（防止缩量过快） */
+/** 判断某股票当日成交额是否 > 前一日成交额 * 0.85（防止缩量过快） */
 function isStockTurnoverNotTooLow(stockName) {
     const sorted = sortDateFileList();
     const currentIdx = sorted.indexOf(currentDateFile);
@@ -140,7 +140,25 @@ function isStockTurnoverNotTooLow(stockName) {
     const prevNum = parseFloat(prev);
     if (isNaN(currNum) || isNaN(prevNum)) return true;
 
-    return currNum > prevNum * 0.9;
+    return currNum > prevNum * 0.85;
+}
+
+/** 判断股票当日成交额是否 < 前一日成交额 * 1.5（防止放量过快） */
+function isStockAmountNotTooHigh(stockName) {
+    const sorted = sortDateFileList();
+    const currentIdx = sorted.indexOf(currentDateFile);
+    if (currentIdx <= 0) return true;
+
+    const perDate = (_stockFieldIndex && _stockFieldIndex[stockName]) || {};
+    const prev = perDate[sorted[currentIdx - 1]]?.amount;
+    const curr = perDate[sorted[currentIdx]]?.amount;
+    if (curr == null || prev == null) return true;
+
+    const currNum = parseFloat(curr);
+    const prevNum = parseFloat(prev);
+    if (isNaN(currNum) || isNaN(prevNum)) return true;
+
+    return currNum < prevNum * 1.5;
 }
 
 /** 计算板块从当天往前连续主力净额>0的天数（带缓存） */
@@ -224,7 +242,7 @@ function isSectorTurnoverDecreased(sectorName, type) {
     return current < maxPrev;
 }
 
-/** 判断板块当日成交额是否 > 前一日成交额 * 0.9（防止缩量过快） */
+/** 判断板块当日成交额是否 > 前一日成交额 * 0.85（防止缩量过快） */
 function isSectorTurnoverNotTooLow(sectorName, type) {
     const sorted = sortDateFileList();
     const currentIdx = sorted.indexOf(currentDateFile);
@@ -239,5 +257,5 @@ function isSectorTurnoverNotTooLow(sectorName, type) {
     const prev = prevSectorList.find(s => s.板块 === sectorName);
     if (!curr || !prev) return true;
 
-    return Number(curr.成交额) > Number(prev.成交额) * 0.9;
+    return Number(curr.成交额) > Number(prev.成交额) * 0.85;
 }
