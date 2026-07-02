@@ -1,7 +1,21 @@
+// ===== 阈值常量（集中管理，避免散落不一致） =====
+const FOCUS_MIN_DAYS = 3;          // 关注板块 / 今日推荐条件②：板块连续流入最低天数
+const HIGHLIGHT_MIN_DAYS = 3;      // 板块标签红色高亮阈值
+const MODAL_DAYS_HIGHLIGHT = 2;    // 「查看全部」弹窗连续天数红色高亮阈值
+const LEADER_STOCK_MIN_DAYS = 2;   // 今日推荐：股票连续流入最低天数
+const LEADER_GAP = 1;              // 今日推荐：股票天数 vs 所属板块最大天数 容差
+const STAR_GAP = 1;                // 标星：股票天数 vs 板块天数 容差
+const VOLUME_WINDOW = 5;           // 成交量比较窗口（含当日，从选中日期往前）
+
 let allDataByDate = {};
 let dateFileList = [];
 let currentDateFile = null;
 let _sortedDateFileList = null;
+
+// ===== 计算缓存（随数据/选中日期变化而失效） =====
+let _consecutiveInflowCache = null;  // Map<"板块|type", days>
+let _stockDaysCache = null;          // Map<stockName, days>
+let _stockFieldIndex = null;         // { [stockName]: { [dateFile]: { volume, net, amount, change, code } } }
 
 let industryChart = null;
 let conceptChart = null;
@@ -46,19 +60,37 @@ function extractDateLabel(filename) {
     return filename.replace(/_.*$/, '');
 }
 
-/** 将日期标签（如"6月18日"）转为可排序的数字（如 618），解决跨月排序问题 */
-function toDateNum(label) {
+/**
+ * 将日期标签转为可排序的数字。
+ * 文件名仅含「月日」无年份，故用「生成时间」所在年份推断；
+ * 若文件月份比处理月份早半年以上，视为上一年数据（处理年末、次年初场景）。
+ * 例：处理时间 2026/1/5 + 文件「12月20日」→ 20251220。
+ */
+function toDateNum(label, genTime) {
     const m = label.match(/(\d{1,2})月(\d{1,2})日/);
-    return m ? Number(m[1]) * 100 + Number(m[2]) : 0;
+    if (!m) return 0;
+    const fileMonth = Number(m[1]);
+    let year = new Date().getFullYear();
+    if (genTime) {
+        const gt = new Date(genTime);
+        if (!isNaN(gt.getTime())) {
+            year = gt.getFullYear();
+            const procMonth = gt.getMonth() + 1;
+            if (fileMonth - procMonth >= 6) year = year - 1;
+        }
+    }
+    return year * 10000 + fileMonth * 100 + Number(m[2]);
 }
 
 /** 按日期标签排序 dateFileList，返回排序后的新数组（带缓存） */
 function sortDateFileList() {
     if (_sortedDateFileList) return _sortedDateFileList;
     _sortedDateFileList = [...dateFileList].sort((a, b) => {
-        const labelA = allDataByDate[a]?.dateLabel || a;
-        const labelB = allDataByDate[b]?.dateLabel || b;
-        return toDateNum(labelA) - toDateNum(labelB);
+        const entryA = allDataByDate[a];
+        const entryB = allDataByDate[b];
+        const labelA = entryA?.dateLabel || a;
+        const labelB = entryB?.dateLabel || b;
+        return toDateNum(labelA, entryA?.data?.生成时间) - toDateNum(labelB, entryB?.data?.生成时间);
     });
     return _sortedDateFileList;
 }
@@ -84,6 +116,30 @@ function storeDataForDate(filename, data) {
             item._parsedStocks = parseStocks(item.涉及股票);
         }
     }
+
+    // 构建股票字段索引（供 isStockVolumeDecreased 等 O(1) 查询）
+    _stockFieldIndex = _stockFieldIndex || {};
+    for (const item of [...industryList, ...conceptList]) {
+        const stocks = item._parsedStocks || parseStocks(item.涉及股票);
+        for (const stock of stocks) {
+            if (!_stockFieldIndex[stock.name]) _stockFieldIndex[stock.name] = {};
+            // 同一股票同一天可能在行业/概念重复出现，仅首次记录
+            if (!_stockFieldIndex[stock.name][key]) {
+                const vol = parseFloat(stock.volume);
+                const netNum = parseFloat(stock.net);
+                _stockFieldIndex[stock.name][key] = {
+                    volume: isNaN(vol) ? null : vol,
+                    net: isNaN(netNum) ? null : netNum,
+                    amount: stock.amount,
+                    change: stock.change,
+                    code: stock.code
+                };
+            }
+        }
+    }
+    // 新数据加入后，连续天数/连续流入缓存失效
+    _consecutiveInflowCache = null;
+    _stockDaysCache = null;
 }
 
 function getCurrentData() {
@@ -185,6 +241,9 @@ function resetLoadedData() {
     dateFileList = [];
     currentDateFile = null;
     _sortedDateFileList = null;
+    _consecutiveInflowCache = null;
+    _stockDaysCache = null;
+    _stockFieldIndex = null;
 }
 
 async function loadAllJsonFiles() {
@@ -267,10 +326,8 @@ function prepareChartData(data, count, prevDayData, flowFilter) {
     let negative = [];
     if (flowFilter === 'inflow') {
         positive = data.filter(item => Number(item.主力净额) > 0);
-    } else if (flowFilter === 'outflow') {
-        negative = data.filter(item => Number(item.主力净额) < 0);
     } else {
-        positive = data.filter(item => Number(item.主力净额) > 0);
+        // outflow（HTML 仅有 inflow/outflow 两个 radio）
         negative = data.filter(item => Number(item.主力净额) < 0);
     }
 
@@ -484,6 +541,16 @@ function updateCharts() {
     }
 }
 
+/** HTML 转义，防止 innerHTML 拼接时股票名等含特殊字符导致 XSS */
+function escapeHtml(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 /** 解析涉及股票字符串为结构化数组 */
 function parseStocks(stockStr) {
     if (!stockStr) return [];
@@ -508,7 +575,7 @@ function parseStocks(stockStr) {
 }
 
 // 点击股票 → 打开东方财富个股详情页
-function openInTDX(stockName, stockCode) {
+function openStockQuote(stockName, stockCode) {
     if (!stockCode) {
         alert('未找到股票「' + stockName + '」的代码');
         return;
@@ -519,11 +586,13 @@ function openInTDX(stockName, stockCode) {
     window.open(url, '_blank');
 }
 
-/** 计算每只股票从当天往前连续主力净额>0的天数 */
+/** 计算每只股票从当天往前连续主力净额>0的天数（带缓存） */
 function calcStockConsecutiveDays() {
+    if (_stockDaysCache) return _stockDaysCache;
+
     const sorted = sortDateFileList();
     const currentIdx = sorted.indexOf(currentDateFile);
-    if (currentIdx < 0) return new Map();
+    if (currentIdx < 0) { _stockDaysCache = new Map(); return _stockDaysCache; }
 
     // 预处理：每日期所有股票及其净额状态
     const dateStockMaps = [];
@@ -567,47 +636,56 @@ function calcStockConsecutiveDays() {
         stockDays.set(name, count);
     }
 
+    _stockDaysCache = stockDays;
     return stockDays;
 }
 
-/** 判断某股票当日成交量是否小于近5日内最大成交量 */
-function isStockVolumeDecreased(stockName, activeData) {
+/** 判断某股票当日成交量是否小于近 VOLUME_WINDOW 日内（不含当日）的最大成交量 */
+function isStockVolumeDecreased(stockName) {
     const sorted = sortDateFileList();
     const currentIdx = sorted.indexOf(currentDateFile);
     if (currentIdx <= 0) return true;
 
-    // 取近5日（含当日）数据
-    const startIdx = Math.max(0, currentIdx - 4);
-    const amounts = [];
+    const startIdx = Math.max(0, currentIdx - (VOLUME_WINDOW - 1));
+    const perDate = (_stockFieldIndex && _stockFieldIndex[stockName]) || {};
 
+    let maxPrev = -Infinity;
+    let current = null;
     for (let i = startIdx; i <= currentIdx; i++) {
-        const dayData = allDataByDate[sorted[i]]?.data;
-        if (!dayData) { amounts.push(null); continue; }
-        let found = null;
-        const allSectors = [
-            ...(dayData.行业板块资金流向 || []),
-            ...(dayData.概念板块资金流向 || [])
-        ];
-        for (const sector of allSectors) {
-            const stocks = sector._parsedStocks || parseStocks(sector.涉及股票);
-            for (const stock of stocks) {
-                if (stock.name === stockName) {
-                    found = parseFloat(stock.volume);
-                    break;
-                }
-            }
-            if (found !== null) break;
+        const v = perDate[sorted[i]]?.volume;
+        if (v == null) continue;  // 当天无该股票或无 volume 字段 → 跳过
+        if (i === currentIdx) {
+            current = v;
+        } else if (v > maxPrev) {
+            maxPrev = v;
         }
-        amounts.push(found);
     }
 
-    // 需要至少2天数据（含当日）
-    const validAmounts = amounts.filter(a => a !== null);
-    if (validAmounts.length < 2) return true;
-
-    const current = validAmounts[validAmounts.length - 1];
-    const maxPrev = Math.max(...validAmounts.slice(0, -1));
+    // 当日无数据，或前几日无有效数据可比较 → 视为通过
+    if (current == null || maxPrev === -Infinity) return true;
     return current < maxPrev;
+}
+
+/** 计算关注板块集合（净额>0 且 连续流入>=FOCUS_MIN_DAYS；概念另需股票数>1） */
+function getFocusSectors(activeData) {
+    const industryList = activeData.行业板块资金流向 || [];
+    const conceptList = activeData.概念板块资金流向 || [];
+    const set = new Set();
+    for (const sector of industryList) {
+        if (sector.板块 === '所属行业' || sector.板块 === '所属概念') continue;
+        if (Number(sector.主力净额) > 0 &&
+            calcConsecutiveInflow(sector.板块, '行业板块资金流向') >= FOCUS_MIN_DAYS) {
+            set.add(sector.板块);
+        }
+    }
+    for (const sector of conceptList) {
+        if (sector.板块 === '所属行业' || sector.板块 === '所属概念') continue;
+        if (Number(sector.主力净额) > 0 && Number(sector.股票数量) > 1 &&
+            calcConsecutiveInflow(sector.板块, '概念板块资金流向') >= FOCUS_MIN_DAYS) {
+            set.add(sector.板块);
+        }
+    }
+    return set;
 }
 
 function updateLeaderArea(activeData) {
@@ -626,22 +704,8 @@ function updateLeaderArea(activeData) {
     // 计算所有股票的连续流入天数
     const stockConsecutiveDays = calcStockConsecutiveDays();
 
-    // 计算哪些板块会在关注板块中显示（净额>0 且 连续流入>=2）
-    const focusSectors = new Set();
-    for (const sector of industryList) {
-        if (sector.板块 === '所属行业' || sector.板块 === '所属概念') continue;
-        if (Number(sector.主力净额) > 0) {
-            const d = calcConsecutiveInflow(sector.板块, '行业板块资金流向');
-            if (d >= 3) focusSectors.add(sector.板块);
-        }
-    }
-    for (const sector of conceptList) {
-        if (sector.板块 === '所属行业' || sector.板块 === '所属概念') continue;
-        if (Number(sector.主力净额) > 0 && Number(sector.股票数量) > 1) {
-            const d = calcConsecutiveInflow(sector.板块, '概念板块资金流向');
-            if (d >= 3) focusSectors.add(sector.板块);
-        }
-    }
+    // 关注板块集合（与关注板块区一致，复用公共函数避免阈值分歧）
+    const focusSectors = getFocusSectors(activeData);
 
     // 建立当前日期 股票→所属板块 的映射（过滤占位板块）
     const stockSectors = new Map();
@@ -669,18 +733,18 @@ function updateLeaderArea(activeData) {
     const leaders = [];
     for (const [stockName, sectors] of stockSectors) {
         const stockDays = stockConsecutiveDays.get(stockName) || 0;
-        if (stockDays < 2) continue;
+        if (stockDays < LEADER_STOCK_MIN_DAYS) continue;
 
         // 至少有一个所属板块在重点关注中
         const inFocus = sectors.some(s => focusSectors.has(s.name));
         if (!inFocus) continue;
 
-        // 成交额小于前一日
-        if (!isStockVolumeDecreased(stockName, activeData)) continue;
+        // 当日成交量小于近 VOLUME_WINDOW 日内最大成交量
+        if (!isStockVolumeDecreased(stockName)) continue;
 
-        // 股票连续流入天数 >= 所有所属板块最大天数-1
+        // 股票连续流入天数 >= 所有所属板块最大天数 - LEADER_GAP
         const maxSectorDays = Math.max(...sectors.map(s => s.days));
-        if (stockDays < maxSectorDays - 1) continue;
+        if (stockDays < maxSectorDays - LEADER_GAP) continue;
 
         const sectorNames = sectors
             .filter(s => s.days >= 1)
@@ -733,7 +797,7 @@ function updateFocusArea(activeData) {
             days: calcConsecutiveInflow(i.板块, '行业板块资金流向'),
             stocks: new Set((i._parsedStocks || parseStocks(i.涉及股票)).map(s => s.name))
         }))
-        .filter(i => i.days >= 3);
+        .filter(i => i.days >= FOCUS_MIN_DAYS);
 
     const concepts = conceptList
         .filter(c => Number(c.主力净额) > 0 && Number(c.股票数量) > 1 && c.板块 !== '所属行业' && c.板块 !== '所属概念')
@@ -742,7 +806,7 @@ function updateFocusArea(activeData) {
             days: calcConsecutiveInflow(c.板块, '概念板块资金流向'),
             stocks: new Set((c._parsedStocks || parseStocks(c.涉及股票)).map(s => s.name))
         }))
-        .filter(c => c.days >= 3);
+        .filter(c => c.days >= FOCUS_MIN_DAYS);
 
     if (industries.length === 0 && concepts.length === 0) {
         container.innerHTML = '<span style="color:#999;">暂无符合条件的关注板块</span>';
@@ -770,7 +834,7 @@ function updateFocusArea(activeData) {
             div.className = 'pair clickable';
             div.style.display = 'inline-block';
             div.title = `连续流入${item.days}天\\n点击查看最近10日趋势`;
-            const daysColor = item.days >= 3 ? '#dc2626' : '#2563eb';
+            const daysColor = item.days >= HIGHLIGHT_MIN_DAYS ? '#dc2626' : '#2563eb';
             div.innerHTML = `<span style="color:#2563eb;font-weight:600;">${item.name}</span> <span style="font-size:11px;color:${daysColor};font-weight:700;">${item.days}天</span>`;
             const industryStockStr = (industryList.find(i => i.板块 === item.name) || {}).涉及股票 || '';
             div.onclick = function() {
@@ -797,7 +861,7 @@ function updateFocusArea(activeData) {
             div.className = 'pair clickable';
             div.style.display = 'inline-block';
             div.title = `连续流入${item.days}天\\n点击查看最近10日趋势`;
-            const daysColor = item.days >= 3 ? '#dc2626' : '#7c3aed';
+            const daysColor = item.days >= HIGHLIGHT_MIN_DAYS ? '#dc2626' : '#7c3aed';
             div.innerHTML = `<span style="color:#7c3aed;font-weight:600;">${item.name}</span> <span style="font-size:11px;color:${daysColor};font-weight:700;">${item.days}天</span>`;
             const conceptStockStr = (conceptList.find(c => c.板块 === item.name) || {}).涉及股票 || '';
             div.onclick = function() {
@@ -820,13 +884,15 @@ function calcConsecutiveInflow(sectorName, type) {
     if (dateFileList.length < 2) return 0;
     if (!currentDateFile) return 0;
 
-    const sorted = sortDateFileList();
+    if (!_consecutiveInflowCache) _consecutiveInflowCache = new Map();
+    const key = sectorName + '|' + type;
+    if (_consecutiveInflowCache.has(key)) return _consecutiveInflowCache.get(key);
 
+    const sorted = sortDateFileList();
     const idx = sorted.indexOf(currentDateFile);
     if (idx < 0) return 0;
 
     let count = 0;
-
     for (let i = idx; i >= 0; i--) {
         const dayData = allDataByDate[sorted[i]]?.data;
         if (!dayData) break;
@@ -840,6 +906,7 @@ function calcConsecutiveInflow(sectorName, type) {
         count++;
     }
 
+    _consecutiveInflowCache.set(key, count);
     return count;
 }
 
@@ -901,7 +968,7 @@ function renderModalTable() {
         const sectorStyle = item._highlighted
             ? 'color:#e53935;font-weight:700'
             : '';
-        const daysStyle = item._days >= 2 && item._days !== '-'
+        const daysStyle = typeof item._days === 'number' && item._days >= MODAL_DAYS_HIGHLIGHT
             ? 'color:#e53935;font-weight:700'
             : 'color:#555';
 
@@ -955,7 +1022,7 @@ function showAllData(type) {
         let highlighted = false;
         if (val > 0) {
             days = calcConsecutiveInflow(item.板块, type);
-            highlighted = days >= 2;
+            highlighted = days >= MODAL_DAYS_HIGHLIGHT;
         }
         return {
             ...item,
@@ -1138,21 +1205,20 @@ function renderStockTable(panelList, stocks, bgSet, starSet, stockDaysMap) {
         const isBg = bs.has(stock.name);
         const isStarred = ss.has(stock.name);
         if (isBg) tr.classList.add('stock-common');
-        const escName = stock.name.replace(/'/g, "\\'");
         const changeNum = parseFloat(stock.change);
         const changeColor = changeNum >= 0 ? 'color:#e53935;' : 'color:#43a047;';
         const changeArrow = changeNum >= 0 ? '▲' : '▼';
         const stockDays = sdm.get(stock.name) || 0;
         tr.innerHTML = `
             <td>${i + 1}</td>
-            <td>${isStarred ? '⭐ ' : ''}${stock.name}</td>
-            <td>${stock.amount}</td>
-            <td style="${changeColor}">${stock.net}</td>
-            <td style="${changeColor}font-weight:600;">${changeArrow} ${stock.change}</td>
+            <td>${isStarred ? '⭐ ' : ''}${escapeHtml(stock.name)}</td>
+            <td>${escapeHtml(stock.amount)}</td>
+            <td style="${changeColor}">${escapeHtml(stock.net)}</td>
+            <td style="${changeColor}font-weight:600;">${changeArrow} ${escapeHtml(stock.change)}</td>
             <td style="text-align:center;color:#888;font-size:11px;">${stockDays > 0 ? stockDays + '天' : '-'}</td>
         `;
         tr.style.cursor = 'pointer';
-        tr.onclick = function() { openInTDX(escName, stock.code); };
+        tr.onclick = function() { openStockQuote(stock.name, stock.code); };
         tbody.appendChild(tr);
     });
     table.appendChild(tbody);
@@ -1184,13 +1250,13 @@ function showStocksInPanel(sectorName, type, commonStockNames) {
         panelTitle.textContent = `${typeLabel} ${sectorName}`;
     }
 
-    // 计算五角星：股票连续流入天数 >= 板块连续流入天数-1 且 成交量小于5日内最大成交量
+    // 计算五角星：股票连续流入天数 >= 板块连续流入天数 - STAR_GAP 且 成交量小于窗口内最大
     const sectorDays = calcConsecutiveInflow(sectorName, type);
     const stockDaysMap = calcStockConsecutiveDays();
     const starSet = new Set();
     for (const stock of stocks) {
         const sDays = stockDaysMap.get(stock.name) || 0;
-        if (sDays >= sectorDays - 1 && isStockVolumeDecreased(stock.name, activeData)) starSet.add(stock.name);
+        if (sDays >= sectorDays - STAR_GAP && isStockVolumeDecreased(stock.name)) starSet.add(stock.name);
     }
 
     renderStockTable(panelList, stocks, commonStockNames, starSet, stockDaysMap);
@@ -1245,7 +1311,7 @@ function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, c
             matchedSectors.sort((a, b) => b.days - a.days).forEach((s) => {
                 const tag = document.createElement('span');
                 tag.className = 'pair clickable';
-                const sDaysColor = s.days >= 3 ? '#dc2626' : otherColor;
+                const sDaysColor = s.days >= HIGHLIGHT_MIN_DAYS ? '#dc2626' : otherColor;
                 tag.innerHTML = `<span style="color:${otherColor};">${s.name}</span> <span style="color:${sDaysColor};font-size:11px;">${s.days}天</span>`;
                 tag.title = '点击查看涉及股票';
                 const sCommonStocks = s.commonStocks || [];
@@ -1269,14 +1335,14 @@ function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, c
         }
         const panelList = document.getElementById('stockPanelList');
         if (panelList) {
-            // 计算五角星：股票连续流入天数 >= 板块连续流入天数-1 且 成交量小于5日内最大成交量
+            // 计算五角星：股票连续流入天数 >= 板块连续流入天数 - STAR_GAP 且 成交量小于窗口内最大
             const sectorDays = calcConsecutiveInflow(sectorName, type);
             const stockDaysMap = calcStockConsecutiveDays();
             const activeData = getCurrentActiveData();
             const starSet = new Set();
             for (const stock of stocks) {
                 const sDays = stockDaysMap.get(stock.name) || 0;
-                if (sDays >= sectorDays - 1 && activeData && isStockVolumeDecreased(stock.name, activeData)) starSet.add(stock.name);
+                if (activeData && sDays >= sectorDays - STAR_GAP && isStockVolumeDecreased(stock.name)) starSet.add(stock.name);
             }
             renderStockTable(panelList, stocks, commonStockNames, starSet, stockDaysMap);
         }
