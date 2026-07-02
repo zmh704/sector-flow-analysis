@@ -165,7 +165,8 @@ function getFocusSectors(activeData) {
         if (sector.板块 === '所属行业' || sector.板块 === '所属概念') continue;
         if (Number(sector.主力净额) > 0 &&
             calcConsecutiveInflow(sector.板块, '行业板块资金流向') >= FOCUS_MIN_DAYS &&
-            isSectorTurnoverDecreased(sector.板块, '行业板块资金流向')) {
+            isSectorTurnoverDecreased(sector.板块, '行业板块资金流向') &&
+            isSectorTurnoverNotTooLow(sector.板块, '行业板块资金流向')) {
             set.add(sector.板块);
         }
     }
@@ -173,7 +174,8 @@ function getFocusSectors(activeData) {
         if (sector.板块 === '所属行业' || sector.板块 === '所属概念') continue;
         if (Number(sector.主力净额) > 0 && Number(sector.股票数量) > 1 &&
             calcConsecutiveInflow(sector.板块, '概念板块资金流向') >= FOCUS_MIN_DAYS &&
-            isSectorTurnoverDecreased(sector.板块, '概念板块资金流向')) {
+            isSectorTurnoverDecreased(sector.板块, '概念板块资金流向') &&
+            isSectorTurnoverNotTooLow(sector.板块, '概念板块资金流向')) {
             set.add(sector.板块);
         }
     }
@@ -202,4 +204,22 @@ function isSectorTurnoverDecreased(sectorName, type) {
     const current = valid[valid.length - 1];
     const maxPrev = Math.max(...valid.slice(0, -1));
     return current < maxPrev;
+}
+
+/** 判断板块当日成交额是否 > 前一日成交额 * 0.8（防止缩量过快） */
+function isSectorTurnoverNotTooLow(sectorName, type) {
+    const sorted = sortDateFileList();
+    const currentIdx = sorted.indexOf(currentDateFile);
+    if (currentIdx <= 0) return true;
+
+    const prevData = allDataByDate[sorted[currentIdx - 1]]?.data;
+    if (!prevData) return true;
+
+    const currSectorList = (getCurrentData()?.data || {})[type] || [];
+    const prevSectorList = prevData[type] || [];
+    const curr = currSectorList.find(s => s.板块 === sectorName);
+    const prev = prevSectorList.find(s => s.板块 === sectorName);
+    if (!curr || !prev) return true;
+
+    return Number(curr.成交额) > Number(prev.成交额) * 0.8;
 }
