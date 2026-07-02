@@ -257,19 +257,23 @@ function isSectorTurnoverNotTooLow(sectorName, type) {
     const currVal = Number(curr.成交额);
     const prevVal = Number(prev.成交额);
 
-    // 取前两日数据（day-2），判断趋势
-    if (currentIdx >= 2) {
+    // 取前两日（day-2）和前日-1日（day-3）数据，判断趋势
+    if (currentIdx >= 3) {
         const prev2Data = allDataByDate[sorted[currentIdx - 2]]?.data;
-        if (prev2Data) {
+        const prev3Data = allDataByDate[sorted[currentIdx - 3]]?.data;
+        if (prev2Data && prev3Data) {
             const prev2SectorList = prev2Data[type] || [];
+            const prev3SectorList = prev3Data[type] || [];
             const prev2 = prev2SectorList.find(s => s.板块 === sectorName);
-            if (prev2) {
+            const prev3 = prev3SectorList.find(s => s.板块 === sectorName);
+            if (prev2 && prev3) {
                 const prev2Val = Number(prev2.成交额);
-                // 前两日连续变小 → 当日 > 前一日 × 0.85
-                if (prev2Val > prevVal) {
+                const prev3Val = Number(prev3.成交额);
+                // 前两日连续变小：昨日<前日 且 前日<前日-1日 → 当日 > 前一日 × 0.85
+                if (prevVal < prev2Val && prev2Val < prev3Val) {
                     return currVal > prevVal * 0.85;
                 }
-                // 前一日变大 → 当日也变大
+                // 前一日变大（前日-1<前日）→ 当日也变大
                 if (prevVal > prev2Val) {
                     return currVal > prevVal;
                 }
