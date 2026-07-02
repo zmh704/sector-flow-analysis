@@ -1,9 +1,9 @@
 // ===== 全局常量、状态与缓存（必须在其他脚本之前加载） =====
 
 // 阈值常量（集中管理，避免散落不一致）
-const FOCUS_MIN_DAYS = 3;          // 关注板块 / 今日推荐条件②：板块连续流入最低天数
+const FOCUS_MIN_DAYS = 2;          // 关注板块 / 今日推荐条件②：板块连续流入最低天数
 const HIGHLIGHT_MIN_DAYS = 3;      // 板块标签红色高亮阈值
-const MODAL_DAYS_HIGHLIGHT = 2;    // 「查看全部」弹窗连续天数红色高亮阈值
+const MODAL_DAYS_HIGHLIGHT = 3;    // 「查看全部」弹窗连续天数红色高亮阈值
 const LEADER_STOCK_MIN_DAYS = 2;   // 今日推荐：股票连续流入最低天数
 const LEADER_GAP = 1;              // 今日推荐：股票天数 vs 所属板块最大天数 容差
 const STAR_GAP = 1;                // 标星：股票天数 vs 板块天数 容差

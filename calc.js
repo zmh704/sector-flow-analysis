@@ -125,7 +125,7 @@ function isStockVolumeDecreased(stockName) {
     return current < maxPrev;
 }
 
-/** 判断某股票当日成交额是否 > 前一日成交额 * 0.85（防止缩量过快） */
+/** 判断某股票当日成交额是否 > 前一日成交额 * 0.9（防止缩量过快） */
 function isStockTurnoverNotTooLow(stockName) {
     const sorted = sortDateFileList();
     const currentIdx = sorted.indexOf(currentDateFile);
@@ -140,7 +140,7 @@ function isStockTurnoverNotTooLow(stockName) {
     const prevNum = parseFloat(prev);
     if (isNaN(currNum) || isNaN(prevNum)) return true;
 
-    return currNum > prevNum * 0.85;
+    return currNum > prevNum * 0.9;
 }
 
 /** 判断股票当日成交额是否 < 前一日成交额 * 1.5（防止放量过快） */
@@ -218,28 +218,22 @@ function getFocusSectors(activeData) {
     return set;
 }
 
-/** 判断板块当日成交额是否小于近 VOLUME_WINDOW 日内最大成交额 */
+/** 判断板块当日成交额是否 < 前一日成交额 * 1.5（防止放量过快） */
 function isSectorTurnoverDecreased(sectorName, type) {
     const sorted = sortDateFileList();
     const currentIdx = sorted.indexOf(currentDateFile);
     if (currentIdx <= 0) return true;
 
-    const startIdx = Math.max(0, currentIdx - VOLUME_WINDOW + 1);
-    const amounts = [];
+    const prevData = allDataByDate[sorted[currentIdx - 1]]?.data;
+    if (!prevData) return true;
 
-    for (let i = startIdx; i <= currentIdx; i++) {
-        const dayData = allDataByDate[sorted[i]]?.data;
-        if (!dayData) { amounts.push(null); continue; }
-        const sectorList = dayData[type] || [];
-        const sector = sectorList.find(s => s.板块 === sectorName);
-        amounts.push(sector ? Number(sector.成交额) : null);
-    }
+    const currSectorList = (getCurrentData()?.data || {})[type] || [];
+    const prevSectorList = prevData[type] || [];
+    const curr = currSectorList.find(s => s.板块 === sectorName);
+    const prev = prevSectorList.find(s => s.板块 === sectorName);
+    if (!curr || !prev) return true;
 
-    const valid = amounts.filter(a => a !== null);
-    if (valid.length < 2) return true;
-    const current = valid[valid.length - 1];
-    const maxPrev = Math.max(...valid.slice(0, -1));
-    return current < maxPrev;
+    return Number(curr.成交额) < Number(prev.成交额) * 1.5;
 }
 
 /** 判断板块当日成交额是否 > 前一日成交额 * 0.85（防止缩量过快） */
