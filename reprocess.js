@@ -34,7 +34,8 @@ function analyzeFundFlow(workbook) {
         concept: ['概念板块', '所属概念', '概念', 'concept'],
         net: ['主力净额', '主力资金净额', '主力净买入', 'main_net'],
         turnover: ['成交额', '总成交额', '成交金额', '成交额(元)', 'volume'],
-        change: ['涨跌幅', '涨跌幅(%)', '涨跌幅度', 'change_pct']
+        change: ['涨跌幅', '涨跌幅(%)', '涨跌幅度', 'change_pct'],
+        volume: ['成交量(手)', '成交量', '成交股数', 'vol', 'volume']
     };
     const cols = Object.keys(rows[0]);
     for (const [key, names] of Object.entries(candidates)) {
@@ -60,7 +61,9 @@ function analyzeFundFlow(workbook) {
         const volStr = formatCurrency(turnover);
         const netStr = (net >= 0 ? '+' : '') + formatCurrency(net);
         const changeStr = change !== null ? (change >= 0 ? '+' : '') + change.toFixed(2) + '%' : '';
-        const stockStr = change !== null ? `${name}(${code}|${volStr}|${netStr}|${changeStr})` : `${name}(${code}|${volStr}|${netStr})`;
+        const volumeNum = colMap.volume ? parseFloat(row[colMap.volume]) || 0 : null;
+        const volumeStr = volumeNum !== null ? `${(volumeNum / 1e4).toFixed(0)}万手` : '';
+        const stockStr = change !== null ? `${name}(${code}|${volStr}|${netStr}|${changeStr}|${volumeStr})` : `${name}(${code}|${volStr}|${netStr}|${volumeStr})`;
 
         for (const ind of parseSectors(String(row[colMap.industry]))) {
             const s = getOrInit(industryStats, ind);

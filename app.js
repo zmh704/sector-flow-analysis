@@ -497,12 +497,13 @@ function parseStocks(stockStr) {
                 code: parts[0] || '',
                 amount: parts[1] || '',
                 net: parts[2] || '',
-                change: parts[3] || ''
+                change: parts[3] || '',
+                volume: parts[4] || ''
             };
         }
         const nameOnly = s.trim().match(/^(.+?)\(/);
         if (nameOnly && nameOnly[1] === '股票简称') return null;
-        return nameOnly ? { name: nameOnly[1], code: '', amount: '', net: '', change: '' } : null;
+        return nameOnly ? { name: nameOnly[1], code: '', amount: '', net: '', change: '', volume: '' } : null;
     }).filter(Boolean);
 }
 
