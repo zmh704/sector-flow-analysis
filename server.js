@@ -85,7 +85,7 @@ function analyzeFundFlow(workbook) {
     const conceptStats = {};
 
     function getOrInit(map, key) {
-        if (!map[key]) map[key] = { totalNet: 0, totalTurnover: 0, count: 0, stocks: [] };
+        if (!map[key]) map[key] = { totalNet: 0, totalTurnover: 0, count: 0, stocks: [], stockSet: new Set() };
         return map[key];
     }
 
@@ -113,7 +113,10 @@ function analyzeFundFlow(workbook) {
             s.totalNet += net;
             s.totalTurnover += turnover;
             s.count++;
-            s.stocks.push(stockStr);
+            if (!s.stockSet.has(stockStr)) {
+                s.stockSet.add(stockStr);
+                s.stocks.push(stockStr);
+            }
         }
 
         const cons = parseSectors(String(row[colMap.concept]));
@@ -122,7 +125,10 @@ function analyzeFundFlow(workbook) {
             s.totalNet += net;
             s.totalTurnover += turnover;
             s.count++;
-            s.stocks.push(stockStr);
+            if (!s.stockSet.has(stockStr)) {
+                s.stockSet.add(stockStr);
+                s.stocks.push(stockStr);
+            }
         }
     }
 

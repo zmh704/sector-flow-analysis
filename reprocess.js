@@ -47,7 +47,7 @@ function analyzeFundFlow(workbook) {
     if (missing.length > 0) throw new Error('无法找到必要列: ' + missing.join(', ') + '。可用列: ' + cols.join(', '));
 
     const industryStats = {}, conceptStats = {};
-    function getOrInit(map, key) { if (!map[key]) map[key] = { totalNet: 0, totalTurnover: 0, count: 0, stocks: [] }; return map[key]; }
+    function getOrInit(map, key) { if (!map[key]) map[key] = { totalNet: 0, totalTurnover: 0, count: 0, stocks: [], stockSet: new Set() }; return map[key]; }
     const hasChange = !!colMap.change;
 
     for (const row of rows) {
@@ -64,11 +64,13 @@ function analyzeFundFlow(workbook) {
 
         for (const ind of parseSectors(String(row[colMap.industry]))) {
             const s = getOrInit(industryStats, ind);
-            s.totalNet += net; s.totalTurnover += turnover; s.count++; s.stocks.push(stockStr);
+            s.totalNet += net; s.totalTurnover += turnover; s.count++;
+            if (!s.stockSet.has(stockStr)) { s.stockSet.add(stockStr); s.stocks.push(stockStr); }
         }
         for (const con of parseSectors(String(row[colMap.concept]))) {
             const s = getOrInit(conceptStats, con);
-            s.totalNet += net; s.totalTurnover += turnover; s.count++; s.stocks.push(stockStr);
+            s.totalNet += net; s.totalTurnover += turnover; s.count++;
+            if (!s.stockSet.has(stockStr)) { s.stockSet.add(stockStr); s.stocks.push(stockStr); }
         }
     }
 
