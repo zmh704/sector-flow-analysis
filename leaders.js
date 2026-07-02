@@ -51,18 +51,22 @@ function updateLeaderArea(activeData) {
         const inFocus = sectors.some(s => focusSectors.has(s.name));
         if (!inFocus) continue;
 
-        // 当日成交量小于近 VOLUME_WINDOW 日内最大成交量
-        if (!isStockVolumeDecreased(stockName)) continue;
-
         // 当日成交额 > 前一日成交额 * 0.9
         if (!isStockTurnoverNotTooLow(stockName)) continue;
 
         // 当日成交额 < 前一日成交额 * 1.5
         if (!isStockAmountNotTooHigh(stockName)) continue;
 
+        // 所有所属板块当日成交额均 < 板块前一日成交额 * 1.5
+        const allSectorsOK = sectors.every(s => {
+            const st = s.type === '行业' ? '行业板块资金流向' : '概念板块资金流向';
+            return isSectorTurnoverDecreased(s.name, st);
+        });
+        if (!allSectorsOK) continue;
+
         // 股票连续流入天数 >= 所有所属板块最大天数 - LEADER_GAP
         const maxSectorDays = Math.max(...sectors.map(s => s.days));
-        if (stockDays < maxSectorDays - LEADER_GAP) continue;
+        // if (stockDays < maxSectorDays - LEADER_GAP) continue;
 
         const sectorNames = sectors
             .filter(s => s.days >= 1)
