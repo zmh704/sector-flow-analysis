@@ -171,7 +171,7 @@ function getTrendData(sectorName, type) {
         }
         const sector = sectorMap.get(sectorName);
         if (sector) {
-            values.push(Number(sector.主力净额) / 100000000);
+            values.push(Number(sector.成交额) / 100000000);
         } else {
             values.push(0);
         }
@@ -240,7 +240,7 @@ function createBarChart(ctx, trendData, existingChart) {
                 y: {
                     title: {
                         display: true,
-                        text: '主力净额（亿）',
+                        text: '成交额（亿）',
                         font: { size: 13, weight: 'bold' }
                     },
                     grid: {
@@ -249,8 +249,7 @@ function createBarChart(ctx, trendData, existingChart) {
                     ticks: {
                         font: { size: 12 },
                         callback: function(value) {
-                            const sign = value >= 0 ? '+' : '';
-                            return sign + value.toFixed(1);
+                            return value.toFixed(1);
                         }
                     }
                 }
