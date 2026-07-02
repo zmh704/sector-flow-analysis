@@ -631,14 +631,14 @@ function updateLeaderArea(activeData) {
         if (sector.板块 === '所属行业' || sector.板块 === '所属概念') continue;
         if (Number(sector.主力净额) > 0) {
             const d = calcConsecutiveInflow(sector.板块, '行业板块资金流向');
-            if (d >= 2) focusSectors.add(sector.板块);
+            if (d >= 3) focusSectors.add(sector.板块);
         }
     }
     for (const sector of conceptList) {
         if (sector.板块 === '所属行业' || sector.板块 === '所属概念') continue;
         if (Number(sector.主力净额) > 0 && Number(sector.股票数量) > 1) {
             const d = calcConsecutiveInflow(sector.板块, '概念板块资金流向');
-            if (d >= 2) focusSectors.add(sector.板块);
+            if (d >= 3) focusSectors.add(sector.板块);
         }
     }
 
@@ -732,7 +732,7 @@ function updateFocusArea(activeData) {
             days: calcConsecutiveInflow(i.板块, '行业板块资金流向'),
             stocks: new Set((i._parsedStocks || parseStocks(i.涉及股票)).map(s => s.name))
         }))
-        .filter(i => i.days >= 2);
+        .filter(i => i.days >= 3);
 
     const concepts = conceptList
         .filter(c => Number(c.主力净额) > 0 && Number(c.股票数量) > 1 && c.板块 !== '所属行业' && c.板块 !== '所属概念')
@@ -741,7 +741,7 @@ function updateFocusArea(activeData) {
             days: calcConsecutiveInflow(c.板块, '概念板块资金流向'),
             stocks: new Set((c._parsedStocks || parseStocks(c.涉及股票)).map(s => s.name))
         }))
-        .filter(c => c.days >= 2);
+        .filter(c => c.days >= 3);
 
     if (industries.length === 0 && concepts.length === 0) {
         container.innerHTML = '<span style="color:#999;">暂无符合条件的关注板块</span>';
