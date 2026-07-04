@@ -87,21 +87,19 @@ function storeDataForDate(filename, data) {
             }
         }
     }
-    // 新数据加入后，连续天数/连续流入缓存失效
-    _consecutiveInflowCache = null;
-    _stockDaysCache = null;
+    // 新数据加入后，日期依赖的缓存失效
+    invalidateDateCaches();
 }
 
 function getCurrentData() {
     return currentDateFile ? allDataByDate[currentDateFile] : null;
 }
 
-/** 切换当前选中日期，并失效依赖于该日期的缓存（连续天数/连续流入） */
+/** 切换当前选中日期，并失效依赖于该日期的缓存 */
 function setCurrentDateFile(filename) {
     if (currentDateFile === filename) return;
     currentDateFile = filename;
-    _consecutiveInflowCache = null;
-    _stockDaysCache = null;
+    invalidateDateCaches();
 }
 
 function getActiveData() {
@@ -198,10 +196,7 @@ function resetLoadedData() {
     allDataByDate = {};
     dateFileList = [];
     currentDateFile = null;
-    _sortedDateFileList = null;
-    _consecutiveInflowCache = null;
-    _stockDaysCache = null;
-    _stockFieldIndex = null;
+    invalidateAllCaches();
 }
 
 async function loadAllJsonFiles() {

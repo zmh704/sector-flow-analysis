@@ -114,8 +114,19 @@
                 <div class="trend-common-stocks" id="trendMatchedSectors"></div>
                 <div class="trend-main-row">
                     <div class="trend-left">
-                        <div class="chart-wrap">
-                            <canvas id="trendChart"></canvas>
+                        <div class="trend-chart-tabs">
+                            <button class="trend-tab-btn active" id="trendChartTabBtn" onclick="switchTrendChartTab('chart')">📊 板块净额</button>
+                            <button class="trend-tab-btn" id="trendStockTabBtn" onclick="switchTrendChartTab('stock')">📈 个股详情</button>
+                        </div>
+                        <div class="trend-chart-content active" id="trendChartContent">
+                            <div class="chart-wrap">
+                                <canvas id="trendChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="trend-chart-content" id="trendStockContent">
+                            <div class="chart-wrap" style="position:relative;min-height:300px;margin-top:10px;">
+                                <iframe id="trendStockIframe" class="stock-iframe" src="about:blank" style="width:100%;height:100%;border:1px solid #e0e0e0;border-radius:8px;"></iframe>
+                            </div>
                         </div>
                     </div>
                     <div class="trend-right">
@@ -129,8 +140,8 @@
     </div>
 
     <script src="config.js"></script>
-    <script src="data.js"></script>
     <script src="calc.js"></script>
+    <script src="data.js"></script>
     <script src="charts.js"></script>
     <script src="leaders.js"></script>
     <script src="modals.js"></script>

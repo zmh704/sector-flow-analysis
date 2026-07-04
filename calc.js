@@ -33,15 +33,21 @@ function parseStocks(stockStr) {
     }).filter(Boolean);
 }
 
-// 点击股票 → 打开东方财富个股详情页
+// 点击股票 → 打开个股详情（弹窗内用iframe，否则新窗口）
 function openStockQuote(stockName, stockCode) {
     if (!stockCode) {
         alert('未找到股票「' + stockName + '」的代码');
         return;
     }
-    // A股市场判断：6开头 → sh(上海)，其余 → sz(深圳)
+    // 如果趋势弹窗打开，在弹窗内加载
+    const trendModal = document.getElementById('trendModalOverlay');
+    if (trendModal && trendModal.classList.contains('active')) {
+        loadTrendStock(stockName, stockCode);
+        return;
+    }
+    // 否则新窗口打开
     const exchange = stockCode.startsWith('6') ? 'sh' : 'sz';
-    const url = 'https://quote.eastmoney.com/' + exchange + stockCode + '.html';
+    const url = 'https://quote.eastmoney.com/' + exchange + stockCode + '.html#fullScreenChart';
     window.open(url, '_blank');
 }
 
@@ -140,7 +146,7 @@ function isStockTurnoverNotTooLow(stockName) {
     const prevNum = parseFloat(prev);
     if (isNaN(currNum) || isNaN(prevNum)) return true;
 
-    return currNum > prevNum * 0.85;
+    return currNum > prevNum * 0.9;
 }
 
 /** 判断股票当日成交额是否 < 前一日成交额 * 1.5（防止放量过快） */
@@ -159,6 +165,30 @@ function isStockAmountNotTooHigh(stockName) {
     if (isNaN(currNum) || isNaN(prevNum)) return true;
 
     return currNum < prevNum * 1.5;
+}
+
+/** 判断股票：如果当日成交量 > 昨日成交量，则涨跌幅必须 < 5% */
+function isStockVolumeUpChangeLimited(stockName) {
+    const sorted = sortDateFileList();
+    const currentIdx = sorted.indexOf(currentDateFile);
+    if (currentIdx <= 0) return true;
+
+    const perDate = (_stockFieldIndex && _stockFieldIndex[stockName]) || {};
+    const curr = perDate[sorted[currentIdx]];
+    const prev = perDate[sorted[currentIdx - 1]];
+    if (!curr || !prev) return true;
+
+    const currVol = curr.volume;
+    const prevVol = prev.volume;
+    if (currVol == null || prevVol == null) return true;
+
+    // 成交量未放大 → 不限制
+    if (currVol <= prevVol) return true;
+
+    // 成交量放大 → 检查涨跌幅 < 5%
+    const changeNum = parseFloat(curr.change);
+    if (isNaN(changeNum)) return true;
+    return changeNum < 5;
 }
 
 /** 计算板块从当天往前连续主力净额>0的天数（带缓存） */
@@ -192,28 +222,64 @@ function calcConsecutiveInflow(sectorName, type) {
     return count;
 }
 
-/** 计算关注板块集合（净额>0 且 连续流入>=FOCUS_MIN_DAYS；概念另需股票数>1） */
+/** 计算关注板块集合（净额>0 且 连续流入>=FOCUS_MIN_DAYS） */
 function getFocusSectors(activeData) {
     const industryList = activeData.行业板块资金流向 || [];
     const conceptList = activeData.概念板块资金流向 || [];
     const set = new Set();
+
+    // 调试：查找家电零部件
+    const allIndustryNames = industryList.map(s => s.板块);
+    const allConceptNames = conceptList.map(s => s.板块);
+    console.log('所有行业板块:', allIndustryNames);
+    console.log('所有概念板块:', allConceptNames);
+    const inIndustry = allIndustryNames.includes('家电零部件');
+    const inConcept = allConceptNames.includes('家电零部件');
+    console.log('家电零部件 在行业中:', inIndustry, '在概念中:', inConcept);
+    // 模糊搜索含"家电"的板块
+    console.log('含"家电"的板块:', [...allIndustryNames, ...allConceptNames].filter(n => n.includes('家电')));
+
     for (const sector of industryList) {
-        if (sector.板块 === '所属行业' || sector.板块 === '所属概念') continue;
-        if (Number(sector.主力净额) > 0 &&
-            calcConsecutiveInflow(sector.板块, '行业板块资金流向') >= FOCUS_MIN_DAYS &&
-            // isSectorTurnoverDecreased(sector.板块, '行业板块资金流向') &&
-            isSectorTurnoverNotTooLow(sector.板块, '行业板块资金流向')) {
-            set.add(sector.板块);
+        const type = '行业板块资金流向';
+
+        // 家电零部件 逐条件检查
+        if (sector.板块 === '家电零部件') {
+            console.log('家电零部件(行业) 逐条件:', {
+                cond2: condNotPlaceholder(sector),
+                cond1: condNetPositive(sector),
+                cond3: condAmountNotTooHigh(sector.板块, type),
+                cond4: condTurnoverTrend(sector.板块, type),
+                cond5: condMinDays(sector.板块, type),
+                主力净额: Number(sector.主力净额),
+                成交额: Number(sector.成交额),
+                昨日成交额_1_5倍: (() => {
+                    const sorted = sortDateFileList();
+                    const idx = sorted.indexOf(currentDateFile);
+                    if (idx <= 0) return '无昨日数据';
+                    const prevData = allDataByDate[sorted[idx - 1]]?.data;
+                    if (!prevData) return '无昨日数据';
+                    const prevList = prevData[type] || [];
+                    const prev = prevList.find(s => s.板块 === sector.板块);
+                    return prev ? Number(prev.成交额) * 1.5 : '无昨日该板块';
+                })()
+            });
         }
+
+        if (!condNotPlaceholder(sector)) continue;          // 条件②：板块名 ≠ '所属行业' / '所属概念'
+        if (!condNetPositive(sector)) continue;             // 条件①：主力净额 > 0
+        if (!condAmountNotTooHigh(sector.板块, type)) continue;  // 条件③：板块成交额 < 昨日成交额 × 1.5
+        if (!condTurnoverTrend(sector.板块, type)) continue;     // 条件④：成交额趋势（连续变小→>昨日×0.85 / 变大→也变大）
+        if (!condMinDays(sector.板块, type)) continue;           // 条件⑤：连续流入天数 >= FOCUS_MIN_DAYS
+        set.add(sector.板块);
     }
     for (const sector of conceptList) {
-        if (sector.板块 === '所属行业' || sector.板块 === '所属概念') continue;
-        if (Number(sector.主力净额) > 0 && Number(sector.股票数量) > 1 &&
-            calcConsecutiveInflow(sector.板块, '概念板块资金流向') >= FOCUS_MIN_DAYS &&
-            // isSectorTurnoverDecreased(sector.板块, '概念板块资金流向') &&
-            isSectorTurnoverNotTooLow(sector.板块, '概念板块资金流向')) {
-            set.add(sector.板块);
-        }
+        const type = '概念板块资金流向';
+        if (!condNotPlaceholder(sector)) continue;          // 条件②：板块名 ≠ '所属行业' / '所属概念'
+        if (!condNetPositive(sector)) continue;             // 条件①：主力净额 > 0
+        if (!condAmountNotTooHigh(sector.板块, type)) continue;  // 条件③：板块成交额 < 昨日成交额 × 1.5
+        if (!condTurnoverTrend(sector.板块, type)) continue;     // 条件④：成交额趋势（连续变小→>昨日×0.85 / 变大→也变大）
+        if (!condMinDays(sector.板块, type)) continue;           // 条件⑤：连续流入天数 >= FOCUS_MIN_DAYS
+        set.add(sector.板块);
     }
     return set;
 }
@@ -236,9 +302,28 @@ function isSectorTurnoverDecreased(sectorName, type) {
     return Number(curr.成交额) < Number(prev.成交额) * 1.5;
 }
 
+/** 判断板块当日成交额是否 > 前一日成交额 * 0.9（用于今日推荐：高强度板块缩量不严重） */
+function isSectorAbove090(sectorName, type) {
+    const sorted = sortDateFileList();
+    const currentIdx = sorted.indexOf(currentDateFile);
+    if (currentIdx <= 0) return true;
+
+    const prevData = allDataByDate[sorted[currentIdx - 1]]?.data;
+    if (!prevData) return true;
+
+    const currSectorList = (getCurrentData()?.data || {})[type] || [];
+    const prevSectorList = prevData[type] || [];
+    const curr = currSectorList.find(s => s.板块 === sectorName);
+    const prev = prevSectorList.find(s => s.板块 === sectorName);
+    if (!curr || !prev) return true;
+
+    return Number(curr.成交额) > Number(prev.成交额) * 0.9;
+}
+
 /** 判断板块当日成交额是否满足成交额趋势条件
- *  前两日连续变小 → 当日 > 前一日 × 0.85
+ *  前两日连续变小 → 当日 > 前一日 × 0.9
  *  前一日变大     → 当日也变大
+ *  昨日小于前日且今日大于前日 → 反弹通过
  */
 function isSectorTurnoverNotTooLow(sectorName, type) {
     const sorted = sortDateFileList();
@@ -257,7 +342,7 @@ function isSectorTurnoverNotTooLow(sectorName, type) {
     const currVal = Number(curr.成交额);
     const prevVal = Number(prev.成交额);
 
-    // 取前两日（day-2）和前日-1日（day-3）数据，判断趋势
+    // 有足够数据时，按趋势模式判断
     if (currentIdx >= 3) {
         const prev2Data = allDataByDate[sorted[currentIdx - 2]]?.data;
         const prev3Data = allDataByDate[sorted[currentIdx - 3]]?.data;
@@ -269,18 +354,94 @@ function isSectorTurnoverNotTooLow(sectorName, type) {
             if (prev2 && prev3) {
                 const prev2Val = Number(prev2.成交额);
                 const prev3Val = Number(prev3.成交额);
-                // 前两日连续变小：昨日<前日 且 前日<前日-1日 → 当日 > 前一日 × 0.85
+                // 条件A：前两日连续变小（昨日<前日<前前日）→ 当日 > 昨日 × 0.9
                 if (prevVal < prev2Val && prev2Val < prev3Val) {
-                    return currVal > prevVal * 0.85;
+                    return currVal > prevVal * 0.9;
                 }
-                // 前一日变大（前日-1<前日）→ 当日也变大
+                // 条件B：前一日变大（昨日>前日）→ 当日也变大（当日>昨日）
                 if (prevVal > prev2Val) {
                     return currVal > prevVal;
                 }
+                // 条件C：昨日小于前日 且 今日大于前日（反弹）
+                if (prevVal < prev2Val && currVal > prev2Val) {
+                    return true;
+                }
+                // 既不满足A、B也不满足C → 严格按条件4不通过
+                return false;
             }
         }
     }
 
-    // 数据不足或无prev2时，兜底用 0.85 阈值
-    return currVal > prevVal * 0.85;
+    // 数据不足4日时，无法完整判断趋势，用保守阈值通过
+    return currVal > prevVal * 0.9;
+}
+
+// ============================
+// 关注板块筛选条件（各条件独立方法，可注释/取消注释来开关）
+// ============================
+
+/** 条件①：主力净额 > 0 */
+function condNetPositive(sector) {
+    return Number(sector.主力净额) > 0;
+}
+
+/** 条件②：板块名 ≠ '所属行业' / '所属概念' */
+function condNotPlaceholder(sector) {
+    return sector.板块 !== '所属行业' && sector.板块 !== '所属概念';
+}
+
+/** 条件③：板块成交额 < 昨日成交额 × 1.5（防止放量过快） */
+function condAmountNotTooHigh(sectorName, type) {
+    return isSectorTurnoverDecreased(sectorName, type);
+}
+
+/** 条件④：成交额趋势
+ *  前两日连续变小 → 当日 > 前一日 × 0.9
+ *  前一日变大     → 当日也变大
+ *  昨日小于前日且今日大于前日 → 反弹通过
+ *  不满足以上任一 → 不通过
+ */
+function condTurnoverTrend(sectorName, type) {
+    return isSectorTurnoverNotTooLow(sectorName, type);
+}
+
+/** 条件⑤：连续流入天数 >= FOCUS_MIN_DAYS */
+function condMinDays(sectorName, type) {
+    return calcConsecutiveInflow(sectorName, type) >= FOCUS_MIN_DAYS;
+}
+
+// ============================
+// 股票→所属板块映射（供今日推荐、弹窗加星等共享，避免重复计算）
+// ============================
+
+let _stockSectorsMap = null;
+
+/** 构建当前日期所有股票→所属板块的映射（含板块天数和类型） */
+function buildStockSectorsMap() {
+    if (_stockSectorsMap) return _stockSectorsMap;
+
+    const activeData = getActiveData();
+    const industryList = activeData.行业板块资金流向 || [];
+    const conceptList = activeData.概念板块资金流向 || [];
+    const allCurrentSectors = [...industryList, ...conceptList];
+    const map = new Map();
+
+    for (const sector of allCurrentSectors) {
+        if (!condNotPlaceholder(sector)) continue;
+        const isIndustry = industryList.includes(sector);
+        const type = isIndustry ? '行业板块资金流向' : '概念板块资金流向';
+        const sectorDays = calcConsecutiveInflow(sector.板块, type);
+        const stocks = sector._parsedStocks || parseStocks(sector.涉及股票);
+        for (const stock of stocks) {
+            if (!map.has(stock.name)) map.set(stock.name, []);
+            map.get(stock.name).push({
+                name: sector.板块,
+                type: isIndustry ? '行业' : '概念',
+                days: sectorDays
+            });
+        }
+    }
+
+    _stockSectorsMap = map;
+    return map;
 }

@@ -160,7 +160,7 @@ function getTrendData(sectorName, type) {
 
         const dayData = entry?.data;
         if (!dayData) {
-            values.push(0);
+            values.push(null);
             continue;
         }
 
@@ -173,7 +173,7 @@ function getTrendData(sectorName, type) {
         if (sector) {
             values.push(Number(sector.成交额) / 100000000);
         } else {
-            values.push(0);
+            values.push(null);
         }
     }
 
@@ -265,7 +265,7 @@ function getCurrentActiveData() {
     return activeData ? activeData.data : null;
 }
 
-/** 渲染股票表格 */
+/** 渲染股票表格（精简：股票名称、主力净额、连续流入天数） */
 function renderStockTable(panelList, stocks, bgSet, starSet, stockDaysMap) {
     panelList.innerHTML = '';
     if (!stocks || stocks.length === 0) {
@@ -287,7 +287,7 @@ function renderStockTable(panelList, stocks, bgSet, starSet, stockDaysMap) {
     const table = document.createElement('table');
     table.className = 'stock-table';
     const thead = document.createElement('thead');
-    thead.innerHTML = '<tr><th>#</th><th>股票名称</th><th>成交额</th><th>主力净额</th><th>涨跌幅</th><th>连续天数</th></tr>';
+    thead.innerHTML = '<tr><th>股票名称</th><th>主力净额</th><th>连续流入天数</th></tr>';
     table.appendChild(thead);
     const tbody = document.createElement('tbody');
     sortedStocks.forEach((stock, i) => {
@@ -295,17 +295,13 @@ function renderStockTable(panelList, stocks, bgSet, starSet, stockDaysMap) {
         const isBg = bs.has(stock.name);
         const isStarred = ss.has(stock.name);
         if (isBg) tr.classList.add('stock-common');
-        const changeNum = parseFloat(stock.change);
+        const changeNum = parseFloat(stock.net);
         const changeColor = changeNum >= 0 ? 'color:#e53935;' : 'color:#43a047;';
-        const changeArrow = changeNum >= 0 ? '▲' : '▼';
         const stockDays = sdm.get(stock.name) || 0;
         tr.innerHTML = `
-            <td>${i + 1}</td>
             <td>${isStarred ? '⭐ ' : ''}${escapeHtml(stock.name)}</td>
-            <td>${escapeHtml(stock.amount)}</td>
             <td style="${changeColor}">${escapeHtml(stock.net)}</td>
-            <td style="${changeColor}font-weight:600;">${changeArrow} ${escapeHtml(stock.change)}</td>
-            <td style="text-align:center;color:#888;font-size:11px;">${stockDays > 0 ? stockDays + '天' : '-'}</td>
+            <td style="text-align:center;font-weight:600;color:${stockDays >= 3 ? '#dc2626' : '#555'}">${stockDays > 0 ? stockDays + '天' : '-'}</td>
         `;
         tr.style.cursor = 'pointer';
         tr.onclick = function() { openStockQuote(stock.name, stock.code); };
@@ -340,20 +336,18 @@ function showStocksInPanel(sectorName, type, commonStockNames) {
         panelTitle.textContent = `${typeLabel} ${sectorName}`;
     }
 
-    // 计算五角星：股票连续流入天数 >= 板块连续流入天数 - STAR_GAP 且 成交量小于窗口内最大
-    const sectorDays = calcConsecutiveInflow(sectorName, type);
+    // 加星逻辑：复用今日推荐的完整筛选逻辑（passesLeaderConditions），自动同步条件开关
     const stockDaysMap = calcStockConsecutiveDays();
-    const starSet = new Set();
-    for (const stock of stocks) {
-        const sDays = stockDaysMap.get(stock.name) || 0;
-        if (sDays >= sectorDays - STAR_GAP && isStockVolumeDecreased(stock.name)) starSet.add(stock.name);
-    }
+    const starSet = calcLeaderStarSet(stocks, stockDaysMap);
 
     renderStockTable(panelList, stocks, commonStockNames, starSet, stockDaysMap);
 }
 
 /** 切换趋势弹窗的图表和股票面板到指定板块 */
 function switchTrendView(sectorName, type, commonStockNames) {
+    // 切换板块时回到板块净额页签
+    switchTrendChartTab('chart');
+
     // 更新图表
     if (trendChart) {
         trendChart.destroy();
@@ -368,6 +362,9 @@ function switchTrendView(sectorName, type, commonStockNames) {
 }
 
 function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, commonStockNames) {
+    // 默认显示板块净额页签
+    switchTrendChartTab('chart');
+
     if (trendChart) {
         trendChart.destroy();
         trendChart = null;
@@ -402,7 +399,7 @@ function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, c
                 const tag = document.createElement('span');
                 tag.className = 'pair clickable';
                 const sDaysColor = s.days >= HIGHLIGHT_MIN_DAYS ? '#dc2626' : otherColor;
-                tag.innerHTML = `<span style="color:${otherColor};">${s.name}</span> <span style="color:${sDaysColor};font-size:11px;">${s.days}天</span>`;
+                tag.innerHTML = `<span style="color:${otherColor};">${escapeHtml(s.name)}</span> <span style="color:${sDaysColor};font-size:11px;">${s.days}天</span>`;
                 tag.title = '点击查看涉及股票';
                 const sCommonStocks = s.commonStocks || [];
                 tag.onclick = function(e) {
@@ -425,15 +422,9 @@ function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, c
         }
         const panelList = document.getElementById('stockPanelList');
         if (panelList) {
-            // 计算五角星：股票连续流入天数 >= 板块连续流入天数 - STAR_GAP 且 成交量小于窗口内最大
-            const sectorDays = calcConsecutiveInflow(sectorName, type);
+            // 加星逻辑：复用今日推荐的完整筛选逻辑（passesLeaderConditions），自动同步条件开关
             const stockDaysMap = calcStockConsecutiveDays();
-            const activeData = getCurrentActiveData();
-            const starSet = new Set();
-            for (const stock of stocks) {
-                const sDays = stockDaysMap.get(stock.name) || 0;
-                if (activeData && sDays >= sectorDays - STAR_GAP && isStockVolumeDecreased(stock.name)) starSet.add(stock.name);
-            }
+            const starSet = calcLeaderStarSet(stocks, stockDaysMap);
             renderStockTable(panelList, stocks, commonStockNames, starSet, stockDaysMap);
         }
     } else {
@@ -461,8 +452,11 @@ function closeTrendModal(event) {
 // ==================== 今日龙头弹窗 ====================
 
 function showStockLeader(stockName, sectors) {
-    // 选择连续天数最多的板块作为默认显示
-    const best = [...sectors].sort((a, b) => b.days - a.days)[0];
+    // 优先选在关注板块中的板块，再按天数排序
+    const focusSectors = getFocusSectors(getActiveData());
+    const inFocus = sectors.filter(s => focusSectors.has(s.name));
+    const candidates = inFocus.length > 0 ? inFocus : sectors;
+    const best = [...candidates].sort((a, b) => b.days - a.days)[0];
     if (!best) return;
 
     const type = best.type === '行业' ? '行业板块资金流向' : '概念板块资金流向';
@@ -491,4 +485,41 @@ function showStockLeader(stockName, sectors) {
         matchedSectors, stocks,
         new Set([stockName])
     );
+
+    // 从今日推荐进入，直接加载个股详情
+    const stockCode = _stockFieldIndex[stockName] && Object.values(_stockFieldIndex[stockName])[0]?.code;
+    if (stockCode) {
+        loadTrendStock(stockName, stockCode);
+    }
+}
+
+/** 切换弹窗内图表区域页签（chart=板块净额, stock=个股详情） */
+function switchTrendChartTab(tab) {
+    document.querySelectorAll('.trend-tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.trend-chart-content').forEach(c => c.classList.remove('active'));
+
+    if (tab === 'stock') {
+        document.getElementById('trendStockTabBtn').classList.add('active');
+        document.getElementById('trendStockContent').classList.add('active');
+    } else {
+        document.getElementById('trendChartTabBtn').classList.add('active');
+        document.getElementById('trendChartContent').classList.add('active');
+    }
+}
+
+/** 在弹窗个股详情页签中加载股票 */
+function loadTrendStock(stockName, stockCode) {
+    if (!stockCode) {
+        alert('未找到股票「' + stockName + '」的代码');
+        return;
+    }
+    const exchange = stockCode.startsWith('6') ? 'sh' : 'sz';
+    const url = 'https://quote.eastmoney.com/' + exchange + stockCode + '.html#fullScreenChart';
+    // 先清空再加载，确保滚动条在最上方
+    const iframe = document.getElementById('trendStockIframe');
+    iframe.src = 'about:blank';
+    setTimeout(function() {
+        iframe.src = url;
+    }, 50);
+    switchTrendChartTab('stock');
 }

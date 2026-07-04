@@ -211,6 +211,7 @@ button:hover {
 
 .modal-overlay.active {
     display: flex;
+    overflow: hidden;
 }
 
 .modal-content {
@@ -229,13 +230,13 @@ button:hover {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 15px;
-    padding-bottom: 10px;
+    margin-bottom: 6px;
+    padding-bottom: 6px;
     border-bottom: 2px solid #f0f0f0;
 }
 
 .modal-header h2 {
-    font-size: 20px;
+    font-size: 15px;
     color: #333;
 }
 
@@ -505,29 +506,38 @@ footer {
 .trend-modal-content {
     background: white;
     border-radius: 16px;
-    padding: 25px;
-    max-width: 1200px;
+    padding: 12px 18px;
+    max-width: 1400px;
     width: 95%;
-    max-height: 85vh;
-    overflow-y: auto;
+    height: 96vh;
+    overflow: hidden;
     box-shadow: 0 25px 60px rgba(0,0,0,0.3);
     position: relative;
+    display: flex;
+    flex-direction: column;
 }
 
 .trend-modal-body {
-    margin-top: 15px;
+    margin-top: 8px;
+    overflow: hidden;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 }
 
 .trend-main-row {
     display: flex;
-    gap: 20px;
-    margin-top: 12px;
-    max-height: 400px;
+    gap: 12px;
+    margin-top: 6px;
+    flex: 1;
+    min-height: 0;
 }
 
 .trend-left {
     flex: 1;
     min-width: 0;
+    min-height: 0;
     display: flex;
     flex-direction: column;
 }
@@ -539,21 +549,76 @@ footer {
     margin-top: 10px;
 }
 
+/* 弹窗内图表区域页签 */
+.trend-chart-tabs {
+    display: flex;
+    gap: 4px;
+}
+
+.trend-tab-btn {
+    padding: 3px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    border: 1px solid #ddd;
+    background: #f5f5f5;
+    color: #666;
+    cursor: pointer;
+    border-radius: 6px 6px 0 0;
+    transition: all 0.2s;
+}
+
+.trend-tab-btn.active {
+    background: #667eea;
+    color: white;
+    border-color: #667eea;
+}
+
+.trend-tab-btn:hover:not(.active) {
+    background: #e8e8e8;
+}
+
+.trend-chart-content {
+    display: none;
+    flex: 1;
+    min-height: 0;
+}
+
+.trend-chart-content.active {
+    display: flex;
+    flex-direction: column;
+}
+
+.trend-chart-content .chart-wrap {
+    flex: 1;
+    min-height: 200px;
+    margin-top: 4px;
+    position: relative;
+}
+
+.trend-chart-content .stock-iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+}
+
 .trend-right {
-    width: 390px;
+    width: 260px;
     flex-shrink: 0;
     background: #f8f9fa;
     border-radius: 12px;
     border: 1px solid #e8e8e8;
     display: flex;
     flex-direction: column;
-    max-height: 420px;
 }
 
 .stock-panel-header {
     font-weight: 700;
-    font-size: 15px;
-    padding: 12px 14px 8px;
+    font-size: 12px;
+    padding: 6px 10px 4px;
     color: #333;
     border-bottom: 1px solid #e8e8e8;
 }
@@ -567,14 +632,14 @@ footer {
 .stock-panel-list {
     flex: 1;
     overflow-y: auto;
-    padding: 8px 14px 12px;
+    padding: 6px 10px 10px;
 }
 
 /* 股票表格样式 */
 .stock-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 12px;
+    font-size: 11px;
     white-space: nowrap;
 }
 
@@ -582,7 +647,7 @@ footer {
     position: sticky;
     top: 0;
     background: #f0f4ff;
-    padding: 5px 3px;
+    padding: 4px 3px;
     text-align: left;
     font-weight: 600;
     font-size: 11px;
@@ -590,13 +655,8 @@ footer {
     border-bottom: 2px solid #d0d8e8;
 }
 
-.stock-table thead th:first-child {
-    width: 28px;
-    text-align: center;
-}
-
-.stock-table thead th:nth-child(2) {
-    width: 90px;
+.stock-table tbody td {
+    padding: 3px 3px;
 }
 
 .stock-table thead th:nth-child(3) {
@@ -648,13 +708,15 @@ footer {
 }
 
 .trend-common-stocks {
-    font-size: 13px;
+    font-size: 12px;
     color: #666;
-    padding: 8px 12px;
+    padding: 3px 10px;
     background: #fefce8;
-    border-radius: 8px;
+    border-radius: 6px;
     border: 1px solid #fde68a;
-    line-height: 2;
+    line-height: 1.6;
+    max-height: 28px;
+    overflow-y: auto;
 }
 
 .trend-common-stocks .pair {
