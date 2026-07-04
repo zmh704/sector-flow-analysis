@@ -69,6 +69,17 @@ function storeDataForDate(filename, data) {
 
     // 构建股票字段索引（供 isStockVolumeDecreased 等 O(1) 查询）
     _stockFieldIndex = _stockFieldIndex || {};
+
+    // 清除该日期在索引中的旧条目，确保增量加载时数据一致
+    for (const stockName of Object.keys(_stockFieldIndex)) {
+        if (key in _stockFieldIndex[stockName]) {
+            delete _stockFieldIndex[stockName][key];
+        }
+        if (Object.keys(_stockFieldIndex[stockName]).length === 0) {
+            delete _stockFieldIndex[stockName];
+        }
+    }
+
     for (const item of [...industryList, ...conceptList]) {
         const stocks = item._parsedStocks || parseStocks(item.涉及股票);
         for (const stock of stocks) {
@@ -139,7 +150,7 @@ function renderDateButtons() {
     const sorted = sortDateFileList();
 
     const isOverflow = sorted.length > 10;
-    const shown = isOverflow ? sorted.slice(-10) : sorted;
+    const shown = isOverflow ? sorted.slice(-TREND_CHART_DAYS) : sorted;
 
     shown.forEach(filename => {
         container.appendChild(createDateButton(filename));

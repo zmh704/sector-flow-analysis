@@ -21,20 +21,39 @@ function leaderCondAmountNotTooHigh(stockName) {
     return isStockAmountNotTooHigh(stockName);
 }
 
-/** 条件E：所有所属板块当日成交额均 < 板块前一日成交额 × 1.5 */
+/** 条件E：所有所属板块当日成交额均 < 板块前一日成交额 × RATIO_TURNOVER_HIGH */
 function leaderCondAllSectorsDecreased(stockName, sectors) {
+    const activeData = getActiveData();
+    const prevDayData = getPrevDayData();
+    // 按类型提前构建板块 Map，使 isSectorTurnoverDecreased O(1) 查找
+    const maps = {};
+    for (const key of ['行业板块资金流向', '概念板块资金流向']) {
+        maps[key] = {
+            curr: buildSectorMap(activeData[key] || []),
+            prev: buildSectorMap(prevDayData?.[key] || [])
+        };
+    }
     return sectors.every(s => {
         const st = s.type === '行业' ? '行业板块资金流向' : '概念板块资金流向';
-        return isSectorTurnoverDecreased(s.name, st);
+        return isSectorTurnoverDecreased(s.name, maps[st].curr, maps[st].prev);
     });
 }
 
-/** 条件F：所属板块中净流入天数 >= 股票天数的板块，成交额需 > 昨日成交额 × 0.9 */
+/** 条件F：所属板块中净流入天数 >= 股票天数的板块，成交额需 > 昨日成交额 × RATIO_TURNOVER_LOW */
 function leaderCondHighDaysSectorsAbove090(stockName, stockDays, sectors) {
+    const activeData = getActiveData();
+    const prevDayData = getPrevDayData();
+    const maps = {};
+    for (const key of ['行业板块资金流向', '概念板块资金流向']) {
+        maps[key] = {
+            curr: buildSectorMap(activeData[key] || []),
+            prev: buildSectorMap(prevDayData?.[key] || [])
+        };
+    }
     return sectors.every(s => {
         if (s.days < stockDays) return true;
         const st = s.type === '行业' ? '行业板块资金流向' : '概念板块资金流向';
-        return isSectorAbove090(s.name, st);
+        return isSectorAbove090(s.name, maps[st].curr, maps[st].prev);
     });
 }
 
@@ -162,8 +181,8 @@ function updateLeaderArea(activeData) {
         const changeNum = parseFloat(leader.change);
         const changeColor = changeNum >= 0 ? '#e53935' : '#43a047';
         const changeArrow = changeNum >= 0 ? '▲' : '▼';
-        return `<span class="leader-item leader-clickable" title="连续流入${leader.stockDays}天 | 所属板块: ${leader.sectors.join('、')}" onclick='showStockLeader("${leader.name}", ${secJson})'>
-            <span class="leader-name">${leader.name}</span>
+        return `<span class="leader-item leader-clickable" title="连续流入${leader.stockDays}天 | 所属板块: ${leader.sectors.map(s => escapeHtml(s)).join('、')}" onclick='showStockLeader("${escapeHtml(leader.name)}", ${secJson})'>
+            <span class="leader-name">${escapeHtml(leader.name)}</span>
             <span class="leader-days">${leader.stockDays}天</span>
             <span class="leader-change" style="color:${changeColor}">${changeArrow} ${leader.change}</span>
         </span>`;
@@ -179,29 +198,17 @@ function updateFocusArea(activeData) {
     const industryList = activeData.行业板块资金流向 || [];
     const conceptList = activeData.概念板块资金流向 || [];
 
-    const industries = industryList
-        .filter(i => condNotPlaceholder(i))                                // 条件②：板块名 ≠ '所属行业' / '所属概念'
-        .filter(i => condNetPositive(i))                                   // 条件①：主力净额 > 0
-        .filter(i => condAmountNotTooHigh(i.板块, '行业板块资金流向'))      // 条件③：板块成交额 < 昨日成交额 × 1.5
-        .filter(i => condTurnoverTrend(i.板块, '行业板块资金流向'))         // 条件④：成交额趋势（连续变小→>昨日×0.85 / 变大→也变大）
-        .map(i => ({
-            name: i.板块,
-            days: calcConsecutiveInflow(i.板块, '行业板块资金流向'),
-            stocks: new Set((i._parsedStocks || parseStocks(i.涉及股票)).map(s => s.name))
-        }))
-        .filter(i => condMinDays(i.name, '行业板块资金流向'));              // 条件⑤：连续流入天数 >= FOCUS_MIN_DAYS
+    const industries = filterSectors(industryList, '行业板块资金流向').map(i => ({
+        name: i.板块,
+        days: calcConsecutiveInflow(i.板块, '行业板块资金流向'),
+        stocks: new Set((i._parsedStocks || parseStocks(i.涉及股票)).map(s => s.name))
+    }));
 
-    const concepts = conceptList
-        .filter(c => condNotPlaceholder(c))                                // 条件②：板块名 ≠ '所属行业' / '所属概念'
-        .filter(c => condNetPositive(c))                                   // 条件①：主力净额 > 0
-        .filter(c => condAmountNotTooHigh(c.板块, '概念板块资金流向'))      // 条件③：板块成交额 < 昨日成交额 × 1.5
-        .filter(c => condTurnoverTrend(c.板块, '概念板块资金流向'))         // 条件④：成交额趋势（连续变小→>昨日×0.85 / 变大→也变大）
-        .map(c => ({
-            name: c.板块,
-            days: calcConsecutiveInflow(c.板块, '概念板块资金流向'),
-            stocks: new Set((c._parsedStocks || parseStocks(c.涉及股票)).map(s => s.name))
-        }))
-        .filter(c => condMinDays(c.name, '概念板块资金流向'));              // 条件⑤：连续流入天数 >= FOCUS_MIN_DAYS
+    const concepts = filterSectors(conceptList, '概念板块资金流向').map(c => ({
+        name: c.板块,
+        days: calcConsecutiveInflow(c.板块, '概念板块资金流向'),
+        stocks: new Set((c._parsedStocks || parseStocks(c.涉及股票)).map(s => s.name))
+    }));
 
     if (industries.length === 0 && concepts.length === 0) {
         container.innerHTML = '<span style="color:#999;">暂无符合条件的关注板块</span>';

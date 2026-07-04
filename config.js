@@ -7,6 +7,10 @@ const MODAL_DAYS_HIGHLIGHT = 3;    // 「查看全部」弹窗连续天数红色
 const LEADER_STOCK_MIN_DAYS = 1;   // 今日推荐：股票连续流入最低天数
 const LEADER_GAP = 1;              // 今日推荐：股票天数 vs 所属板块最大天数 容差
 const VOLUME_WINDOW = 5;           // 成交量比较窗口（含当日，从选中日期往前）
+const RATIO_TURNOVER_LOW = 0.9;   // 成交额缩量阈值（当日 > 前一日 × 此值）
+const RATIO_TURNOVER_HIGH = 1.5;  // 成交额放量阈值（当日 < 前一日 × 此值）
+const CHANGE_LIMIT_PCT = 5;       // 放量时涨跌幅限制（%）
+const TREND_CHART_DAYS = 10;      // 趋势图显示天数
 
 // 数据状态
 let allDataByDate = {};

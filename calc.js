@@ -131,7 +131,7 @@ function isStockVolumeDecreased(stockName) {
     return current < maxPrev;
 }
 
-/** 判断某股票当日成交额是否 > 前一日成交额 * 0.9（防止缩量过快） */
+/** 判断某股票当日成交额是否 > 前一日成交额 * RATIO_TURNOVER_LOW（防止缩量过快） */
 function isStockTurnoverNotTooLow(stockName) {
     const sorted = sortDateFileList();
     const currentIdx = sorted.indexOf(currentDateFile);
@@ -146,10 +146,10 @@ function isStockTurnoverNotTooLow(stockName) {
     const prevNum = parseFloat(prev);
     if (isNaN(currNum) || isNaN(prevNum)) return true;
 
-    return currNum > prevNum * 0.9;
+    return currNum > prevNum * RATIO_TURNOVER_LOW;
 }
 
-/** 判断股票当日成交额是否 < 前一日成交额 * 1.5（防止放量过快） */
+/** 判断股票当日成交额是否 < 前一日成交额 * RATIO_TURNOVER_HIGH（防止放量过快） */
 function isStockAmountNotTooHigh(stockName) {
     const sorted = sortDateFileList();
     const currentIdx = sorted.indexOf(currentDateFile);
@@ -164,7 +164,7 @@ function isStockAmountNotTooHigh(stockName) {
     const prevNum = parseFloat(prev);
     if (isNaN(currNum) || isNaN(prevNum)) return true;
 
-    return currNum < prevNum * 1.5;
+    return currNum < prevNum * RATIO_TURNOVER_HIGH;
 }
 
 /** 判断股票：如果当日成交量 > 昨日成交量，则涨跌幅必须 < 5% */
@@ -188,7 +188,7 @@ function isStockVolumeUpChangeLimited(stockName) {
     // 成交量放大 → 检查涨跌幅 < 5%
     const changeNum = parseFloat(curr.change);
     if (isNaN(changeNum)) return true;
-    return changeNum < 5;
+    return changeNum < CHANGE_LIMIT_PCT;
 }
 
 /** 计算板块从当天往前连续主力净额>0的天数（带缓存） */
@@ -224,156 +224,78 @@ function calcConsecutiveInflow(sectorName, type) {
 
 /** 计算关注板块集合（净额>0 且 连续流入>=FOCUS_MIN_DAYS） */
 function getFocusSectors(activeData) {
-    const industryList = activeData.行业板块资金流向 || [];
-    const conceptList = activeData.概念板块资金流向 || [];
     const set = new Set();
-
-    // 调试：查找家电零部件
-    const allIndustryNames = industryList.map(s => s.板块);
-    const allConceptNames = conceptList.map(s => s.板块);
-    console.log('所有行业板块:', allIndustryNames);
-    console.log('所有概念板块:', allConceptNames);
-    const inIndustry = allIndustryNames.includes('家电零部件');
-    const inConcept = allConceptNames.includes('家电零部件');
-    console.log('家电零部件 在行业中:', inIndustry, '在概念中:', inConcept);
-    // 模糊搜索含"家电"的板块
-    console.log('含"家电"的板块:', [...allIndustryNames, ...allConceptNames].filter(n => n.includes('家电')));
-
-    for (const sector of industryList) {
-        const type = '行业板块资金流向';
-
-        // 家电零部件 逐条件检查
-        if (sector.板块 === '家电零部件') {
-            console.log('家电零部件(行业) 逐条件:', {
-                cond2: condNotPlaceholder(sector),
-                cond1: condNetPositive(sector),
-                cond3: condAmountNotTooHigh(sector.板块, type),
-                cond4: condTurnoverTrend(sector.板块, type),
-                cond5: condMinDays(sector.板块, type),
-                主力净额: Number(sector.主力净额),
-                成交额: Number(sector.成交额),
-                昨日成交额_1_5倍: (() => {
-                    const sorted = sortDateFileList();
-                    const idx = sorted.indexOf(currentDateFile);
-                    if (idx <= 0) return '无昨日数据';
-                    const prevData = allDataByDate[sorted[idx - 1]]?.data;
-                    if (!prevData) return '无昨日数据';
-                    const prevList = prevData[type] || [];
-                    const prev = prevList.find(s => s.板块 === sector.板块);
-                    return prev ? Number(prev.成交额) * 1.5 : '无昨日该板块';
-                })()
-            });
-        }
-
-        if (!condNotPlaceholder(sector)) continue;          // 条件②：板块名 ≠ '所属行业' / '所属概念'
-        if (!condNetPositive(sector)) continue;             // 条件①：主力净额 > 0
-        if (!condAmountNotTooHigh(sector.板块, type)) continue;  // 条件③：板块成交额 < 昨日成交额 × 1.5
-        if (!condTurnoverTrend(sector.板块, type)) continue;     // 条件④：成交额趋势（连续变小→>昨日×0.85 / 变大→也变大）
-        if (!condMinDays(sector.板块, type)) continue;           // 条件⑤：连续流入天数 >= FOCUS_MIN_DAYS
+    for (const sector of filterSectors(activeData.行业板块资金流向 || [], '行业板块资金流向')) {
         set.add(sector.板块);
     }
-    for (const sector of conceptList) {
-        const type = '概念板块资金流向';
-        if (!condNotPlaceholder(sector)) continue;          // 条件②：板块名 ≠ '所属行业' / '所属概念'
-        if (!condNetPositive(sector)) continue;             // 条件①：主力净额 > 0
-        if (!condAmountNotTooHigh(sector.板块, type)) continue;  // 条件③：板块成交额 < 昨日成交额 × 1.5
-        if (!condTurnoverTrend(sector.板块, type)) continue;     // 条件④：成交额趋势（连续变小→>昨日×0.85 / 变大→也变大）
-        if (!condMinDays(sector.板块, type)) continue;           // 条件⑤：连续流入天数 >= FOCUS_MIN_DAYS
+    for (const sector of filterSectors(activeData.概念板块资金流向 || [], '概念板块资金流向')) {
         set.add(sector.板块);
     }
     return set;
 }
 
-/** 判断板块当日成交额是否 < 前一日成交额 * 1.5（防止放量过快） */
-function isSectorTurnoverDecreased(sectorName, type) {
-    const sorted = sortDateFileList();
-    const currentIdx = sorted.indexOf(currentDateFile);
-    if (currentIdx <= 0) return true;
-
-    const prevData = allDataByDate[sorted[currentIdx - 1]]?.data;
-    if (!prevData) return true;
-
-    const currSectorList = (getCurrentData()?.data || {})[type] || [];
-    const prevSectorList = prevData[type] || [];
-    const curr = currSectorList.find(s => s.板块 === sectorName);
-    const prev = prevSectorList.find(s => s.板块 === sectorName);
+/** 判断板块当日成交额是否 < 前一日成交额 * RATIO_TURNOVER_HIGH（防止放量过快）
+ *  @param {Map} currMap - 当日 板块名→板块对象 的 Map
+ *  @param {Map} prevMap - 前一日 板块名→板块对象 的 Map */
+function isSectorTurnoverDecreased(sectorName, currMap, prevMap) {
+    const curr = currMap.get(sectorName);
+    const prev = prevMap.get(sectorName);
     if (!curr || !prev) return true;
-
-    return Number(curr.成交额) < Number(prev.成交额) * 1.5;
+    return Number(curr.成交额) < Number(prev.成交额) * RATIO_TURNOVER_HIGH;
 }
 
-/** 判断板块当日成交额是否 > 前一日成交额 * 0.9（用于今日推荐：高强度板块缩量不严重） */
-function isSectorAbove090(sectorName, type) {
-    const sorted = sortDateFileList();
-    const currentIdx = sorted.indexOf(currentDateFile);
-    if (currentIdx <= 0) return true;
-
-    const prevData = allDataByDate[sorted[currentIdx - 1]]?.data;
-    if (!prevData) return true;
-
-    const currSectorList = (getCurrentData()?.data || {})[type] || [];
-    const prevSectorList = prevData[type] || [];
-    const curr = currSectorList.find(s => s.板块 === sectorName);
-    const prev = prevSectorList.find(s => s.板块 === sectorName);
+/** 判断板块当日成交额是否 > 前一日成交额 * RATIO_TURNOVER_LOW（用于今日推荐：高强度板块缩量不严重）
+ *  @param {Map} currMap - 当日 板块名→板块对象 的 Map
+ *  @param {Map} prevMap - 前一日 板块名→板块对象 的 Map */
+function isSectorAbove090(sectorName, currMap, prevMap) {
+    const curr = currMap.get(sectorName);
+    const prev = prevMap.get(sectorName);
     if (!curr || !prev) return true;
-
-    return Number(curr.成交额) > Number(prev.成交额) * 0.9;
+    return Number(curr.成交额) > Number(prev.成交额) * RATIO_TURNOVER_LOW;
 }
 
 /** 判断板块当日成交额是否满足成交额趋势条件
- *  前两日连续变小 → 当日 > 前一日 × 0.9
+ *  前两日连续变小 → 当日 > 前一日 × RATIO_TURNOVER_LOW
  *  前一日变大     → 当日也变大
  *  昨日小于前日且今日大于前日 → 反弹通过
- */
-function isSectorTurnoverNotTooLow(sectorName, type) {
-    const sorted = sortDateFileList();
-    const currentIdx = sorted.indexOf(currentDateFile);
-    if (currentIdx <= 0) return true;
-
-    const currSectorList = (getCurrentData()?.data || {})[type] || [];
-    const prevData = allDataByDate[sorted[currentIdx - 1]]?.data;
-    if (!prevData) return true;
-
-    const prevSectorList = prevData[type] || [];
-    const curr = currSectorList.find(s => s.板块 === sectorName);
-    const prev = prevSectorList.find(s => s.板块 === sectorName);
+ *  @param {Map} currMap   - 当日板块 Map
+ *  @param {Map} prevMap   - 前一日板块 Map
+ *  @param {Map|null} prev2Map - 前两日板块 Map
+ *  @param {Map|null} prev3Map - 前三日板块 Map */
+function isSectorTurnoverNotTooLow(sectorName, currMap, prevMap, prev2Map, prev3Map) {
+    const curr = currMap.get(sectorName);
+    const prev = prevMap.get(sectorName);
     if (!curr || !prev) return true;
 
     const currVal = Number(curr.成交额);
     const prevVal = Number(prev.成交额);
 
     // 有足够数据时，按趋势模式判断
-    if (currentIdx >= 3) {
-        const prev2Data = allDataByDate[sorted[currentIdx - 2]]?.data;
-        const prev3Data = allDataByDate[sorted[currentIdx - 3]]?.data;
-        if (prev2Data && prev3Data) {
-            const prev2SectorList = prev2Data[type] || [];
-            const prev3SectorList = prev3Data[type] || [];
-            const prev2 = prev2SectorList.find(s => s.板块 === sectorName);
-            const prev3 = prev3SectorList.find(s => s.板块 === sectorName);
-            if (prev2 && prev3) {
-                const prev2Val = Number(prev2.成交额);
-                const prev3Val = Number(prev3.成交额);
-                // 条件A：前两日连续变小（昨日<前日<前前日）→ 当日 > 昨日 × 0.9
-                if (prevVal < prev2Val && prev2Val < prev3Val) {
-                    return currVal > prevVal * 0.9;
-                }
-                // 条件B：前一日变大（昨日>前日）→ 当日也变大（当日>昨日）
-                if (prevVal > prev2Val) {
-                    return currVal > prevVal;
-                }
-                // 条件C：昨日小于前日 且 今日大于前日（反弹）
-                if (prevVal < prev2Val && currVal > prev2Val) {
-                    return true;
-                }
-                // 既不满足A、B也不满足C → 严格按条件4不通过
-                return false;
+    if (prev2Map && prev3Map) {
+        const prev2 = prev2Map.get(sectorName);
+        const prev3 = prev3Map.get(sectorName);
+        if (prev2 && prev3) {
+            const prev2Val = Number(prev2.成交额);
+            const prev3Val = Number(prev3.成交额);
+            // 条件A：前两日连续变小（昨日<前日<前前日）→ 当日 > 昨日 × RATIO_TURNOVER_LOW
+            if (prevVal < prev2Val && prev2Val < prev3Val) {
+                return currVal > prevVal * RATIO_TURNOVER_LOW;
             }
+            // 条件B：前一日变大（昨日>前日）→ 当日也变大（当日>昨日）
+            if (prevVal > prev2Val) {
+                return currVal > prevVal;
+            }
+            // 条件C：昨日小于前日 且 今日大于前日（反弹）
+            if (prevVal < prev2Val && currVal > prev2Val) {
+                return true;
+            }
+            // 既不满足A、B也不满足C → 严格按条件4不通过
+            return false;
         }
     }
 
     // 数据不足4日时，无法完整判断趋势，用保守阈值通过
-    return currVal > prevVal * 0.9;
+    return currVal > prevVal * RATIO_TURNOVER_LOW;
 }
 
 // ============================
@@ -390,9 +312,9 @@ function condNotPlaceholder(sector) {
     return sector.板块 !== '所属行业' && sector.板块 !== '所属概念';
 }
 
-/** 条件③：板块成交额 < 昨日成交额 × 1.5（防止放量过快） */
-function condAmountNotTooHigh(sectorName, type) {
-    return isSectorTurnoverDecreased(sectorName, type);
+/** 条件③：板块成交额 < 昨日成交额 × RATIO_TURNOVER_HIGH（防止放量过快） */
+function condAmountNotTooHigh(sectorName, currMap, prevMap) {
+    return isSectorTurnoverDecreased(sectorName, currMap, prevMap);
 }
 
 /** 条件④：成交额趋势
@@ -401,13 +323,50 @@ function condAmountNotTooHigh(sectorName, type) {
  *  昨日小于前日且今日大于前日 → 反弹通过
  *  不满足以上任一 → 不通过
  */
-function condTurnoverTrend(sectorName, type) {
-    return isSectorTurnoverNotTooLow(sectorName, type);
+function condTurnoverTrend(sectorName, currMap, prevMap, prev2Map, prev3Map) {
+    return isSectorTurnoverNotTooLow(sectorName, currMap, prevMap, prev2Map, prev3Map);
 }
 
 /** 条件⑤：连续流入天数 >= FOCUS_MIN_DAYS */
 function condMinDays(sectorName, type) {
     return calcConsecutiveInflow(sectorName, type) >= FOCUS_MIN_DAYS;
+}
+
+/** 构建 板块名→板块对象 的 Map，供 O(1) 查找代替 O(n) find() */
+function buildSectorMap(sectorList) {
+    const map = new Map();
+    for (const s of sectorList) map.set(s.板块, s);
+    return map;
+}
+
+/**
+ * 通用板块筛选：对板块列表应用关注板块的全部条件（①~⑤）。
+ * 与 getFocusSectors()、updateFocusArea() 共享，保证条件一致。
+ * 内部提前构建各日期板块 Map，避免条件函数重复 find()。
+ * @param {Array} list  - 板块数据数组
+ * @param {string} type - '行业板块资金流向' | '概念板块资金流向'
+ * @returns {Array} 通过所有条件的板块项
+ */
+function filterSectors(list, type) {
+    const currMap = buildSectorMap(list);
+
+    // 提前构建前几日板块 Map 供条件函数 O(1) 查找
+    const sorted = sortDateFileList();
+    const currentIdx = sorted.indexOf(currentDateFile);
+    const prevData = currentIdx > 0 ? allDataByDate[sorted[currentIdx - 1]]?.data : null;
+    const prevMap = prevData ? buildSectorMap(prevData[type] || []) : new Map();
+    const prev2Data = currentIdx >= 2 ? allDataByDate[sorted[currentIdx - 2]]?.data : null;
+    const prev2Map = prev2Data ? buildSectorMap(prev2Data[type] || []) : null;
+    const prev3Data = currentIdx >= 3 ? allDataByDate[sorted[currentIdx - 3]]?.data : null;
+    const prev3Map = prev3Data ? buildSectorMap(prev3Data[type] || []) : null;
+
+    return list.filter(s =>
+        condNotPlaceholder(s) &&
+        condNetPositive(s) &&
+        condAmountNotTooHigh(s.板块, currMap, prevMap) &&
+        condTurnoverTrend(s.板块, currMap, prevMap, prev2Map, prev3Map) &&
+        condMinDays(s.板块, type)
+    );
 }
 
 // ============================

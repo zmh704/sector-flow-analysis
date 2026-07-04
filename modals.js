@@ -65,12 +65,12 @@ function renderModalTable() {
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td style="${sectorStyle}white-space:nowrap">${item.板块}</td>
+            <td style="${sectorStyle}white-space:nowrap">${escapeHtml(item.板块)}</td>
             <td style="text-align:right;white-space:nowrap">${sign}${formattedVal} 亿</td>
             <td style="text-align:right;white-space:nowrap">${turnover} 亿</td>
             <td style="text-align:center;${daysStyle}white-space:nowrap">${item._days}</td>
             <td style="text-align:right;white-space:nowrap">${item.股票数量}</td>
-            <td style="font-size:12px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${item.涉及股票 || '-'}</td>
+            <td style="font-size:12px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(item.涉及股票 || '-')}</td>
         `;
         tbody.appendChild(tr);
     });
@@ -149,7 +149,7 @@ function getTrendData(sectorName, type) {
         }
     }
 
-    const recent = available.slice(-10);
+    const recent = available.slice(-TREND_CHART_DAYS);
 
     const dates = [];
     const values = [];
@@ -277,12 +277,14 @@ function renderStockTable(panelList, stocks, bgSet, starSet, stockDaysMap) {
     const ss = starSet || bs;
     const sdm = stockDaysMap || new Map();
 
-    // 排序：共同股票（背景色）放前面，其余放后面，各自按主力净额降序
-    const commonStocks = stocks.filter(s => bs.has(s.name))
+    // 排序：加星股票始终在最上面，其次共同股票，其余在后，各自按主力净额降序
+    const starred = stocks.filter(s => ss.has(s.name))
         .sort((a, b) => (parseFloat(b.net) || -999) - (parseFloat(a.net) || -999));
-    const otherStocks = stocks.filter(s => !bs.has(s.name))
+    const commonOnly = stocks.filter(s => !ss.has(s.name) && bs.has(s.name))
         .sort((a, b) => (parseFloat(b.net) || -999) - (parseFloat(a.net) || -999));
-    const sortedStocks = [...commonStocks, ...otherStocks];
+    const otherStocks = stocks.filter(s => !ss.has(s.name) && !bs.has(s.name))
+        .sort((a, b) => (parseFloat(b.net) || -999) - (parseFloat(a.net) || -999));
+    const sortedStocks = [...starred, ...commonOnly, ...otherStocks];
 
     const table = document.createElement('table');
     table.className = 'stock-table';
@@ -296,12 +298,13 @@ function renderStockTable(panelList, stocks, bgSet, starSet, stockDaysMap) {
         const isStarred = ss.has(stock.name);
         if (isBg) tr.classList.add('stock-common');
         const changeNum = parseFloat(stock.net);
-        const changeColor = changeNum >= 0 ? 'color:#e53935;' : 'color:#43a047;';
+        const changeCls = changeNum >= 0 ? 'stock-change-positive' : 'stock-change-negative';
         const stockDays = sdm.get(stock.name) || 0;
+        const daysCls = stockDays >= 3 ? 'stock-days-high' : 'stock-days-normal';
         tr.innerHTML = `
             <td>${isStarred ? '⭐ ' : ''}${escapeHtml(stock.name)}</td>
-            <td style="${changeColor}">${escapeHtml(stock.net)}</td>
-            <td style="text-align:center;font-weight:600;color:${stockDays >= 3 ? '#dc2626' : '#555'}">${stockDays > 0 ? stockDays + '天' : '-'}</td>
+            <td class="${changeCls}">${escapeHtml(stock.net)}</td>
+            <td class="stock-days ${daysCls}">${stockDays > 0 ? stockDays + '天' : '-'}</td>
         `;
         tr.style.cursor = 'pointer';
         tr.onclick = function() { openStockQuote(stock.name, stock.code); };
@@ -362,6 +365,12 @@ function switchTrendView(sectorName, type, commonStockNames) {
 }
 
 function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, commonStockNames) {
+    // 无数据时提前返回，避免后续 DOM 操作异常
+    if (!getCurrentActiveData()) {
+        alert('暂无数据，请先加载数据文件');
+        return;
+    }
+
     // 默认显示板块净额页签
     switchTrendChartTab('chart');
 
@@ -373,7 +382,7 @@ function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, c
     const typeIcon = type === '行业板块资金流向' ? '🏛️' : '💡';
     const sectorDays = calcConsecutiveInflow(sectorName, type);
     const titleEl = document.getElementById('trendModalTitle');
-    titleEl.innerHTML = `${typeIcon} <span id="trendModalTitleSpan" style="color:#667eea;">${sectorName}</span> <span style="font-size:14px;color:#dc2626;font-weight:700;">${sectorDays}天</span>`;
+    titleEl.innerHTML = `${typeIcon} <span class="trend-modal-title-name">${escapeHtml(sectorName)}</span> <span class="trend-modal-title-days">${sectorDays}天</span>`;
     titleEl.style.cursor = 'pointer';
     titleEl.title = '切换图表和股票到该板块';
     titleEl.onclick = null;

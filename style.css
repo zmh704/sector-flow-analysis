@@ -4,6 +4,12 @@
     box-sizing: border-box;
 }
 
+/* 弹窗入场动画 */
+@keyframes modalSlideIn {
+    from { opacity: 0; transform: scale(0.96) translateY(12px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
 body {
     font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -506,7 +512,7 @@ footer {
 .trend-modal-content {
     background: white;
     border-radius: 16px;
-    padding: 12px 18px;
+    padding: 16px 20px;
     max-width: 1400px;
     width: 95%;
     height: 96vh;
@@ -515,6 +521,46 @@ footer {
     position: relative;
     display: flex;
     flex-direction: column;
+    animation: modalSlideIn 0.25s ease-out;
+}
+
+/* 趋势弹窗专用头部（与「查看全部」弹窗区分） */
+.trend-modal-content .modal-header {
+    padding: 10px 0 12px;
+    margin-bottom: 0;
+    border-bottom: 1px solid #e8e8e8;
+    background: linear-gradient(135deg, #f8f9ff 0%, #fff 100%);
+    border-radius: 12px 12px 0 0;
+}
+
+.trend-modal-content .modal-header h2 {
+    font-size: 17px;
+    font-weight: 700;
+    color: #333;
+    transition: opacity 0.2s;
+}
+
+.trend-modal-content .modal-header h2:hover {
+    opacity: 0.7;
+}
+
+.trend-modal-content .modal-close {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: #f0f0f0;
+    border-radius: 50%;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.trend-modal-content .modal-close:hover {
+    background: #e0e0e0;
+    transform: rotate(90deg);
 }
 
 .trend-modal-body {
@@ -552,29 +598,50 @@ footer {
 /* 弹窗内图表区域页签 */
 .trend-chart-tabs {
     display: flex;
-    gap: 4px;
+    gap: 0;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 0 4px;
 }
 
 .trend-tab-btn {
-    padding: 3px 10px;
-    font-size: 11px;
+    padding: 7px 18px;
+    font-size: 12px;
     font-weight: 600;
-    border: 1px solid #ddd;
-    background: #f5f5f5;
-    color: #666;
+    border: none;
+    background: transparent;
+    color: #6b7280;
     cursor: pointer;
-    border-radius: 6px 6px 0 0;
+    border-radius: 8px 8px 0 0;
     transition: all 0.2s;
+    position: relative;
+    margin-bottom: -1px;
+}
+
+.trend-tab-btn:after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 2px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    transition: width 0.2s ease-out;
+    border-radius: 1px;
 }
 
 .trend-tab-btn.active {
-    background: #667eea;
-    color: white;
-    border-color: #667eea;
+    color: #4f46e5;
+    background: rgba(102, 126, 234, 0.06);
+}
+
+.trend-tab-btn.active:after {
+    width: 60%;
 }
 
 .trend-tab-btn:hover:not(.active) {
-    background: #e8e8e8;
+    color: #4f46e5;
+    background: rgba(0, 0, 0, 0.02);
 }
 
 .trend-chart-content {
@@ -606,117 +673,167 @@ footer {
 }
 
 .trend-right {
-    width: 260px;
+    width: 300px;
     flex-shrink: 0;
     background: #f8f9fa;
     border-radius: 12px;
-    border: 1px solid #e8e8e8;
+    border: 1px solid #e5e7eb;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 
 .stock-panel-header {
     font-weight: 700;
-    font-size: 12px;
-    padding: 6px 10px 4px;
-    color: #333;
-    border-bottom: 1px solid #e8e8e8;
+    font-size: 13px;
+    padding: 10px 14px 8px;
+    color: white;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-bottom: none;
+    letter-spacing: 0.3px;
 }
 
 .stock-panel-title {
     font-size: 13px;
     padding: 8px 14px 4px;
-    color: #666;
+    color: #888;
+    font-weight: 500;
 }
 
 .stock-panel-list {
     flex: 1;
     overflow-y: auto;
-    padding: 6px 10px 10px;
+    padding: 8px 10px 10px;
 }
 
 /* 股票表格样式 */
 .stock-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 11px;
+    font-size: 12px;
     white-space: nowrap;
 }
 
 .stock-table thead th {
     position: sticky;
     top: 0;
-    background: #f0f4ff;
-    padding: 4px 3px;
+    background: #eef1ff;
+    padding: 7px 6px;
     text-align: left;
     font-weight: 600;
     font-size: 11px;
-    color: #555;
+    color: #4f46e5;
     border-bottom: 2px solid #d0d8e8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
-.stock-table tbody td {
-    padding: 3px 3px;
+.stock-table thead th:nth-child(2) {
+    text-align: right;
 }
 
 .stock-table thead th:nth-child(3) {
-    width: 74px;
-}
-
-.stock-table thead th:nth-child(4) {
-    width: 74px;
-}
-
-.stock-table thead th:nth-child(5) {
-    width: 66px;
-}
-
-.stock-table thead th:nth-child(6) {
-    width: 56px;
     text-align: center;
 }
 
 .stock-table tbody td {
-    padding: 3px 3px;
-    border-bottom: 1px solid #eee;
+    padding: 5px 6px;
+    border-bottom: 1px solid #f0f0f0;
     vertical-align: middle;
     white-space: nowrap;
 }
 
-.stock-table tbody td:first-child {
-    text-align: center;
-    color: #999;
-    font-size: 11px;
+.stock-table tbody tr {
+    transition: background 0.15s;
 }
 
-.stock-table tbody td:nth-child(3),
-.stock-table tbody td:nth-child(4),
-.stock-table tbody td:nth-child(5) {
-    text-align: right;
+.stock-table tbody tr:nth-child(even) {
+    background: rgba(102, 126, 234, 0.03);
 }
 
 .stock-table tbody tr:hover {
-    background: #f5f7ff;
+    background: #eef2ff !important;
 }
 
 .stock-table tbody tr.stock-common {
-    background: #fffde7;
+    background: #fefce8;
+    border-left: 3px solid #f59e0b;
 }
 
 .stock-table tbody tr.stock-common:hover {
-    background: #fff9c4;
+    background: #fef9c3 !important;
+}
+
+.stock-table tbody td:nth-child(2) {
+    text-align: right;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', 'Consolas', monospace;
+    font-size: 11px;
+}
+
+.stock-table tbody td:nth-child(3) {
+    text-align: center;
+}
+
+.stock-table tbody td:first-child {
+    font-weight: 600;
+    color: #1f2937;
+}
+
+/* 股票表格颜色类（替代内联 style） */
+.stock-change-positive {
+    color: #e53935;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', 'Consolas', monospace;
+    font-size: 11px;
+}
+
+.stock-change-negative {
+    color: #43a047;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', 'Consolas', monospace;
+    font-size: 11px;
+}
+
+.stock-days {
+    text-align: center;
+    font-weight: 600;
+}
+
+.stock-days-high {
+    color: #dc2626;
+}
+
+.stock-days-normal {
+    color: #6b7280;
+}
+
+/* 趋势弹窗标题样式 */
+.trend-modal-title-name {
+    color: #4f46e5;
+    font-weight: 700;
+}
+
+.trend-modal-title-days {
+    font-size: 14px;
+    color: #dc2626;
+    font-weight: 700;
+    margin-left: 4px;
 }
 
 .trend-common-stocks {
     font-size: 12px;
     color: #666;
-    padding: 3px 10px;
-    background: #fefce8;
-    border-radius: 6px;
+    padding: 8px 14px;
+    background: linear-gradient(135deg, #fefce8 0%, #fef9c3 100%);
+    border-radius: 10px;
     border: 1px solid #fde68a;
-    line-height: 1.6;
-    max-height: 28px;
+    line-height: 2;
+    min-height: 36px;
+    max-height: 42px;
     overflow-y: auto;
+    margin-bottom: 6px;
+    box-shadow: 0 1px 3px rgba(253, 224, 71, 0.15);
 }
 
 .trend-common-stocks .pair {
@@ -838,6 +955,17 @@ footer {
 
     .trend-right {
         width: auto;
-        max-height: 200px;
+        max-height: 220px;
+    }
+
+    .trend-modal-content {
+        padding: 12px 14px;
+        height: 98vh;
+    }
+
+    .trend-common-stocks {
+        max-height: 36px;
+        font-size: 11px;
+        padding: 4px 10px;
     }
 }
