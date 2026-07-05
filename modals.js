@@ -138,7 +138,7 @@ function closeModal(event) {
 
 // ===== 趋势对比弹窗 =====
 
-function getTrendData(sectorName, type) {
+function getTrendData(sectorName, type, field) {
     const sorted = sortDateFileList();
 
     let available = sorted;
@@ -171,7 +171,11 @@ function getTrendData(sectorName, type) {
         }
         const sector = sectorMap.get(sectorName);
         if (sector) {
-            values.push(Number(sector.成交额) / 100000000);
+            if (field === 'net') {
+                values.push(Number(sector.主力净额) / 100000000);
+            } else {
+                values.push(Number(sector.成交额) / 100000000);
+            }
         } else {
             values.push(null);
         }
@@ -180,19 +184,29 @@ function getTrendData(sectorName, type) {
     return { dates, values };
 }
 
-function createBarChart(ctx, trendData, existingChart) {
+function createBarChart(ctx, trendData, existingChart, field) {
     if (existingChart) {
         existingChart.destroy();
     }
 
     const colors = trendData.values.map(v => {
         if (v == null) return 'rgba(150, 150, 150, 0.5)';
-        return v >= 0 ? 'rgba(229, 57, 53, 0.8)' : 'rgba(67, 160, 71, 0.8)';
+        if (field === 'net') {
+            return v >= 0 ? 'rgba(229, 57, 53, 0.8)' : 'rgba(67, 160, 71, 0.8)';
+        }
+        return 'rgba(229, 57, 53, 0.8)';
     });
     const borderColors = trendData.values.map(v => {
         if (v == null) return 'rgba(150, 150, 150, 0.5)';
-        return v >= 0 ? 'rgba(229, 57, 53, 1)' : 'rgba(67, 160, 71, 1)';
+        if (field === 'net') {
+            return v >= 0 ? 'rgba(229, 57, 53, 1)' : 'rgba(67, 160, 71, 1)';
+        }
+        return 'rgba(229, 57, 53, 1)';
     });
+
+    const tooltipLabel = field === 'net' ? '主力净额' : '成交额';
+    const yAxisTitle = field === 'net' ? '主力净额（亿元）' : '成交额（亿）';
+    const valueSuffix = field === 'net' ? '' : '';
 
     const chart = new Chart(ctx, {
         type: 'bar',
@@ -218,7 +232,7 @@ function createBarChart(ctx, trendData, existingChart) {
                         label: function(context) {
                             const val = context.parsed.y;
                             const sign = val >= 0 ? '+' : '';
-                            return `主力净额: ${sign}${val.toFixed(2)} 亿`;
+                            return `${tooltipLabel}: ${sign}${val.toFixed(2)} 亿`;
                         }
                     }
                 }
@@ -240,7 +254,7 @@ function createBarChart(ctx, trendData, existingChart) {
                 y: {
                     title: {
                         display: true,
-                        text: '成交额（亿）',
+                        text: yAxisTitle,
                         font: { size: 13, weight: 'bold' }
                     },
                     grid: {
@@ -348,17 +362,21 @@ function showStocksInPanel(sectorName, type, commonStockNames) {
 
 /** 切换趋势弹窗的图表和股票面板到指定板块 */
 function switchTrendView(sectorName, type, commonStockNames) {
-    // 切换板块时回到板块净额页签
+    // 切换板块时回到板块详情页签
     switchTrendChartTab('chart');
 
     // 更新图表
-    if (trendChart) {
-        trendChart.destroy();
-        trendChart = null;
-    }
-    const trend = getTrendData(sectorName, type);
-    const ctx = document.getElementById('trendChart').getContext('2d');
-    trendChart = createBarChart(ctx, trend, trendChart);
+    if (trendNetChart) { trendNetChart.destroy(); trendNetChart = null; }
+    if (trendTurnoverChart) { trendTurnoverChart.destroy(); trendTurnoverChart = null; }
+
+    const netTrend = getTrendData(sectorName, type, 'net');
+    const turnoverTrend = getTrendData(sectorName, type, 'turnover');
+
+    const netCtx = document.getElementById('trendNetChart').getContext('2d');
+    trendNetChart = createBarChart(netCtx, netTrend, trendNetChart, 'net');
+
+    const turnoverCtx = document.getElementById('trendTurnoverChart').getContext('2d');
+    trendTurnoverChart = createBarChart(turnoverCtx, turnoverTrend, trendTurnoverChart, 'turnover');
 
     // 更新股票面板
     showStocksInPanel(sectorName, type, commonStockNames);
@@ -371,13 +389,11 @@ function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, c
         return;
     }
 
-    // 默认显示板块净额页签
+    // 默认显示板块详情页签
     switchTrendChartTab('chart');
 
-    if (trendChart) {
-        trendChart.destroy();
-        trendChart = null;
-    }
+    if (trendNetChart) { trendNetChart.destroy(); trendNetChart = null; }
+    if (trendTurnoverChart) { trendTurnoverChart.destroy(); trendTurnoverChart = null; }
 
     const typeIcon = type === '行业板块资金流向' ? '🏛️' : '💡';
     const sectorDays = calcConsecutiveInflow(sectorName, type);
@@ -440,10 +456,13 @@ function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, c
         showStocksInPanel(sectorName, type);
     }
 
-    // 绘制趋势图
-    const trend = getTrendData(sectorName, type);
-    const ctx = document.getElementById('trendChart').getContext('2d');
-    trendChart = createBarChart(ctx, trend, trendChart);
+    // 绘制趋势图（主力净额 + 成交额）
+    const netTrend = getTrendData(sectorName, type, 'net');
+    const turnoverTrend = getTrendData(sectorName, type, 'turnover');
+    const netCtx = document.getElementById('trendNetChart').getContext('2d');
+    trendNetChart = createBarChart(netCtx, netTrend, trendNetChart, 'net');
+    const turnoverCtx = document.getElementById('trendTurnoverChart').getContext('2d');
+    trendTurnoverChart = createBarChart(turnoverCtx, turnoverTrend, trendTurnoverChart, 'turnover');
 
     document.getElementById('trendModalOverlay').classList.add('active');
 }
@@ -452,9 +471,13 @@ function closeTrendModal(event) {
     if (event && event.target !== event.currentTarget) return;
     document.getElementById('trendModalOverlay').classList.remove('active');
 
-    if (trendChart) {
-        trendChart.destroy();
-        trendChart = null;
+    if (trendNetChart) {
+        trendNetChart.destroy();
+        trendNetChart = null;
+    }
+    if (trendTurnoverChart) {
+        trendTurnoverChart.destroy();
+        trendTurnoverChart = null;
     }
 }
 
@@ -502,7 +525,7 @@ function showStockLeader(stockName, sectors) {
     }
 }
 
-/** 切换弹窗内图表区域页签（chart=板块净额, stock=个股详情） */
+/** 切换弹窗内图表区域页签（chart=板块详情, stock=个股详情） */
 function switchTrendChartTab(tab) {
     document.querySelectorAll('.trend-tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.trend-chart-content').forEach(c => c.classList.remove('active'));

@@ -653,6 +653,8 @@ footer {
 .trend-chart-content.active {
     display: flex;
     flex-direction: column;
+    flex: 1;
+    min-height: 0;
 }
 
 .trend-chart-content .chart-wrap {
@@ -660,6 +662,47 @@ footer {
     min-height: 200px;
     margin-top: 4px;
     position: relative;
+}
+
+/* 左右双图表布局 */
+.trend-chart-row {
+    display: flex;
+    flex-direction: row;
+    flex: 1;
+    min-height: 0;
+    gap: 0;
+}
+
+.trend-chart-row .chart-wrap {
+    flex: 1;
+    min-height: 200px;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    margin-top: 4px;
+}
+
+.trend-chart-row .chart-inner {
+    flex: 1;
+    position: relative;
+    min-height: 0;
+}
+
+.trend-chart-row .chart-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #4f46e5;
+    padding: 2px 4px 4px 4px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.chart-divider {
+    width: 1px;
+    background: #e5e7eb;
+    margin: 24px 4px 4px 4px;
+    flex-shrink: 0;
 }
 
 .trend-chart-content .stock-iframe {

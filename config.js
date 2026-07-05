@@ -49,7 +49,8 @@ function invalidateDateCaches() {
 // 图表实例
 let industryChart = null;
 let conceptChart = null;
-let trendChart = null;
+let trendNetChart = null;
+let trendTurnoverChart = null;
 
 // Chart.js 交替行背景插件
 Chart.register({

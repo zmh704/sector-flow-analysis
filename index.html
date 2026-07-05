@@ -115,12 +115,20 @@
                 <div class="trend-main-row">
                     <div class="trend-left">
                         <div class="trend-chart-tabs">
-                            <button class="trend-tab-btn active" id="trendChartTabBtn" onclick="switchTrendChartTab('chart')">📊 板块净额</button>
+                            <button class="trend-tab-btn active" id="trendChartTabBtn" onclick="switchTrendChartTab('chart')">📊 板块详情</button>
                             <button class="trend-tab-btn" id="trendStockTabBtn" onclick="switchTrendChartTab('stock')">📈 个股详情</button>
                         </div>
                         <div class="trend-chart-content active" id="trendChartContent">
-                            <div class="chart-wrap">
-                                <canvas id="trendChart"></canvas>
+                            <div class="trend-chart-row">
+                                <div class="chart-wrap">
+                                    <div class="chart-label">💰 主力净额</div>
+                                    <div class="chart-inner"><canvas id="trendNetChart"></canvas></div>
+                                </div>
+                                <div class="chart-divider"></div>
+                                <div class="chart-wrap">
+                                    <div class="chart-label">📊 成交额</div>
+                                    <div class="chart-inner"><canvas id="trendTurnoverChart"></canvas></div>
+                                </div>
                             </div>
                         </div>
                         <div class="trend-chart-content" id="trendStockContent">
