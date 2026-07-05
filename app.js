@@ -34,6 +34,24 @@ function initEventListeners() {
         if (th) sortModalTable(th.dataset.sort);
     });
 
+    // 查看全部弹窗表格行点击：打开板块详情弹窗（与关注板块标签一致）
+    document.getElementById('modalBody').addEventListener('click', function(e) {
+        const tr = e.target.closest('tr');
+        if (!tr || !tr.dataset.sectorName) return; // 非数据行
+
+        const sectorName = tr.dataset.sectorName;
+        const type = modalDataType; // 全局变量：'行业板块资金流向' 或 '概念板块资金流向'
+        const item = modalDataCache.find(d => d.板块 === sectorName);
+        if (!item) return;
+
+        const matchedSectors = item._matched || [];
+        const stocks = item._parsedStocks || parseStocks(item.涉及股票);
+        const commonStocks = new Set(matchedSectors.flatMap(m => m.commonStocks));
+        const title = tr.dataset.title || `${escapeHtml(sectorName)} (${typeof item._days === 'number' ? item._days : '?'})天`;
+
+        showSingleTrendModal(sectorName, type, title, matchedSectors, stocks, commonStocks);
+    });
+
     // 趋势对比弹窗
     document.getElementById('trendModalOverlay').addEventListener('click', function(e) {
         if (e.target === e.currentTarget) closeTrendModal();

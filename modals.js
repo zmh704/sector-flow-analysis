@@ -56,7 +56,6 @@ function renderModalTable() {
         return modalSortState.asc ? va - vb : vb - va;
     });
 
-    // 使用 DocumentFragment 批量构建行，减少重排次数
     const fragment = document.createDocumentFragment();
     sorted.forEach(item => {
         const val = item._val;
@@ -73,6 +72,13 @@ function renderModalTable() {
             : 'color:#555';
 
         const tr = document.createElement('tr');
+        // 添加 data-* 属性，支持点击行弹出板块详情
+        tr.dataset.sectorName = item.板块;
+        tr.dataset.type = modalDataType;
+        tr.dataset.title = (item._highlighted ? '🔥 ' : '') + escapeHtml(item.板块) +
+                          (typeof item._days === 'number' ? ` (${item._days}天)` : '');
+        tr.style.cursor = 'pointer';
+
         tr.innerHTML = `
             <td style="${sectorStyle}white-space:nowrap">${escapeHtml(item.板块)}</td>
             <td style="text-align:right;white-space:nowrap">${sign}${formattedVal} 亿</td>
@@ -118,6 +124,10 @@ function showAllData(type) {
     document.getElementById('modalTitle').textContent = title;
 
     modalDataType = type;
+    const otherType = type === '行业板块资金流向' ? '概念板块资金流向' : '行业板块资金流向';
+    const otherList = filterSectors(activeData[otherType] || [], otherType); // 仅关注板块参与配对
+
+    // 第一步：构建缓存，预解析股票
     modalDataCache = list.map(item => {
         const val = Number(item.主力净额);
         let days = '-';
@@ -132,8 +142,28 @@ function showAllData(type) {
             _turnover: Number(item.成交额),
             _stockCount: Number(item.股票数量),
             _days: days,
-            _highlighted: highlighted
+            _highlighted: highlighted,
+            _parsedStocks: item._parsedStocks || parseStocks(item.涉及股票)
         };
+    });
+
+    // 第二步：预计算配对信息（行业↔概念 共同股票）
+    modalDataCache.forEach(item => {
+        const itemStocks = new Set(item._parsedStocks.map(s => s.name));
+        const matched = [];
+        otherList.forEach(otherItem => {
+            const otherStocks = new Set((otherItem._parsedStocks || parseStocks(otherItem.涉及股票)).map(s => s.name));
+            const common = [...itemStocks].filter(s => otherStocks.has(s));
+            if (common.length > 0) {
+                matched.push({
+                    name: otherItem.板块,
+                    days: calcConsecutiveInflow(otherItem.板块, otherType),
+                    commonStocks: common,
+                    _dataType: otherType // 用于标记数据类型
+                });
+            }
+        });
+        item._matched = matched;
     });
 
     modalSortState = { key: 'days', asc: false };
