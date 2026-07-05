@@ -124,7 +124,7 @@ function updateLeaderArea(activeData) {
     const allCurrentSectors = [...industryList, ...conceptList];
 
     if (allCurrentSectors.length === 0) {
-        container.innerHTML = '<span style="color:#999;">暂无数据</span>';
+        container.innerHTML = renderEmptyState('📭', '暂无数据', '请点击「加载数据」获取板块数据');
         return;
     }
 
@@ -171,7 +171,7 @@ function updateLeaderArea(activeData) {
     // 渲染
     container.innerHTML = '';
     if (leaders.length === 0) {
-        container.innerHTML = '<span style="color:#999;">暂无符合条件的龙头股票</span>';
+        container.innerHTML = renderEmptyState('🏆', '暂无符合条件的龙头股票', '尝试调整筛选条件或切换日期');
         return;
     }
 
@@ -215,7 +215,7 @@ function updateFocusArea(activeData) {
     }));
 
     if (industries.length === 0 && concepts.length === 0) {
-        container.innerHTML = '<span style="color:#999;">暂无符合条件的关注板块</span>';
+        container.innerHTML = renderEmptyState('📌', '暂无符合条件的关注板块', '尝试切换日期或调整筛选条件');
         return;
     }
 

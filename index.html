@@ -23,9 +23,9 @@
                 <label for="conceptCount">概念显示数量:</label>
                 <input type="number" id="conceptCount" min="1" max="100" value="10">
             </div>
-            <button id="btnParseExcel" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">📊 解析数据</button>
-            <button id="btnLoadData" style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);">📂 加载数据</button>
-            <button id="btnRefresh">🔄 刷新图表</button>
+            <button id="btnParseExcel" title="上传并解析 Excel 文件，生成板块资金流向数据" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">📊 解析数据</button>
+            <button id="btnLoadData" title="从服务器重新加载所有 JSON 数据文件" style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);">📂 加载数据</button>
+            <button id="btnRefresh" title="强制重新渲染所有组件（如显示异常时使用）" class="btn-secondary">🔄 刷新图表</button>
             <input type="file" id="excelFileInput" accept=".xlsx,.xls" style="display:none">
             <div class="control-group flow-control-group">
                 <label class="flow-option inflow">
@@ -53,7 +53,7 @@
             <div class="chart-box">
                 <div class="chart-title">
                     <span>🏛️ 行业板块资金流向</span>
-                    <button class="view-all-btn" id="btnAllIndustry">查看全部</button>
+                    <button class="view-all-btn" id="btnAllIndustry" title="查看所有行业板块的详细数据表格">查看全部</button>
                 </div>
                 <div class="chart-wrapper">
                     <canvas id="industryChart"></canvas>
@@ -62,7 +62,7 @@
             <div class="chart-box">
                 <div class="chart-title">
                     <span>💡 概念板块资金流向</span>
-                    <button class="view-all-btn" id="btnAllConcept">查看全部</button>
+                    <button class="view-all-btn" id="btnAllConcept" title="查看所有概念板块的详细数据表格">查看全部</button>
                 </div>
                 <div class="chart-wrapper">
                     <canvas id="conceptChart"></canvas>
@@ -80,7 +80,10 @@
         <div class="modal-content" onclick="event.stopPropagation()">
             <div class="modal-header">
                 <h2 id="modalTitle">全部板块</h2>
-                <button class="modal-close" id="btnCloseModal">✕</button>
+                <button class="modal-close" id="btnCloseModal" title="关闭 (Esc)">✕</button>
+            </div>
+            <div class="modal-search">
+                <input type="text" id="modalSearchInput" placeholder="🔍 搜索板块名称..." autocomplete="off">
             </div>
             <table class="modal-table">
                 <thead>
@@ -111,7 +114,7 @@
                     <h2 id="trendModalTitle">板块</h2>
                     <div class="trend-common-stocks" id="trendMatchedSectors"></div>
                 </div>
-                <button class="modal-close" id="btnCloseTrendModal">✕</button>
+                <button class="modal-close" id="btnCloseTrendModal" title="关闭 (Esc)">✕</button>
             </div>
                 <div class="trend-main-row">
                     <div class="trend-left">

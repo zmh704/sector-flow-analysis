@@ -71,6 +71,11 @@ function setChartLoading(loading) {
     });
 }
 
+/** 渲染空状态占位 */
+function renderEmptyState(icon, text, hint) {
+    return `<div class="empty-state"><div class="empty-icon">${icon}</div><div class="empty-text">${escapeHtml(text)}</div>${hint ? '<div class="empty-hint">' + escapeHtml(hint) + '</div>' : ''}</div>`;
+}
+
 // 数据状态
 let allDataByDate = {};
 let dateFileList = [];

@@ -30,6 +30,9 @@ function initEventListeners() {
     });
     document.getElementById('filterInvalid').addEventListener('change', renderModalTable);
 
+    // 弹窗搜索过滤（200ms 防抖）
+    document.getElementById('modalSearchInput').addEventListener('input', debounce(renderModalTable, 200));
+
     // 弹窗表格排序（事件委托：thead 上监听，根据 data-sort 属性判断）
     document.querySelector('.modal-table thead').addEventListener('click', function(e) {
         const th = e.target.closest('th[data-sort]');
@@ -48,32 +51,10 @@ function initEventListeners() {
         switchTrendChartTab('stock');
     });
 
-    // 日期按钮事件委托（含展开/收起）
+    // 日期按钮事件委托
     document.getElementById('dateButtons').addEventListener('click', function(e) {
         const btn = e.target.closest('.date-btn');
         if (!btn) return;
-
-        // 展开/收起按钮
-        const action = btn.dataset.action;
-        if (action === 'expand-dates') {
-            expandAllDates();
-            return;
-        }
-        if (action === 'collapse-dates') {
-            // 收起：重新渲染仅显示最近 TREND_CHART_DAYS 个按钮
-            // 先恢复当前选中状态
-            const current = currentDateFile;
-            renderDateButtons();
-            if (current) {
-                const btns = document.querySelectorAll('.date-btn');
-                btns.forEach(b => {
-                    if (b.dataset.datefile === current) b.classList.add('active');
-                });
-            }
-            return;
-        }
-
-        // 日期切换按钮
         const filename = btn.dataset.datefile;
         if (!filename) return;
         setCurrentDateFile(filename);
@@ -153,8 +134,65 @@ function initEventListeners() {
 
 window.onload = function() {
     initEventListeners();
+    initKeyboardShortcuts();
     loadAllJsonFiles();
 };
+
+// ==================== 键盘快捷键 ====================
+
+function initKeyboardShortcuts() {
+    document.addEventListener('keydown', function(e) {
+        // 不处理输入框中的快捷键
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+        // Esc 关闭弹窗
+        if (e.key === 'Escape') {
+            const trendOverlay = document.getElementById('trendModalOverlay');
+            if (trendOverlay && trendOverlay.classList.contains('active')) {
+                closeTrendModal();
+                return;
+            }
+            const modalOverlay = document.getElementById('modalOverlay');
+            if (modalOverlay && modalOverlay.classList.contains('active')) {
+                closeModal();
+                return;
+            }
+        }
+
+        // ← → 切换日期
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+            const sorted = sortDateFileList();
+            if (sorted.length === 0) return;
+            const idx = sorted.indexOf(currentDateFile);
+            if (idx < 0) return;
+            const newIdx = e.key === 'ArrowRight'
+                ? Math.min(idx + 1, sorted.length - 1)
+                : Math.max(idx - 1, 0);
+            if (newIdx === idx) return;
+            const filename = sorted[newIdx];
+            setCurrentDateFile(filename);
+            // 更新日期按钮高亮
+            document.querySelectorAll('.date-btn').forEach(b => {
+                b.classList.toggle('active', b.dataset.datefile === filename);
+            });
+            // 滚动到该按钮
+            const activeBtn = document.querySelector('.date-btn.active');
+            if (activeBtn) activeBtn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+            updateCharts();
+            e.preventDefault();
+        }
+
+        // 1-9 快速选择日期
+        const num = parseInt(e.key);
+        if (num >= 1 && num <= 9) {
+            const btns = document.querySelectorAll('.date-btn[data-datefile]');
+            if (num <= btns.length) {
+                btns[num - 1].click();
+                e.preventDefault();
+            }
+        }
+    });
+}
 
 // ==================== 解析数据 ====================
 

@@ -22,6 +22,13 @@ function renderModalTable() {
         filtered = modalDataCache.filter(item => Number(item.股票数量) > 1);
     }
 
+    // 搜索过滤
+    const searchInput = document.getElementById('modalSearchInput');
+    const searchTerm = searchInput ? searchInput.value.trim().toLowerCase() : '';
+    if (searchTerm) {
+        filtered = filtered.filter(item => item.板块.toLowerCase().includes(searchTerm));
+    }
+
     if (filtered.length === 0) {
         tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#999;padding:30px;">过滤后无数据，请取消「过滤无效」</td></tr>';
         return;
@@ -282,7 +289,7 @@ function createBarChart(ctx, trendData, existingChart, field) {
 function renderStockTable(panelList, stocks, bgSet, starSet, stockDaysMap) {
     panelList.innerHTML = '';
     if (!stocks || stocks.length === 0) {
-        panelList.innerHTML = '<span style="color:#999;">无涉及股票数据</span>';
+        panelList.innerHTML = renderEmptyState('📊', '无涉及股票数据');
         return;
     }
 
@@ -334,7 +341,7 @@ function showStocksInPanel(sectorName, type, commonStockNames) {
     if (!panelList) return;
 
     if (!getCurrentData()) {
-        panelList.innerHTML = '<span style="color:#999;">暂无数据</span>';
+        panelList.innerHTML = renderEmptyState('📭', '暂无数据', '请先加载数据文件');
         return;
     }
 
@@ -342,7 +349,7 @@ function showStocksInPanel(sectorName, type, commonStockNames) {
     const sectorList = activeData[type] || [];
     const sector = sectorList.find(s => s.板块 === sectorName);
     if (!sector) {
-        panelList.innerHTML = '<span style="color:#999;">未找到该板块数据</span>';
+        panelList.innerHTML = renderEmptyState('🔍', '未找到该板块数据');
         return;
     }
 

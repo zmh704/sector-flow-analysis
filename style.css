@@ -239,15 +239,27 @@ button:hover {
     box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
 }
 
+button.btn-secondary {
+    background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%);
+}
+
+button.btn-secondary:hover {
+    box-shadow: 0 5px 15px rgba(107, 114, 128, 0.4);
+}
+
 .date-buttons {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 8px;
     margin-bottom: 10px;
     padding: 8px 15px;
     background: #f8f9fa;
     border-radius: 8px;
-    justify-content: center;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    justify-content: flex-start;
+    align-items: center;
 }
 
 .date-btn {
@@ -329,6 +341,26 @@ button:hover {
 
 .modal-header h2:hover {
     opacity: 0.7;
+}
+
+/* 弹窗搜索框 */
+.modal-search {
+    padding: 8px 0;
+}
+
+.modal-search input {
+    width: 100%;
+    padding: 8px 14px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s;
+    box-sizing: border-box;
+}
+
+.modal-search input:focus {
+    border-color: #667eea;
 }
 
 .modal-close {
@@ -440,7 +472,9 @@ button:hover {
 
 .chart-wrapper {
     position: relative;
-    height: 420px;
+    min-height: 300px;
+    height: 50vh;
+    max-height: 500px;
 }
 
 .focus-section {
@@ -961,6 +995,30 @@ footer {
     min-width: 0;
 }
 
+/* 空状态样式 */
+.empty-state {
+    text-align: center;
+    padding: 30px 20px;
+    color: #999;
+}
+
+.empty-state .empty-icon {
+    font-size: 36px;
+    margin-bottom: 10px;
+}
+
+.empty-state .empty-text {
+    font-size: 14px;
+    font-weight: 600;
+    color: #888;
+}
+
+.empty-state .empty-hint {
+    font-size: 12px;
+    color: #aaa;
+    margin-top: 6px;
+}
+
 .trend-common-stocks .pair {
     display: inline-block;
     margin: 0 4px;
@@ -1057,13 +1115,75 @@ footer {
     line-height: 1.6;
 }
 
+/* 自定义滚动条 */
+.modal-content::-webkit-scrollbar,
+.trend-right::-webkit-scrollbar,
+.stock-panel-list::-webkit-scrollbar {
+    width: 8px;
+}
+.modal-content::-webkit-scrollbar-track,
+.trend-right::-webkit-scrollbar-track,
+.stock-panel-list::-webkit-scrollbar-track {
+    background: #e5e7eb;
+    border-radius: 4px;
+}
+.modal-content::-webkit-scrollbar-thumb,
+.trend-right::-webkit-scrollbar-thumb,
+.stock-panel-list::-webkit-scrollbar-thumb {
+    background: #a78bfa;
+    border-radius: 4px;
+}
+.modal-content::-webkit-scrollbar-thumb:hover,
+.trend-right::-webkit-scrollbar-thumb:hover,
+.stock-panel-list::-webkit-scrollbar-thumb:hover {
+    background: #8b5cf6;
+}
+.modal-content,
+.trend-right,
+.stock-panel-list {
+    scrollbar-width: thin;
+    scrollbar-color: #a78bfa #e5e7eb;
+}
+
+/* 查看全部弹窗入场动画 */
+.modal-overlay.active .modal-content {
+    animation: modalSlideIn 0.25s ease-out;
+}
+
+@media (max-width: 1024px) {
+    .charts-container {
+        grid-template-columns: 1fr;
+    }
+    .chart-wrapper {
+        height: 40vh;
+        min-height: 250px;
+        max-height: 420px;
+    }
+    .modal-content {
+        max-width: 95%;
+    }
+    .trend-modal-content {
+        padding: 12px 14px;
+    }
+    .trend-right {
+        width: min(240px, 25%);
+    }
+    h1 {
+        font-size: 18px;
+    }
+    .chart-title {
+        font-size: 16px;
+    }
+}
+
 @media (max-width: 768px) {
     .charts-container {
         grid-template-columns: 1fr;
     }
 
     .chart-wrapper {
-        height: 350px;
+        height: 35vh;
+        min-height: 250px;
     }
 
     .controls {
@@ -1071,8 +1191,23 @@ footer {
         align-items: flex-start;
     }
 
-    .trend-modal-body {
-        flex-direction: column;
+    .date-btn {
+        padding: 10px 24px;
+    }
+
+    .view-all-btn {
+        padding: 8px 16px;
+    }
+
+    .modal-close {
+        width: 40px;
+        height: 40px;
+        font-size: 20px;
+    }
+
+    .flow-option span {
+        min-width: 64px;
+        padding: 10px 20px;
     }
 
     .trend-main-row {
@@ -1080,8 +1215,8 @@ footer {
     }
 
     .trend-right {
-        width: auto;
-        max-height: 220px;
+        width: 100% !important;
+        max-height: 40vh;
     }
 
     .trend-modal-content {
@@ -1093,5 +1228,52 @@ footer {
         max-height: 36px;
         font-size: 11px;
         padding: 4px 10px;
+    }
+}
+
+/* 打印样式 */
+@media print {
+    body {
+        background: white !important;
+        padding: 0;
+    }
+    .container {
+        box-shadow: none;
+        background: white;
+        max-width: 100%;
+        padding: 10px;
+    }
+    .controls,
+    .date-buttons,
+    .modal-overlay,
+    .leader-item,
+    .pair.clickable,
+    .view-all-btn,
+    .modal-close,
+    #loadStatus,
+    button {
+        display: none !important;
+    }
+    .chart-box {
+        break-inside: avoid;
+        box-shadow: none;
+        border: 1px solid #ddd;
+    }
+    .chart-wrapper {
+        height: 300px;
+    }
+    .leader-section {
+        border: 1px solid #ccc;
+        background: none;
+    }
+    .focus-section {
+        border: 1px solid #ccc;
+        background: none;
+    }
+    h1, h2, h3, h4, p, span, td, th {
+        color: black !important;
+    }
+    footer {
+        color: #666 !important;
     }
 }

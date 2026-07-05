@@ -143,26 +143,15 @@ function renderDateButtons() {
     container.innerHTML = '';
 
     if (dateFileList.length === 0) {
-        container.innerHTML = '<span style="color: #999; font-size: 14px;">暂无数据，请点击「加载数据」</span>';
+        container.innerHTML = renderEmptyState('📅', '暂无数据', '请点击「加载数据」');
         return;
     }
 
     const sorted = sortDateFileList();
 
-    const isOverflow = sorted.length > 10;
-    const shown = isOverflow ? sorted.slice(-TREND_CHART_DAYS) : sorted;
-
-    shown.forEach(filename => {
+    sorted.forEach(filename => {
         container.appendChild(createDateButton(filename));
     });
-
-    if (isOverflow) {
-        const moreBtn = document.createElement('button');
-        moreBtn.className = 'date-btn';
-        moreBtn.textContent = '更多▼';
-        moreBtn.dataset.action = 'expand-dates';
-        container.appendChild(moreBtn);
-    }
 
     if (!currentDateFile && dateFileList.length > 0) {
         setCurrentDateFile(sorted[sorted.length - 1]);
@@ -171,24 +160,6 @@ function renderDateButtons() {
             btns[btns.length - 1].classList.add('active');
         }
     }
-}
-
-/**
- * 展开所有日期按钮（由事件委托调用）
- * 替换 renderDateButtons 内联 onclick，保持外部可访问以便事件委托调用
- */
-function expandAllDates() {
-    const container = document.getElementById('dateButtons');
-    container.innerHTML = '';
-    const sorted = sortDateFileList();
-    sorted.forEach(filename => {
-        container.appendChild(createDateButton(filename));
-    });
-    const collapseBtn = document.createElement('button');
-    collapseBtn.className = 'date-btn';
-    collapseBtn.textContent = '收起▲';
-    collapseBtn.dataset.action = 'collapse-dates';
-    container.appendChild(collapseBtn);
 }
 
 /** 创建日期切换按钮（事件由 app.js 中的事件委托处理） */
