@@ -270,8 +270,8 @@ function updateCharts() {
 
         const activeData = getActiveData();
         const prevDayData = getPrevDayData();
-        const industryCount = parseInt(document.getElementById('industryCount').value) || 10;
-        const conceptCount = parseInt(document.getElementById('conceptCount').value) || 10;
+        const industryCount = 10;
+        const conceptCount = 10;
 
         const industryRadio = document.querySelector('input[name="flowFilterIndustry"]:checked');
         const industryFlowFilter = industryRadio ? industryRadio.value : 'inflow';
@@ -299,6 +299,3 @@ function updateCharts() {
         _updatingCharts = false;
     }
 }
-
-// 防抖版本：供数字输入等高频触发场景使用，300ms 延迟
-const debouncedUpdateCharts = debounce(updateCharts, 300);

@@ -14,21 +14,15 @@
             <div class="subtitle" id="dataDate">数据加载中...</div>
         </header>
 
-        <div class="controls">
-            <div class="control-group">
-                <label for="industryCount">行业显示数量:</label>
-                <input type="number" id="industryCount" min="1" max="50" value="10">
+        <div class="top-actions">
+            <div class="date-selector" id="dateButtons">
+                <!-- 动态生成的日期按钮 -->
             </div>
-            <div class="control-group">
-                <label for="conceptCount">概念显示数量:</label>
-                <input type="number" id="conceptCount" min="1" max="100" value="10">
+            <div class="actions-right">
+                <button id="btnParseExcel" title="上传并解析 Excel 文件，生成板块资金流向数据" class="btn-primary">📊 解析数据</button>
+                <input type="file" id="excelFileInput" accept=".xlsx,.xls" style="display:none">
             </div>
-            <button id="btnParseExcel" title="上传并解析 Excel 文件，生成板块资金流向数据" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">📊 解析数据</button>
-            <button id="btnLoadData" title="从服务器重新加载所有 JSON 数据文件" style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);">📂 加载数据</button>
-            <button id="btnRefresh" title="强制重新渲染所有组件（如显示异常时使用）" class="btn-secondary">🔄 刷新图表</button>
-            <input type="file" id="excelFileInput" accept=".xlsx,.xls" style="display:none">
         </div>
-        <div id="dateButtons" class="date-buttons"></div>
         <div class="leader-section" id="leaderSection">
             <div class="leader-header">🔥 今日推荐</div>
             <div class="leader-content" id="leaderContent"></div>

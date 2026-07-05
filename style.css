@@ -121,21 +121,53 @@ h1 {
     font-size: 13px;
 }
 
-.controls {
+/* 顶部操作栏：左侧日期选择，右侧操作按钮 */
+.top-actions {
     display: flex;
-    justify-content: center;
-    gap: 15px;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 10px;
-    flex-wrap: wrap;
-    padding: 12px 20px;
+    padding: 10px 15px;
     background: #f8f9fa;
     border-radius: 8px;
+    gap: 12px;
+    flex-wrap: nowrap; /* 桌面端不换行，靠滚动处理溢出 */
 }
 
-.control-group {
+/* 日期选择器容器（横向滚动） */
+.date-selector {
     display: flex;
+    flex-wrap: nowrap;
+    gap: 8px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
     align-items: center;
-    gap: 10px;
+    flex: 1 1 auto; /* 自适应宽度 */
+    min-width: 0; /* 允许flex子项收缩 */
+}
+
+/* 右侧操作区域 */
+.actions-right {
+    flex-shrink: 0;
+}
+
+.btn-primary {
+    padding: 8px 20px;
+    border: none;
+    border-radius: 18px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
 .flow-option {
@@ -1294,13 +1326,30 @@ footer {
         min-height: 250px;
     }
 
-    .controls {
-        flex-direction: column;
-        align-items: flex-start;
+    .top-actions {
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .date-selector {
+        order: -1; /* 日期选择器放到上方 */
+        flex: 1 1 100%; /* 占满整行 */
+        margin-bottom: 8px;
+    }
+
+    .actions-right {
+        width: 100%;
+        display: flex;
+        justify-content: flex-end;
     }
 
     .date-btn {
         padding: 10px 24px;
+    }
+
+    .btn-primary {
+        padding: 6px 16px;
+        font-size: 13px;
     }
 
     .view-all-btn {
@@ -1317,6 +1366,11 @@ footer {
         min-width: 30px;
         padding: 2px 6px;
         font-size: 10px;
+    }
+
+    .chart-flow-group {
+        border-radius: 10px;
+        padding: 1px;
     }
 
     .trend-main-row {
