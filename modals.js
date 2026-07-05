@@ -22,11 +22,17 @@ function renderModalTable() {
         filtered = modalDataCache.filter(item => Number(item.股票数量) > 1);
     }
 
-    // 搜索过滤
+    // 搜索过滤（支持板块名称 + 涉及股票名称模糊查询）
     const searchInput = document.getElementById('modalSearchInput');
     const searchTerm = searchInput ? searchInput.value.trim().toLowerCase() : '';
     if (searchTerm) {
-        filtered = filtered.filter(item => item.板块.toLowerCase().includes(searchTerm));
+        filtered = filtered.filter(item => {
+            // 1. 板块名称匹配
+            if (item.板块.toLowerCase().includes(searchTerm)) return true;
+            // 2. 涉及股票名称匹配
+            const stocks = item._parsedStocks || parseStocks(item.涉及股票);
+            return stocks.some(stock => stock.name.toLowerCase().includes(searchTerm));
+        });
     }
 
     if (filtered.length === 0) {
