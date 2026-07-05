@@ -574,6 +574,17 @@ button.btn-secondary:hover {
     box-shadow: 0 3px 10px rgba(153, 27, 27, 0.15);
 }
 
+/* 预选股票 - 加深底色 */
+.leader-item.leader-preselected {
+    background: linear-gradient(135deg, #fca5a5 0%, #fde68a 100%);
+    border-color: #f87171;
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.2);
+}
+
+.leader-item.leader-preselected:hover {
+    box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35);
+}
+
 .leader-name {
     color: #991b1b;
     font-weight: 700;
@@ -988,6 +999,47 @@ footer {
 .stock-table tbody td:first-child {
     font-weight: 600;
     color: #1f2937;
+}
+
+/* 股票表格操作列 */
+.stock-table thead th.th-action {
+    text-align: center;
+    width: 44px;
+}
+
+.stock-table tbody td:nth-child(4) {
+    text-align: center;
+}
+
+.stock-preselect-btn {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    color: #4f46e5;
+    background: #eef2ff;
+    border: 1px solid #c7d2fe;
+    transition: all 0.15s;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.stock-preselect-btn:hover {
+    background: #c7d2fe;
+    transform: translateY(-1px);
+}
+
+.stock-preselect-btn.preselected {
+    color: white;
+    background: linear-gradient(135deg, #ef4444 0%, #f97316 100%);
+    border-color: transparent;
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.2);
+}
+
+.stock-preselect-btn.preselected:hover {
+    box-shadow: 0 3px 10px rgba(239, 68, 68, 0.3);
 }
 
 /* 股票表格颜色类（替代内联 style） */

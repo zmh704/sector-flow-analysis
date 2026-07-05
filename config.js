@@ -110,6 +110,39 @@ function invalidateDateCaches() {
     if (typeof _stockSectorsMap !== 'undefined') _stockSectorsMap = null;
 }
 
+// ===== 预选股票管理 =====
+const _preselectedStocks = new Set(
+    (() => {
+        try {
+            const saved = localStorage.getItem('preselectedStocks');
+            return saved ? JSON.parse(saved) : [];
+        } catch { return []; }
+    })()
+);
+
+/** 切换股票的预选/取消状态，返回切换后的状态（true=预选） */
+function togglePreselectStock(stockName) {
+    if (_preselectedStocks.has(stockName)) {
+        _preselectedStocks.delete(stockName);
+        try { localStorage.setItem('preselectedStocks', JSON.stringify([..._preselectedStocks])); } catch {}
+        return false;
+    } else {
+        _preselectedStocks.add(stockName);
+        try { localStorage.setItem('preselectedStocks', JSON.stringify([..._preselectedStocks])); } catch {}
+        return true;
+    }
+}
+
+/** 判断股票是否已被预选 */
+function isStockPreselected(stockName) {
+    return _preselectedStocks.has(stockName);
+}
+
+/** 获取所有预选股票名称的数组 */
+function getPreselectedStocks() {
+    return [..._preselectedStocks];
+}
+
 // 图表实例
 let industryChart = null;
 let conceptChart = null;

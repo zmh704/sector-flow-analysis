@@ -105,6 +105,24 @@ function initEventListeners() {
 
     // 股票面板表格行事件委托（趋势弹窗右侧）
     document.getElementById('stockPanelList').addEventListener('click', function(e) {
+        // 预选按钮点击
+        const preselectBtn = e.target.closest('.stock-preselect-btn');
+        if (preselectBtn) {
+            e.stopPropagation();
+            const stockName = preselectBtn.dataset.preselectStock;
+            if (!stockName) return;
+            const isNowPreselected = togglePreselectStock(stockName);
+            preselectBtn.textContent = isNowPreselected ? '取消' : '预选';
+            preselectBtn.classList.toggle('preselected', isNowPreselected);
+            // 同步更新首页今日推荐颜色
+            const leaderItems = document.querySelectorAll('#leaderContent .leader-item');
+            leaderItems.forEach(item => {
+                if (item.dataset.stock === stockName) {
+                    item.classList.toggle('leader-preselected', isNowPreselected);
+                }
+            });
+            return;
+        }
         const tr = e.target.closest('tr');
         if (!tr) return;
         const stockName = tr.dataset.stockName;

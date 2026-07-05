@@ -183,7 +183,8 @@ function updateLeaderArea(activeData) {
         const changeNum = parseFloat(leader.change);
         const changeColor = changeNum >= 0 ? '#e53935' : '#43a047';
         const changeArrow = changeNum >= 0 ? '▲' : '▼';
-        return `<span class="leader-item leader-clickable" title="连续流入${leader.stockDays}天 | 所属板块: ${leader.sectors.map(s => escapeHtml(s)).join('、')}" data-stock="${escapeHtml(leader.name)}" data-sectors='${secJson}'>
+        const isPreselected = isStockPreselected(leader.name);
+        return `<span class="leader-item leader-clickable${isPreselected ? ' leader-preselected' : ''}" title="连续流入${leader.stockDays}天 | 所属板块: ${leader.sectors.map(s => escapeHtml(s)).join('、')}" data-stock="${escapeHtml(leader.name)}" data-sectors='${secJson}'>
             <span class="leader-name">${escapeHtml(leader.name)}</span>
             <span class="leader-days">${leader.stockDays}天</span>
             <span class="leader-change" style="color:${changeColor}">${changeArrow} ${leader.change}</span>

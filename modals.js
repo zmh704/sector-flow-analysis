@@ -285,7 +285,7 @@ function createBarChart(ctx, trendData, existingChart, field) {
     return chart;
 }
 
-/** 渲染股票表格（精简：股票名称、主力净额、连续流入天数） */
+/** 渲染股票表格（精简：股票名称、主力净额、连续流入天数、操作） */
 function renderStockTable(panelList, stocks, bgSet, starSet, stockDaysMap) {
     panelList.innerHTML = '';
     if (!stocks || stocks.length === 0) {
@@ -309,7 +309,7 @@ function renderStockTable(panelList, stocks, bgSet, starSet, stockDaysMap) {
     const table = document.createElement('table');
     table.className = 'stock-table';
     const thead = document.createElement('thead');
-    thead.innerHTML = '<tr><th>股票名称</th><th>主力净额</th><th>连续流入天数</th></tr>';
+    thead.innerHTML = '<tr><th>股票名称</th><th>主力净额</th><th>连续流入天数</th><th class="th-action">操作</th></tr>';
     table.appendChild(thead);
     const tbody = document.createElement('tbody');
     sortedStocks.forEach((stock, i) => {
@@ -321,10 +321,12 @@ function renderStockTable(panelList, stocks, bgSet, starSet, stockDaysMap) {
         const changeCls = changeNum >= 0 ? 'stock-change-positive' : 'stock-change-negative';
         const stockDays = sdm.get(stock.name) || 0;
         const daysCls = stockDays >= 3 ? 'stock-days-high' : 'stock-days-normal';
+        const isPreselected = isStockPreselected(stock.name);
         tr.innerHTML = `
             <td>${isStarred ? '⭐ ' : ''}${escapeHtml(stock.name)}</td>
             <td class="${changeCls}">${escapeHtml(stock.net)}</td>
             <td class="stock-days ${daysCls}">${stockDays > 0 ? stockDays + '天' : '-'}</td>
+            <td><span class="stock-preselect-btn ${isPreselected ? 'preselected' : ''}" data-preselect-stock="${escapeHtml(stock.name)}">${isPreselected ? '取消' : '预选'}</span></td>
         `;
         tr.style.cursor = 'pointer';
         tr.dataset.stockName = stock.name;
