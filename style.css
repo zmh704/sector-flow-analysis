@@ -1,3 +1,49 @@
+/* ===== CSS 变量 ===== */
+:root {
+    --color-primary: #667eea;
+    --color-primary-dark: #764ba2;
+    --gradient-primary: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+    --color-industry: #2563eb;
+    --color-concept: #7c3aed;
+    --color-positive: #e53935;
+    --color-positive-dark: #dc2626;
+    --color-negative: #43a047;
+    --color-danger: #ef4444;
+    --gradient-danger: linear-gradient(135deg, #ef4444 0%, #f97316 100%);
+    --color-focus-bg: #fef3c7;
+    --color-focus-border: #fde68a;
+    --color-focus-text: #92400e;
+    --color-leader-bg: #fee2e2;
+    --color-leader-border: #fca5a5;
+    --color-leader-text: #991b1b;
+    --color-bg-light: #f8f9fa;
+    --color-border: #e0e0e0;
+    --color-border-light: #f0f0f0;
+    --color-text: #333;
+    --color-text-secondary: #555;
+    --color-text-muted: #666;
+    --color-text-weak: #999;
+    --color-gray-400: #9ca3af;
+    --color-gray-500: #6b7280;
+    --color-purple-300: #a78bfa;
+    --color-purple-400: #8b5cf6;
+    --color-purple-50: #eef2ff;
+    --color-purple-100: #e0e7ff;
+    --color-purple-200: #c7d2fe;
+    --color-indigo-600: #4f46e5;
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.1);
+    --shadow-md: 0 8px 25px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.3);
+    --shadow-btn-hover: 0 5px 15px rgba(102, 126, 234, 0.4);
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+    --radius-2xl: 20px;
+    --radius-full: 20px;
+    --font-mono: 'JetBrains Mono', 'Consolas', monospace;
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -36,8 +82,8 @@
     display: inline-block;
     width: 18px;
     height: 18px;
-    border: 2.5px solid #e0e0e0;
-    border-top-color: #667eea;
+    border: 2.5px solid var(--color-border);
+    border-top-color: var(--color-primary);
     border-radius: 50%;
     animation: spin 0.7s linear infinite;
 }
@@ -54,7 +100,7 @@
 
 #loadStatus .progress-bar-fill {
     height: 100%;
-    background: linear-gradient(90deg, #667eea, #764ba2);
+    background: var(--gradient-primary);
     border-radius: 3px;
     transition: width 0.3s ease;
 }
@@ -80,8 +126,8 @@
     width: 32px;
     height: 32px;
     margin: -16px 0 0 -16px;
-    border: 3px solid #e0e0e0;
-    border-top-color: #667eea;
+    border: 3px solid var(--color-border);
+    border-top-color: var(--color-primary);
     border-radius: 50%;
     animation: spin 0.7s linear infinite;
     z-index: 2;
@@ -89,7 +135,7 @@
 
 body {
     font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--gradient-primary);
     min-height: 100vh;
     padding: 20px;
 }
@@ -99,7 +145,7 @@ body {
     margin: 0 auto;
     background: rgba(255, 255, 255, 0.95);
     border-radius: 20px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    box-shadow: var(--shadow-lg);
     padding: 15px;
 }
 
@@ -107,7 +153,7 @@ header {
     text-align: center;
     margin-bottom: 10px;
     padding-bottom: 8px;
-    border-bottom: 2px solid #e0e0e0;
+    border-bottom: 2px solid var(--color-border);
 }
 
 h1 {
@@ -128,8 +174,8 @@ h1 {
     align-items: center;
     margin-bottom: 10px;
     padding: 10px 15px;
-    background: #f8f9fa;
-    border-radius: 8px;
+    background: var(--color-bg-light);
+    border-radius: var(--radius-md);
     gap: 12px;
     flex-wrap: nowrap; /* 桌面端不换行，靠滚动处理溢出 */
 }
@@ -156,7 +202,7 @@ h1 {
     padding: 8px 20px;
     border: none;
     border-radius: 18px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--gradient-primary);
     color: white;
     font-size: 14px;
     font-weight: 600;
@@ -196,13 +242,13 @@ h1 {
 
 .flow-option:hover span {
     transform: translateY(-1px);
-    color: #4f46e5;
+    color: var(--color-indigo-600);
     background: rgba(255, 255, 255, 0.85);
 }
 
 .flow-option input:checked + span {
     color: white;
-    background: linear-gradient(135deg, #ef4444 0%, #f97316 100%);
+    background: var(--gradient-danger);
     box-shadow: 0 6px 14px rgba(239, 68, 68, 0.25);
 }
 
@@ -235,7 +281,7 @@ input[type="number"] {
 input[type="number"]:focus,
 select:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: var(--color-primary);
 }
 
 select {
@@ -248,7 +294,7 @@ select {
 
 button {
     padding: 10px 24px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--gradient-primary);
     color: white;
     border: none;
     border-radius: 6px;
@@ -264,7 +310,7 @@ button:hover {
 }
 
 button.btn-secondary {
-    background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%);
+    background: linear-gradient(135deg, var(--color-gray-400) 0%, var(--color-gray-500) 100%);
 }
 
 button.btn-secondary:hover {
@@ -277,8 +323,8 @@ button.btn-secondary:hover {
     gap: 8px;
     margin-bottom: 10px;
     padding: 8px 15px;
-    background: #f8f9fa;
-    border-radius: 8px;
+    background: var(--color-bg-light);
+    border-radius: var(--radius-md);
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
@@ -299,13 +345,13 @@ button.btn-secondary:hover {
 }
 
 .date-btn:hover {
-    border-color: #667eea;
-    color: #667eea;
+    border-color: var(--color-primary);
+    color: var(--color-primary);
     transform: translateY(-1px);
 }
 
 .date-btn.active {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--gradient-primary);
     color: white;
     border-color: transparent;
     box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
@@ -351,7 +397,7 @@ button.btn-secondary:hover {
     align-items: center;
     margin-bottom: 6px;
     padding-bottom: 6px;
-    border-bottom: 2px solid #f0f0f0;
+    border-bottom: 2px solid var(--color-border-light);
 }
 
 .modal-header h2 {
@@ -384,7 +430,7 @@ button.btn-secondary:hover {
 }
 
 .modal-search input:focus {
-    border-color: #667eea;
+    border-color: var(--color-primary);
 }
 
 .modal-close {
@@ -416,7 +462,7 @@ button.btn-secondary:hover {
     text-align: left;
     font-weight: 600;
     color: #555;
-    border-bottom: 2px solid #e0e0e0;
+    border-bottom: 2px solid var(--color-border);
     position: sticky;
     top: 0;
     cursor: pointer;
@@ -435,7 +481,7 @@ button.btn-secondary:hover {
 }
 
 .modal-table th .sort-arrow.active {
-    color: #667eea;
+    color: var(--color-primary);
 }
 
 .modal-table td {
@@ -449,12 +495,12 @@ button.btn-secondary:hover {
 }
 
 .modal-table .positive {
-    color: #e53935;
+    color: var(--color-positive);
     font-weight: 600;
 }
 
 .modal-table .negative {
-    color: #43a047;
+    color: var(--color-negative);
     font-weight: 600;
 }
 
@@ -462,7 +508,7 @@ button.btn-secondary:hover {
     background: white;
     border-radius: 12px;
     padding: 15px;
-    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    box-shadow: var(--shadow-md);
 }
 
 .chart-title {
@@ -471,7 +517,7 @@ button.btn-secondary:hover {
     color: #333;
     margin-bottom: 10px;
     padding-bottom: 6px;
-    border-bottom: 2px solid #f0f0f0;
+    border-bottom: 2px solid var(--color-border-light);
     display: flex;
     justify-content: flex-start;
     align-items: center;
@@ -506,13 +552,13 @@ button.btn-secondary:hover {
 
 .chart-flow-option:hover span {
     transform: translateY(-1px);
-    color: #4f46e5;
+    color: var(--color-indigo-600);
     background: rgba(255, 255, 255, 0.85);
 }
 
 .chart-flow-option input:checked + span {
     color: white;
-    background: linear-gradient(135deg, #ef4444 0%, #f97316 100%);
+    background: var(--gradient-danger);
     box-shadow: 0 4px 10px rgba(239, 68, 68, 0.2);
 }
 
@@ -536,7 +582,7 @@ button.btn-secondary:hover {
     padding: 5px 12px;
     border: none;
     border-radius: 15px;
-    background: #667eea;
+    background: var(--color-primary);
     color: white;
     font-size: 12px;
     cursor: pointer;
@@ -544,7 +590,7 @@ button.btn-secondary:hover {
 }
 
 .view-all-btn:hover {
-    background: #764ba2;
+    background: var(--color-primary-dark);
     transform: translateY(-1px);
 }
 
@@ -560,7 +606,7 @@ button.btn-secondary:hover {
     padding: 15px;
     background: #fffbf0;
     border-radius: 12px;
-    border: 1px solid #fde68a;
+    border: 1px solid var(--color-focus-border);
 }
 
 /* 今日龙头 */
@@ -591,7 +637,7 @@ button.btn-secondary:hover {
     padding: 4px 10px 4px 14px;
     background: linear-gradient(135deg, #fee2e2 0%, #fef3c7 100%);
     border-radius: 20px;
-    border: 1px solid #fca5a5;
+    border: 1px solid var(--color-leader-border);
     cursor: default;
     transition: all 0.2s;
     white-space: nowrap;
@@ -652,18 +698,18 @@ button.btn-secondary:hover {
     display: inline-block;
     margin: 2px 8px 2px 0;
     padding: 2px 10px;
-    background: #fef3c7;
-    border-radius: 6px;
-    color: #92400e;
+    background: var(--color-focus-bg);
+    border-radius: var(--radius-sm);
+    color: var(--color-focus-text);
     font-weight: 600;
 }
 
 .focus-content .pair .industry {
-    color: #2563eb;
+    color: var(--color-industry);
 }
 
 .focus-content .pair .concept {
-    color: #7c3aed;
+    color: var(--color-concept);
 }
 
 .stats {
@@ -693,11 +739,11 @@ button.btn-secondary:hover {
 }
 
 .stat-card .value.positive {
-    color: #e53935;
+    color: var(--color-positive);
 }
 
 .stat-card .value.negative {
-    color: #43a047;
+    color: var(--color-negative);
 }
 
 footer {
@@ -835,13 +881,13 @@ footer {
     transform: translateX(-50%);
     width: 0;
     height: 2px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--gradient-primary);
     transition: width 0.2s ease-out;
     border-radius: 1px;
 }
 
 .trend-tab-btn.active {
-    color: #4f46e5;
+    color: var(--color-indigo-600);
     background: rgba(102, 126, 234, 0.06);
 }
 
@@ -850,7 +896,7 @@ footer {
 }
 
 .trend-tab-btn:hover:not(.active) {
-    color: #4f46e5;
+    color: var(--color-indigo-600);
     background: rgba(0, 0, 0, 0.02);
 }
 
@@ -902,7 +948,7 @@ footer {
 .trend-chart-row .chart-label {
     font-size: 12px;
     font-weight: 600;
-    color: #4f46e5;
+    color: var(--color-indigo-600);
     padding: 2px 4px 4px 4px;
     text-align: center;
     flex-shrink: 0;
@@ -941,7 +987,7 @@ footer {
     font-size: 13px;
     padding: 10px 14px 8px;
     color: white;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--gradient-primary);
     border-bottom: none;
     letter-spacing: 0.3px;
 }
@@ -975,7 +1021,7 @@ footer {
     text-align: left;
     font-weight: 600;
     font-size: 11px;
-    color: #4f46e5;
+    color: var(--color-indigo-600);
     border-bottom: 2px solid #d0d8e8;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -1020,7 +1066,7 @@ footer {
 .stock-table tbody td:nth-child(2) {
     text-align: right;
     font-weight: 600;
-    font-family: 'JetBrains Mono', 'Consolas', monospace;
+    font-family: var(--font-mono);
     font-size: 11px;
 }
 
@@ -1050,7 +1096,7 @@ footer {
     font-size: 11px;
     font-weight: 600;
     cursor: pointer;
-    color: #4f46e5;
+    color: var(--color-indigo-600);
     background: #eef2ff;
     border: 1px solid #c7d2fe;
     transition: all 0.15s;
@@ -1065,7 +1111,7 @@ footer {
 
 .stock-preselect-btn.preselected {
     color: white;
-    background: linear-gradient(135deg, #ef4444 0%, #f97316 100%);
+    background: var(--gradient-danger);
     border-color: transparent;
     box-shadow: 0 2px 6px rgba(239, 68, 68, 0.2);
 }
@@ -1076,16 +1122,16 @@ footer {
 
 /* 股票表格颜色类（替代内联 style） */
 .stock-change-positive {
-    color: #e53935;
+    color: var(--color-positive);
     font-weight: 600;
-    font-family: 'JetBrains Mono', 'Consolas', monospace;
+    font-family: var(--font-mono);
     font-size: 11px;
 }
 
 .stock-change-negative {
-    color: #43a047;
+    color: var(--color-negative);
     font-weight: 600;
-    font-family: 'JetBrains Mono', 'Consolas', monospace;
+    font-family: var(--font-mono);
     font-size: 11px;
 }
 
@@ -1104,7 +1150,7 @@ footer {
 
 /* 趋势弹窗标题样式 */
 .trend-modal-title-name {
-    color: #4f46e5;
+    color: var(--color-indigo-600);
     font-weight: 700;
 }
 

@@ -45,7 +45,14 @@ function sortDateFileList() {
     return _sortedDateFileList;
 }
 
-function storeDataForDate(filename, data) {
+/**
+ * 存储单个日期的数据，并预解析股票、构建字段索引。
+ * @param {string} filename
+ * @param {Object} data
+ * @param {{skipInvalidate?: boolean}} [opts] - 批量加载时传 skipInvalidate:true，
+ *        由调用方在全部加载完成后统一调用一次 invalidateDateCaches()
+ */
+function storeDataForDate(filename, data, opts) {
     const key = filename;
     allDataByDate[key] = {
         filename: filename,
@@ -98,8 +105,10 @@ function storeDataForDate(filename, data) {
             }
         }
     }
-    // 新数据加入后，日期依赖的缓存失效
-    invalidateDateCaches();
+    // 新数据加入后，日期依赖的缓存失效（批量加载时跳过，由调用方统一失效一次）
+    if (!opts || !opts.skipInvalidate) {
+        invalidateDateCaches();
+    }
 }
 
 function getCurrentData() {
@@ -216,22 +225,37 @@ async function loadAllJsonFiles() {
     let loadedCount = 0;
     const totalFiles = fileList.length;
     const nowTs = Date.now();
+    const BATCH_SIZE = 6; // 分批并发，避免一次性发出过多请求
 
-    // 逐个加载以便显示进度（替代 Promise.all，可跟踪每文件状态）
-    for (let i = 0; i < totalFiles; i++) {
-        const filename = fileList[i];
-        showLoadingProgress(`正在加载 ${i + 1}/${totalFiles}...`, i + 1, totalFiles);
-        try {
-            const response = await fetch(filename + '?t=' + nowTs);
-            if (response.ok) {
+    showLoadingProgress(`正在加载 0/${totalFiles}...`, 0, totalFiles);
+
+    for (let i = 0; i < totalFiles; i += BATCH_SIZE) {
+        const batch = fileList.slice(i, i + BATCH_SIZE);
+        const results = await Promise.all(batch.map(async filename => {
+            try {
+                const response = await fetch(filename + '?t=' + nowTs);
+                if (!response.ok) return null;
                 const data = await response.json();
-                storeDataForDate(filename, data);
+                return { filename, data };
+            } catch (error) {
+                console.error(`加载文件 ${filename} 失败:`, error);
+                return null;
+            }
+        }));
+
+        // Promise.all 保证 batch 内顺序，按序存储（渲染顺序由 sortDateFileList 决定）
+        for (const result of results) {
+            if (result) {
+                storeDataForDate(result.filename, result.data, { skipInvalidate: true });
                 loadedCount++;
             }
-        } catch (error) {
-            console.error(`加载文件 ${filename} 失败:`, error);
         }
+        const done = Math.min(i + BATCH_SIZE, totalFiles);
+        showLoadingProgress(`正在加载 ${done}/${totalFiles}...`, done, totalFiles);
     }
+
+    // 批量加载完成后统一失效一次日期依赖缓存
+    invalidateDateCaches();
 
     renderDateButtons();
 

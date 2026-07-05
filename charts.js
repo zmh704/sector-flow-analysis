@@ -50,11 +50,8 @@ function prepareChartData(data, count, prevDayData, flowFilter) {
     };
 }
 
-function createChart(ctx, chartData, title, existingChart) {
-    if (existingChart) {
-        existingChart.destroy();
-    }
-
+/** 根据 chartData 构建 Chart.js datasets 数组（创建与增量更新共用） */
+function buildChartDatasets(chartData) {
     const datasets = [{
         label: '当日主力净额',
         data: chartData.values,
@@ -80,6 +77,24 @@ function createChart(ctx, chartData, title, existingChart) {
             borderDash: [6, 3] // 虚线区分前一日期
         });
     }
+    return datasets;
+}
+
+function createChart(ctx, chartData, title, existingChart) {
+    // 已有图表实例 → 增量更新（避免 destroy+重建的开销和闪烁）
+    if (existingChart) {
+        existingChart.$chartData = chartData;
+        existingChart.data.labels = chartData.labels;
+        existingChart.data.datasets = buildChartDatasets(chartData);
+        existingChart.update();
+        return existingChart;
+    }
+
+    const datasets = buildChartDatasets(chartData);
+
+    // 回调统一从 chart.$chartData 读取（增量更新后仍指向最新数据）；
+    // 首次渲染时 $chartData 尚未挂载，回退到闭包中的初始 chartData
+    const getCD = (chart) => (chart && chart.$chartData) || chartData;
 
     const chart = new Chart(ctx, {
         type: 'bar',
@@ -116,8 +131,9 @@ function createChart(ctx, chartData, title, existingChart) {
                     boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
                     callbacks: {
                         label: function(context) {
+                            const cd = getCD(context.chart);
                             const datasetIndex = context.datasetIndex;
-                            const rawValues = datasetIndex === 0 ? chartData.rawValues : chartData.prevRawValues;
+                            const rawValues = datasetIndex === 0 ? cd.rawValues : cd.prevRawValues;
                             const value = rawValues[context.dataIndex];
                             if (value == null) {
                                 return context.dataset.label + ': 无数据';
@@ -128,7 +144,7 @@ function createChart(ctx, chartData, title, existingChart) {
                         },
                         afterLabel: function(context) {
                             if (context.datasetIndex === 1) return [];
-                            const item = chartData.items[context.dataIndex];
+                            const item = getCD(context.chart).items[context.dataIndex];
                             if (item) {
                                 return [
                                     `成交额: ${(item.成交额 / 100000000).toFixed(2)} 亿元`,
@@ -165,15 +181,17 @@ function createChart(ctx, chartData, title, existingChart) {
                     },
                     ticks: {
                         font: function(context) {
+                            const cd = getCD(context.chart);
                             const idx = context.tick?.index;
-                            if (idx != null && chartData.bothPositive && chartData.bothPositive[idx]) {
+                            if (idx != null && cd.bothPositive && cd.bothPositive[idx]) {
                                 return { weight: 'bold', size: 13 };
                             }
                             return { weight: 'normal', size: 12 };
                         },
                         color: function(context) {
+                            const cd = getCD(context.chart);
                             const idx = context.tick?.index;
-                            if (idx != null && chartData.bothPositive && chartData.bothPositive[idx]) {
+                            if (idx != null && cd.bothPositive && cd.bothPositive[idx]) {
                                 return '#2563eb';
                             }
                             return '#555';
@@ -206,6 +224,7 @@ function createChart(ctx, chartData, title, existingChart) {
             // Top-3 数据标签插件
             id: 'topLabels',
             afterDraw: function(chart) {
+                const cd = getCD(chart);
                 const ctx = chart.ctx;
                 const chartArea = chart.chartArea;
                 const meta = chart.getDatasetMeta(0);
@@ -222,7 +241,7 @@ function createChart(ctx, chartData, title, existingChart) {
                     if (!bar || !bar.skip) {
                         const x = bar.x;
                         const y = bar.y;
-                        const value = chartData.values[i];
+                        const value = cd.values[i];
                         if (value == null) continue;
                         const label = (value >= 0 ? '+' : '') + value.toFixed(2) + '亿';
                         ctx.fillStyle = value >= 0 ? '#c62828' : '#2e7d32';
@@ -235,6 +254,7 @@ function createChart(ctx, chartData, title, existingChart) {
         }]
     });
 
+    chart.$chartData = chartData;
     return chart;
 }
 
