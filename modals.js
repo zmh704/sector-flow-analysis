@@ -350,7 +350,8 @@ function showStocksInPanel(sectorName, type, commonStockNames) {
 
     if (panelTitle) {
         const typeLabel = type === '行业板块资金流向' ? '🏛️' : '💡';
-        panelTitle.textContent = `${typeLabel} ${sectorName}`;
+        const panelSectorColor = type === '行业板块资金流向' ? '#2563eb' : '#7c3aed';
+        panelTitle.innerHTML = `${typeLabel} <span style="color:${panelSectorColor};">${escapeHtml(sectorName)}</span>`;
     }
 
     // 加星逻辑：复用今日推荐的完整筛选逻辑（passesLeaderConditions），自动同步条件开关
@@ -396,9 +397,10 @@ function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, c
     if (trendTurnoverChart) { trendTurnoverChart.destroy(); trendTurnoverChart = null; }
 
     const typeIcon = type === '行业板块资金流向' ? '🏛️' : '💡';
+    const sectorColor = type === '行业板块资金流向' ? '#2563eb' : '#7c3aed';
     const sectorDays = calcConsecutiveInflow(sectorName, type);
     const titleEl = document.getElementById('trendModalTitle');
-    titleEl.innerHTML = `${typeIcon} <span class="trend-modal-title-name">${escapeHtml(sectorName)}</span> <span class="trend-modal-title-days">${sectorDays}天</span>`;
+    titleEl.innerHTML = `${typeIcon} <span style="color:${sectorColor};">${escapeHtml(sectorName)}</span> <span class="trend-modal-title-days">${sectorDays}天</span>`;
     titleEl.style.cursor = 'pointer';
     titleEl.title = '切换图表和股票到该板块';
     titleEl.onclick = null;
@@ -415,10 +417,9 @@ function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, c
             const otherType = type === '行业板块资金流向' ? '概念' : '行业';
             const otherDataType = type === '行业板块资金流向' ? '概念板块资金流向' : '行业板块资金流向';
             const otherColor = type === '行业板块资金流向' ? '#7c3aed' : '#2563eb';
-            const matchLabel = type === '行业板块资金流向' ? '相关概念' : '相关行业';
             const titleSpan = document.createElement('span');
             titleSpan.style.cssText = 'font-weight:600;margin-right:6px;';
-            titleSpan.textContent = `匹配的${matchLabel}：`;
+            titleSpan.textContent = '相关板块：';
             matchedContainer.appendChild(titleSpan);
             matchedSectors.sort((a, b) => b.days - a.days).forEach((s) => {
                 const tag = document.createElement('span');
@@ -443,7 +444,7 @@ function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, c
     if (stocks && stocks.length > 0) {
         const panelTitle = document.getElementById('stockPanelTitle');
         if (panelTitle) {
-            panelTitle.textContent = `${typeIcon} ${sectorName}`;
+            panelTitle.innerHTML = `${typeIcon} <span style="color:${sectorColor};">${escapeHtml(sectorName)}</span>`;
         }
         const panelList = document.getElementById('stockPanelList');
         if (panelList) {
