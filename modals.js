@@ -316,7 +316,8 @@ function renderStockTable(panelList, stocks, bgSet, starSet, stockDaysMap) {
             <td class="stock-days ${daysCls}">${stockDays > 0 ? stockDays + '天' : '-'}</td>
         `;
         tr.style.cursor = 'pointer';
-        tr.onclick = function() { openStockQuote(stock.name, stock.code); };
+        tr.dataset.stockName = stock.name;
+        tr.dataset.stockCode = stock.code;
         tbody.appendChild(tr);
     });
     table.appendChild(tbody);
@@ -398,10 +399,9 @@ function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, c
     titleEl.innerHTML = `${typeIcon} <span style="color:${sectorColor};">${escapeHtml(sectorName)}</span> <span class="trend-modal-title-days">${sectorDays}天</span>`;
     titleEl.style.cursor = 'pointer';
     titleEl.title = '切换图表和股票到该板块';
-    titleEl.onclick = null;
-    titleEl.onclick = function() {
-        switchTrendView(sectorName, type, commonStockNames);
-    };
+    titleEl.dataset.sector = sectorName;
+    titleEl.dataset.type = type;
+    titleEl.dataset.common = JSON.stringify(commonStockNames ? [...commonStockNames] : []);
 
     // 渲染匹配的对面板块列表（可点击）
     const matchedContainer = document.getElementById('trendMatchedSectors');
@@ -423,11 +423,9 @@ function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, c
                 tag.innerHTML = `<span style="color:${otherColor};">${escapeHtml(s.name)}</span> <span style="color:${sDaysColor};font-size:11px;">${s.days}天</span>`;
                 tag.title = '点击查看涉及股票';
                 const sCommonStocks = s.commonStocks || [];
-                tag.onclick = function(e) {
-                    e.stopPropagation();
-                    const dataType = s._dataType || otherDataType;
-                    switchTrendView(s.name, dataType, new Set(sCommonStocks));
-                };
+                tag.dataset.sector = s.name;
+                tag.dataset.type = s._dataType || otherDataType;
+                tag.dataset.common = JSON.stringify(sCommonStocks);
                 matchedContainer.appendChild(tag);
             });
         } else {

@@ -160,19 +160,7 @@ function renderDateButtons() {
         const moreBtn = document.createElement('button');
         moreBtn.className = 'date-btn';
         moreBtn.textContent = '更多▼';
-        moreBtn.onclick = function() {
-            container.innerHTML = '';
-            sorted.forEach(filename => {
-                container.appendChild(createDateButton(filename));
-            });
-            const collapseBtn = document.createElement('button');
-            collapseBtn.className = 'date-btn';
-            collapseBtn.textContent = '收起▲';
-            collapseBtn.onclick = function() {
-                renderDateButtons();
-            };
-            container.appendChild(collapseBtn);
-        };
+        moreBtn.dataset.action = 'expand-dates';
         container.appendChild(moreBtn);
     }
 
@@ -185,18 +173,31 @@ function renderDateButtons() {
     }
 }
 
-/** 创建日期切换按钮 */
+/**
+ * 展开所有日期按钮（由事件委托调用）
+ * 替换 renderDateButtons 内联 onclick，保持外部可访问以便事件委托调用
+ */
+function expandAllDates() {
+    const container = document.getElementById('dateButtons');
+    container.innerHTML = '';
+    const sorted = sortDateFileList();
+    sorted.forEach(filename => {
+        container.appendChild(createDateButton(filename));
+    });
+    const collapseBtn = document.createElement('button');
+    collapseBtn.className = 'date-btn';
+    collapseBtn.textContent = '收起▲';
+    collapseBtn.dataset.action = 'collapse-dates';
+    container.appendChild(collapseBtn);
+}
+
+/** 创建日期切换按钮（事件由 app.js 中的事件委托处理） */
 function createDateButton(filename) {
     const item = allDataByDate[filename];
     const btn = document.createElement('button');
     btn.className = 'date-btn';
     btn.textContent = item?.dateLabel || filename;
-    btn.onclick = function() {
-        setCurrentDateFile(filename);
-        document.querySelectorAll('.date-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        updateCharts();
-    };
+    btn.dataset.datefile = filename;
     if (filename === currentDateFile) {
         btn.classList.add('active');
     }

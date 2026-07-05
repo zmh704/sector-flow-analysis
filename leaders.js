@@ -172,11 +172,11 @@ function updateLeaderArea(activeData) {
     leaders.sort((a, b) => b.stockDays - a.stockDays || a.name.localeCompare(b.name));
 
     const html = leaders.map(leader => {
-        const secJson = JSON.stringify(leader._allSectors).replace(/'/g, "\\'");
+        const secJson = escapeHtml(JSON.stringify(leader._allSectors));
         const changeNum = parseFloat(leader.change);
         const changeColor = changeNum >= 0 ? '#e53935' : '#43a047';
         const changeArrow = changeNum >= 0 ? '▲' : '▼';
-        return `<span class="leader-item leader-clickable" title="连续流入${leader.stockDays}天 | 所属板块: ${leader.sectors.map(s => escapeHtml(s)).join('、')}" onclick='showStockLeader("${escapeHtml(leader.name)}", ${secJson})'>
+        return `<span class="leader-item leader-clickable" title="连续流入${leader.stockDays}天 | 所属板块: ${leader.sectors.map(s => escapeHtml(s)).join('、')}" data-stock="${escapeHtml(leader.name)}" data-sectors='${secJson}'>
             <span class="leader-name">${escapeHtml(leader.name)}</span>
             <span class="leader-days">${leader.stockDays}天</span>
             <span class="leader-change" style="color:${changeColor}">${changeArrow} ${leader.change}</span>
@@ -196,13 +196,15 @@ function updateFocusArea(activeData) {
     const industries = filterSectors(industryList, '行业板块资金流向').map(i => ({
         name: i.板块,
         days: calcConsecutiveInflow(i.板块, '行业板块资金流向'),
-        stocks: new Set((i._parsedStocks || parseStocks(i.涉及股票)).map(s => s.name))
+        stocks: new Set((i._parsedStocks || parseStocks(i.涉及股票)).map(s => s.name)),
+        stockStr: i.涉及股票
     }));
 
     const concepts = filterSectors(conceptList, '概念板块资金流向').map(c => ({
         name: c.板块,
         days: calcConsecutiveInflow(c.板块, '概念板块资金流向'),
-        stocks: new Set((c._parsedStocks || parseStocks(c.涉及股票)).map(s => s.name))
+        stocks: new Set((c._parsedStocks || parseStocks(c.涉及股票)).map(s => s.name)),
+        stockStr: c.涉及股票
     }));
 
     if (industries.length === 0 && concepts.length === 0) {
@@ -221,6 +223,38 @@ function updateFocusArea(activeData) {
         });
     });
 
+    /**
+     * 生成关注板块标签的 data-* 属性字符串（供事件委托使用）
+     */
+    function buildSectorDataAttrs(item, type, allPairs, stockStr) {
+        const otherType = type === '行业板块资金流向' ? '概念' : '行业';
+        const matched = allPairs
+            .filter(p => {
+                const targetField = type === '行业板块资金流向' ? 'industry' : 'concept';
+                return p[targetField].name === item.name;
+            })
+            .map(p => {
+                const otherField = type === '行业板块资金流向' ? 'concept' : 'industry';
+                return { name: p[otherField].name, days: p[otherField].days, commonStocks: p.commonStocks };
+            });
+        const commonStocks = new Set(allPairs
+            .filter(p => {
+                const targetField = type === '行业板块资金流向' ? 'industry' : 'concept';
+                return p[targetField].name === item.name;
+            })
+            .flatMap(p => p.commonStocks)
+        );
+        const stocks = parseStocks(stockStr);
+        const attrs = {
+            sector: item.name,
+            type: type,
+            matched: JSON.stringify(matched),
+            stocks: JSON.stringify(stocks.map(s => ({ name: s.name, code: s.code, net: s.net }))),
+            common: JSON.stringify([...commonStocks])
+        };
+        return Object.entries(attrs).map(([k, v]) => `data-${k}="${escapeHtml(v)}"`).join(' ');
+    }
+
     // 渲染行业部分
     {
         const indSection = document.createElement('div');
@@ -230,20 +264,19 @@ function updateFocusArea(activeData) {
             const div = document.createElement('div');
             div.className = 'pair clickable';
             div.style.display = 'inline-block';
-            div.title = `连续流入${item.days}天\\n点击查看最近10日趋势`;
+            div.title = `连续流入${item.days}天\n点击查看最近10日趋势`;
             const daysColor = item.days >= HIGHLIGHT_MIN_DAYS ? '#dc2626' : '#2563eb';
             div.innerHTML = `<span style="color:#2563eb;font-weight:600;">${escapeHtml(item.name)}</span> <span style="font-size:11px;color:${daysColor};font-weight:700;">${item.days}天</span>`;
-            const industryStockStr = (industryList.find(i => i.板块 === item.name) || {}).涉及股票 || '';
-            div.onclick = function() {
-                const matchedConceptsForIndustry = allPairs
-                    .filter(p => p.industry.name === item.name)
-                    .map(p => ({ name: p.concept.name, days: p.concept.days, commonStocks: p.commonStocks }));
-                const industryCommonStocks = new Set(
-                    allPairs.filter(p => p.industry.name === item.name)
-                        .flatMap(p => p.commonStocks)
-                );
-                showSingleTrendModal(item.name, '行业板块资金流向', '🏛️ ' + item.name + '（行业）', matchedConceptsForIndustry, parseStocks(industryStockStr), industryCommonStocks);
-            };
+            div.setAttribute('data-sector', item.name);
+            div.setAttribute('data-type', '行业板块资金流向');
+            const matched = allPairs
+                .filter(p => p.industry.name === item.name)
+                .map(p => ({ name: p.concept.name, days: p.concept.days, commonStocks: p.commonStocks }));
+            div.setAttribute('data-matched', JSON.stringify(matched));
+            const stocks = parseStocks(item.stockStr || '');
+            div.setAttribute('data-stocks', JSON.stringify(stocks.map(s => ({ name: s.name, code: s.code, net: s.net }))));
+            const commonStocks = new Set(allPairs.filter(p => p.industry.name === item.name).flatMap(p => p.commonStocks));
+            div.setAttribute('data-common', JSON.stringify([...commonStocks]));
             indSection.appendChild(div);
         });
         container.appendChild(indSection);
@@ -257,20 +290,19 @@ function updateFocusArea(activeData) {
             const div = document.createElement('div');
             div.className = 'pair clickable';
             div.style.display = 'inline-block';
-            div.title = `连续流入${item.days}天\\n点击查看最近10日趋势`;
+            div.title = `连续流入${item.days}天\n点击查看最近10日趋势`;
             const daysColor = item.days >= HIGHLIGHT_MIN_DAYS ? '#dc2626' : '#7c3aed';
             div.innerHTML = `<span style="color:#7c3aed;font-weight:600;">${escapeHtml(item.name)}</span> <span style="font-size:11px;color:${daysColor};font-weight:700;">${item.days}天</span>`;
-            const conceptStockStr = (conceptList.find(c => c.板块 === item.name) || {}).涉及股票 || '';
-            div.onclick = function() {
-                const matchedIndustriesForConcept = allPairs
-                    .filter(p => p.concept.name === item.name)
-                    .map(p => ({ name: p.industry.name, days: p.industry.days, commonStocks: p.commonStocks }));
-                const conceptCommonStocks = new Set(
-                    allPairs.filter(p => p.concept.name === item.name)
-                        .flatMap(p => p.commonStocks)
-                );
-                showSingleTrendModal(item.name, '概念板块资金流向', '💡 ' + item.name + '（概念）', matchedIndustriesForConcept, parseStocks(conceptStockStr), conceptCommonStocks);
-            };
+            div.setAttribute('data-sector', item.name);
+            div.setAttribute('data-type', '概念板块资金流向');
+            const matched = allPairs
+                .filter(p => p.concept.name === item.name)
+                .map(p => ({ name: p.industry.name, days: p.industry.days, commonStocks: p.commonStocks }));
+            div.setAttribute('data-matched', JSON.stringify(matched));
+            const stocks = parseStocks(item.stockStr || '');
+            div.setAttribute('data-stocks', JSON.stringify(stocks.map(s => ({ name: s.name, code: s.code, net: s.net }))));
+            const commonStocks = new Set(allPairs.filter(p => p.concept.name === item.name).flatMap(p => p.commonStocks));
+            div.setAttribute('data-common', JSON.stringify([...commonStocks]));
             conSection.appendChild(div);
         });
         container.appendChild(conSection);

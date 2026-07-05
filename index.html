@@ -23,17 +23,17 @@
                 <label for="conceptCount">概念显示数量:</label>
                 <input type="number" id="conceptCount" min="1" max="100" value="10">
             </div>
-            <button onclick="parseExcelFile()" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">📊 解析数据</button>
-            <button onclick="loadAllJsonFiles()" style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);">📂 加载数据</button>
-            <button onclick="updateCharts()">🔄 刷新图表</button>
-            <input type="file" id="excelFileInput" accept=".xlsx,.xls" style="display:none" onchange="handleExcelFile(event)">
+            <button id="btnParseExcel" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">📊 解析数据</button>
+            <button id="btnLoadData" style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);">📂 加载数据</button>
+            <button id="btnRefresh">🔄 刷新图表</button>
+            <input type="file" id="excelFileInput" accept=".xlsx,.xls" style="display:none">
             <div class="control-group flow-control-group">
                 <label class="flow-option inflow">
-                    <input type="radio" name="flowFilter" value="inflow" checked onchange="updateCharts()">
+                    <input type="radio" name="flowFilter" value="inflow" checked>
                     <span>流入</span>
                 </label>
                 <label class="flow-option outflow">
-                    <input type="radio" name="flowFilter" value="outflow" onchange="updateCharts()">
+                    <input type="radio" name="flowFilter" value="outflow">
                     <span>流出</span>
                 </label>
             </div>
@@ -53,7 +53,7 @@
             <div class="chart-box">
                 <div class="chart-title">
                     <span>🏛️ 行业板块资金流向</span>
-                    <button class="view-all-btn" onclick="showAllData('行业板块资金流向')">查看全部</button>
+                    <button class="view-all-btn" id="btnAllIndustry">查看全部</button>
                 </div>
                 <div class="chart-wrapper">
                     <canvas id="industryChart"></canvas>
@@ -62,7 +62,7 @@
             <div class="chart-box">
                 <div class="chart-title">
                     <span>💡 概念板块资金流向</span>
-                    <button class="view-all-btn" onclick="showAllData('概念板块资金流向')">查看全部</button>
+                    <button class="view-all-btn" id="btnAllConcept">查看全部</button>
                 </div>
                 <div class="chart-wrapper">
                     <canvas id="conceptChart"></canvas>
@@ -76,24 +76,24 @@
     </div>
 
     <!-- 查看全部弹窗 -->
-    <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+    <div class="modal-overlay" id="modalOverlay">
         <div class="modal-content" onclick="event.stopPropagation()">
             <div class="modal-header">
                 <h2 id="modalTitle">全部板块</h2>
-                <button class="modal-close" onclick="closeModal()">✕</button>
+                <button class="modal-close" id="btnCloseModal">✕</button>
             </div>
             <table class="modal-table">
                 <thead>
                     <tr>
-                        <th onclick="sortModalTable('name')" style="width:1%;white-space:nowrap">板块 <span class="sort-arrow" id="sortArrowName">▼</span></th>
-                        <th style="text-align:right;width:1%;white-space:nowrap" onclick="sortModalTable('net')">主力净额 <span class="sort-arrow" id="sortArrowNet">▼</span></th>
-                        <th style="text-align:right;width:1%;white-space:nowrap" onclick="sortModalTable('turnover')">成交额 <span class="sort-arrow" id="sortArrowTurnover"></span></th>
-                        <th style="text-align:center;width:1%;white-space:nowrap" onclick="sortModalTable('days')">连续流入天数 <span class="sort-arrow" id="sortArrowDays"></span></th>
-                        <th style="text-align:right;width:1%;white-space:nowrap" onclick="sortModalTable('count')">股票数 <span class="sort-arrow" id="sortArrowCount"></span></th>
+                        <th data-sort="name" style="width:1%;white-space:nowrap">板块 <span class="sort-arrow" id="sortArrowName">▼</span></th>
+                        <th data-sort="net" style="text-align:right;width:1%;white-space:nowrap">主力净额 <span class="sort-arrow" id="sortArrowNet">▼</span></th>
+                        <th data-sort="turnover" style="text-align:right;width:1%;white-space:nowrap">成交额 <span class="sort-arrow" id="sortArrowTurnover"></span></th>
+                        <th data-sort="days" style="text-align:center;width:1%;white-space:nowrap">连续流入天数 <span class="sort-arrow" id="sortArrowDays"></span></th>
+                        <th data-sort="count" style="text-align:right;width:1%;white-space:nowrap">股票数 <span class="sort-arrow" id="sortArrowCount"></span></th>
                         <th>涉及股票</th>
                         <th id="filterToggleTh" style="text-align:right;cursor:default" onclick="event.stopPropagation()">
                             <label style="font-weight:400;color:#666;font-size:12px;cursor:pointer" onclick="event.stopPropagation()">
-                                <input type="checkbox" id="filterInvalid" checked onchange="renderModalTable()"> 过滤无效
+                                <input type="checkbox" id="filterInvalid" checked> 过滤无效
                             </label>
                         </th>
                     </tr>
@@ -104,20 +104,20 @@
     </div>
 
     <!-- 趋势对比弹窗 -->
-    <div class="modal-overlay" id="trendModalOverlay" onclick="closeTrendModal(event)">
+    <div class="modal-overlay" id="trendModalOverlay">
         <div class="trend-modal-content" onclick="event.stopPropagation()">
             <div class="modal-header">
                 <div class="trend-modal-header-row">
                     <h2 id="trendModalTitle">板块</h2>
                     <div class="trend-common-stocks" id="trendMatchedSectors"></div>
                 </div>
-                <button class="modal-close" onclick="closeTrendModal()">✕</button>
+                <button class="modal-close" id="btnCloseTrendModal">✕</button>
             </div>
                 <div class="trend-main-row">
                     <div class="trend-left">
                         <div class="trend-chart-tabs">
-                            <button class="trend-tab-btn active" id="trendChartTabBtn" onclick="switchTrendChartTab('chart')">📊 板块详情</button>
-                            <button class="trend-tab-btn" id="trendStockTabBtn" onclick="switchTrendChartTab('stock')">📈 个股详情</button>
+                            <button class="trend-tab-btn active" id="trendChartTabBtn">📊 板块详情</button>
+                            <button class="trend-tab-btn" id="trendStockTabBtn">📈 个股详情</button>
                         </div>
                         <div class="trend-chart-content active" id="trendChartContent">
                             <div class="trend-chart-row">
