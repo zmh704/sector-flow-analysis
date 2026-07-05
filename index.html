@@ -107,11 +107,12 @@
     <div class="modal-overlay" id="trendModalOverlay" onclick="closeTrendModal(event)">
         <div class="trend-modal-content" onclick="event.stopPropagation()">
             <div class="modal-header">
-                <h2 id="trendModalTitle">板块</h2>
+                <div class="trend-modal-header-row">
+                    <h2 id="trendModalTitle">板块</h2>
+                    <div class="trend-common-stocks" id="trendMatchedSectors"></div>
+                </div>
                 <button class="modal-close" onclick="closeTrendModal()">✕</button>
             </div>
-            <div class="trend-modal-body">
-                <div class="trend-common-stocks" id="trendMatchedSectors"></div>
                 <div class="trend-main-row">
                     <div class="trend-left">
                         <div class="trend-chart-tabs">
@@ -143,7 +144,6 @@
                         <div class="stock-panel-list" id="stockPanelList"></div>
                     </div>
                 </div>
-            </div>
         </div>
     </div>
 
