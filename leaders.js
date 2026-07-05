@@ -21,39 +21,41 @@ function leaderCondAmountNotTooHigh(stockName) {
     return isStockAmountNotTooHigh(stockName);
 }
 
-/** 条件E：所有所属板块当日成交额均 < 板块前一日成交额 × RATIO_TURNOVER_HIGH */
-function leaderCondAllSectorsDecreased(stockName, sectors) {
+/**
+ * 预构建今日推荐所需的板块 Maps（调用一次即可，避免每次条件判断重复构建）
+ * 返回 { '行业板块资金流向': { curr: Map, prev: Map }, '概念板块资金流向': { curr: Map, prev: Map } }
+ */
+function buildLeaderSectorMaps() {
     const activeData = getActiveData();
     const prevDayData = getPrevDayData();
-    // 按类型提前构建板块 Map，使 isSectorTurnoverDecreased O(1) 查找
-    const maps = {};
-    for (const key of ['行业板块资金流向', '概念板块资金流向']) {
-        maps[key] = {
-            curr: buildSectorMap(activeData[key] || []),
-            prev: buildSectorMap(prevDayData?.[key] || [])
-        };
-    }
+    return {
+        '行业板块资金流向': {
+            curr: buildSectorMap(activeData['行业板块资金流向'] || []),
+            prev: buildSectorMap(prevDayData?.['行业板块资金流向'] || [])
+        },
+        '概念板块资金流向': {
+            curr: buildSectorMap(activeData['概念板块资金流向'] || []),
+            prev: buildSectorMap(prevDayData?.['概念板块资金流向'] || [])
+        }
+    };
+}
+
+/** 条件E：所有所属板块当日成交额均 < 板块前一日成交额 × RATIO_TURNOVER_HIGH */
+function leaderCondAllSectorsDecreased(stockName, sectors, sectorMaps) {
     return sectors.every(s => {
         const st = s.type === '行业' ? '行业板块资金流向' : '概念板块资金流向';
-        return isSectorTurnoverDecreased(s.name, maps[st].curr, maps[st].prev);
+        const maps = sectorMaps[st];
+        return maps ? isSectorTurnoverDecreased(s.name, maps.curr, maps.prev) : true;
     });
 }
 
 /** 条件F：所属板块中净流入天数 >= 股票天数的板块，成交额需 > 昨日成交额 × RATIO_TURNOVER_LOW */
-function leaderCondHighDaysSectorsAbove090(stockName, stockDays, sectors) {
-    const activeData = getActiveData();
-    const prevDayData = getPrevDayData();
-    const maps = {};
-    for (const key of ['行业板块资金流向', '概念板块资金流向']) {
-        maps[key] = {
-            curr: buildSectorMap(activeData[key] || []),
-            prev: buildSectorMap(prevDayData?.[key] || [])
-        };
-    }
+function leaderCondHighDaysSectorsAbove090(stockName, stockDays, sectors, sectorMaps) {
     return sectors.every(s => {
         if (s.days < stockDays) return true;
         const st = s.type === '行业' ? '行业板块资金流向' : '概念板块资金流向';
-        return isSectorAbove090(s.name, maps[st].curr, maps[st].prev);
+        const maps = sectorMaps[st];
+        return maps ? isSectorAbove090(s.name, maps.curr, maps.prev) : true;
     });
 }
 
@@ -77,16 +79,17 @@ function leaderCondVolumeUpChangeLimited(stockName) {
 /**
  * 今日推荐股票的完整筛选逻辑（加星逻辑也复用此函数，保持一致）
  * 修改下方任一条件的注释状态，今日推荐与加星会自动同步
+ * @param {Object} sectorMaps - 预构建的板块 Maps（由 buildLeaderSectorMaps() 生成），避免每次条件判断重复构建
  */
-function passesLeaderConditions(stockName, stockDays, sectors, focusSectors) {
+function passesLeaderConditions(stockName, stockDays, sectors, focusSectors, sectorMaps) {
     if (!leaderCondMinDays(stockDays)) return false;       // 条件A：股票连续天数 >= 最小值
     // 条件B：至少一个所属板块在关注板块中（直接复用 getFocusSectors 的板块集合）
     const inFocus = sectors.some(s => focusSectors.has(s.name));
     if (!inFocus) return false;
     // if (!leaderCondTurnoverNotTooLow(stockName)) return false;           // 条件C：股票当日成交额 > 前一日成交额 * 0.9（防缩量）
     if (!leaderCondAmountNotTooHigh(stockName)) return false;        // 条件D：股票当日成交额 < 前一日成交额 * 1.5（防放量）
-    if (!leaderCondAllSectorsDecreased(stockName, sectors)) return false; // 条件E：所有所属板块成交额 < 板块前一日 * 1.5
-    // if (!leaderCondHighDaysSectorsAbove090(stockName, stockDays, sectors)) return false; // 条件F：高天数板块成交额 > 板块前一日 * 0.9
+    if (!leaderCondAllSectorsDecreased(stockName, sectors, sectorMaps)) return false; // 条件E：所有所属板块成交额 < 板块前一日 * 1.5
+    // if (!leaderCondHighDaysSectorsAbove090(stockName, stockDays, sectors, sectorMaps)) return false; // 条件F：高天数板块成交额 > 板块前一日 * 0.9
     if (!leaderCondDaysWithinGap(stockDays, sectors)) return false; // 条件G：股票天数在所属板块最大天数 ± LEADER_GAP 范围内
     // if (!leaderCondVolumeDecreased(stockName)) return false;             // 条件H：股票当日成交量 < 近5日内最大成交量
     if (!leaderCondVolumeUpChangeLimited(stockName)) return false; // 条件I：放量时涨跌幅必须 < 5%
@@ -98,11 +101,12 @@ function calcLeaderStarSet(stocks, stockDaysMap) {
     const daysMap = stockDaysMap || calcStockConsecutiveDays();
     const stockSectorsMap = buildStockSectorsMap();
     const focusSectors = getFocusSectors(getActiveData());
+    const sectorMaps = buildLeaderSectorMaps();  // 预构建一次，避免条件判断重复构建
     const starSet = new Set();
     for (const stock of stocks) {
         const stockDays = daysMap.get(stock.name) || 0;
         const sectors = stockSectorsMap.get(stock.name) || [];
-        if (passesLeaderConditions(stock.name, stockDays, sectors, focusSectors)) {
+        if (passesLeaderConditions(stock.name, stockDays, sectors, focusSectors, sectorMaps)) {
             starSet.add(stock.name);
         }
     }
@@ -143,11 +147,14 @@ function updateLeaderArea(activeData) {
         }
     }
 
+    // 预构建板块 Maps（避免条件判断中重复构建）
+    const sectorMaps = buildLeaderSectorMaps();
+
     // 筛选龙头股票（条件集中在 passesLeaderConditions，加星逻辑也复用，自动同步）
     const leaders = [];
     for (const [stockName, sectors] of stockSectors) {
         const stockDays = stockConsecutiveDays.get(stockName) || 0;
-        if (!passesLeaderConditions(stockName, stockDays, sectors, focusSectors)) continue;
+        if (!passesLeaderConditions(stockName, stockDays, sectors, focusSectors, sectorMaps)) continue;
 
         const sectorNames = sectors
             .filter(s => s.days >= 1)

@@ -12,6 +12,26 @@ const RATIO_TURNOVER_HIGH = 1.5;  // 成交额放量阈值（当日 < 前一日 
 const CHANGE_LIMIT_PCT = 5;       // 放量时涨跌幅限制（%）
 const TREND_CHART_DAYS = 10;      // 趋势图显示天数
 
+// ===== 通用工具函数 =====
+
+/** 防抖：延迟 delay ms 后执行 fn，连续调用重置计时器 */
+function debounce(fn, delay) {
+    let timer = null;
+    return function(...args) {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => { timer = null; fn.apply(this, args); }, delay);
+    };
+}
+
+/** rAF 防抖：将多次触发合并到下一帧执行（适用于 DOM 批量更新） */
+function debounceRAF(fn) {
+    let rafId = null;
+    return function(...args) {
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(() => { rafId = null; fn.apply(this, args); });
+    };
+}
+
 // 数据状态
 let allDataByDate = {};
 let dateFileList = [];

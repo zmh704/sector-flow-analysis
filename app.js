@@ -8,14 +8,14 @@ function initEventListeners() {
     document.getElementById('btnRefresh').addEventListener('click', updateCharts);
     document.getElementById('excelFileInput').addEventListener('change', handleExcelFile);
 
-    // 流入/流出单选
+    // 流入/流出单选（防抖 100ms）
     document.querySelectorAll('input[name="flowFilter"]').forEach(el => {
-        el.addEventListener('change', updateCharts);
+        el.addEventListener('change', debounce(updateCharts, 100));
     });
 
-    // 数量输入框
-    document.getElementById('industryCount').addEventListener('change', updateCharts);
-    document.getElementById('conceptCount').addEventListener('change', updateCharts);
+    // 数量输入框（防抖 300ms）
+    document.getElementById('industryCount').addEventListener('change', debouncedUpdateCharts);
+    document.getElementById('conceptCount').addEventListener('change', debouncedUpdateCharts);
 
     // 查看全部弹窗
     document.getElementById('modalOverlay').addEventListener('click', function(e) {

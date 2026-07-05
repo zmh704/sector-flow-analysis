@@ -51,7 +51,7 @@ function openStockQuote(stockName, stockCode) {
     window.open(url, '_blank');
 }
 
-/** 计算每只股票从当天往前连续主力净额>0的天数（带缓存） */
+/** 计算每只股票从当天往前连续主力净额>0的天数（带缓存，懒加载优化） */
 function calcStockConsecutiveDays() {
     if (_stockDaysCache) return _stockDaysCache;
 
@@ -59,41 +59,60 @@ function calcStockConsecutiveDays() {
     const currentIdx = sorted.indexOf(currentDateFile);
     if (currentIdx < 0) { _stockDaysCache = new Map(); return _stockDaysCache; }
 
-    // 预处理：每日期所有股票及其净额状态
-    const dateStockMaps = [];
-    for (let i = 0; i <= currentIdx; i++) {
-        const dayData = allDataByDate[sorted[i]]?.data;
-        const dayMap = new Map();
-        if (dayData) {
-            const allSectors = [
-                ...(dayData.行业板块资金流向 || []),
-                ...(dayData.概念板块资金流向 || [])
-            ];
-            for (const sector of allSectors) {
-                const stocks = sector._parsedStocks || parseStocks(sector.涉及股票);
-                for (const stock of stocks) {
-                    if (!dayMap.has(stock.name)) {
-                        const netNum = parseFloat(stock.net);
-                        dayMap.set(stock.name, !isNaN(netNum) && netNum > 0);
+    const stockDays = new Map();
+    const MAX_CONSECUTIVE = 30; // 上限截断，避免极端值导致无限循环
+
+    // 收集当前日期所有股票名称（从已缓存的 _parsedStocks 中提取，避免重复解析）
+    const currData = allDataByDate[sorted[currentIdx]]?.data;
+    if (!currData) { _stockDaysCache = stockDays; return stockDays; }
+
+    const allNames = new Set();
+    const allSectors = [
+        ...(currData.行业板块资金流向 || []),
+        ...(currData.概念板块资金流向 || [])
+    ];
+    for (const sector of allSectors) {
+        const stocks = sector._parsedStocks || parseStocks(sector.涉及股票);
+        for (const stock of stocks) {
+            allNames.add(stock.name);
+        }
+    }
+
+    // 懒加载：按需构建每日期股票净额状态 Map，避免一次性全量构建
+    const lazyDateMaps = [];
+
+    function getDateMap(i) {
+        if (!lazyDateMaps[i]) {
+            const dayData = allDataByDate[sorted[i]]?.data;
+            const dayMap = new Map();
+            if (dayData) {
+                const sectors = [
+                    ...(dayData.行业板块资金流向 || []),
+                    ...(dayData.概念板块资金流向 || [])
+                ];
+                for (const sector of sectors) {
+                    const stocks = sector._parsedStocks || parseStocks(sector.涉及股票);
+                    for (const stock of stocks) {
+                        if (!dayMap.has(stock.name)) {
+                            const netNum = parseFloat(stock.net);
+                            dayMap.set(stock.name, !isNaN(netNum) && netNum > 0);
+                        }
                     }
                 }
             }
+            lazyDateMaps[i] = dayMap;
         }
-        dateStockMaps.push(dayMap);
+        return lazyDateMaps[i];
     }
 
-    // 从当天往前查连续天数
-    const stockDays = new Map();
-    const allNames = new Set();
-    for (const dayMap of dateStockMaps) {
-        for (const name of dayMap.keys()) allNames.add(name);
-    }
+    // 逐股票倒查连续天数（懒加载，零流出的股票仅检查当日）
     for (const name of allNames) {
         let count = 0;
         for (let i = currentIdx; i >= 0; i--) {
-            const netPositive = dateStockMaps[i].get(name);
-            if (netPositive === true) {
+            const dayMap = getDateMap(i);
+            if (dayMap.get(name) === true) {
                 count++;
+                if (count >= MAX_CONSECUTIVE) break;
             } else {
                 break;
             }

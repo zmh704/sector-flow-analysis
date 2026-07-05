@@ -49,6 +49,8 @@ function renderModalTable() {
         return modalSortState.asc ? va - vb : vb - va;
     });
 
+    // 使用 DocumentFragment 批量构建行，减少重排次数
+    const fragment = document.createDocumentFragment();
     sorted.forEach(item => {
         const val = item._val;
         const cls = val >= 0 ? 'positive' : 'negative';
@@ -72,8 +74,10 @@ function renderModalTable() {
             <td style="text-align:right;white-space:nowrap">${item.股票数量}</td>
             <td style="font-size:12px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(item.涉及股票 || '-')}</td>
         `;
-        tbody.appendChild(tr);
+        fragment.appendChild(tr);
     });
+
+    tbody.replaceChildren(fragment);
 
     ['name', 'net', 'turnover', 'days', 'count'].forEach(k => {
         const arrow = document.getElementById('sortArrow' + k.charAt(0).toUpperCase() + k.slice(1));

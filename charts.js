@@ -185,8 +185,14 @@ function getPrevDayData() {
     return prevData?.data || null;
 }
 
+// 渲染防抖标志：防止 updateCharts 在异步操作中重入
+let _updatingCharts = false;
+
 function updateCharts() {
     try {
+        if (_updatingCharts) return;
+        _updatingCharts = true;
+
         if (typeof Chart === 'undefined') {
             document.getElementById('loadStatus').textContent = '⚠️ Chart.js 库加载失败，请检查网络连接后刷新页面';
             return;
@@ -217,5 +223,10 @@ function updateCharts() {
     } catch (error) {
         console.error('❌ updateCharts 错误:', error);
         document.getElementById('loadStatus').textContent = '⚠️ 图表渲染出错: ' + error.message;
+    } finally {
+        _updatingCharts = false;
     }
 }
+
+// 防抖版本：供数字输入等高频触发场景使用，300ms 延迟
+const debouncedUpdateCharts = debounce(updateCharts, 300);
