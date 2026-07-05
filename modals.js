@@ -430,12 +430,8 @@ function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, c
             const sortedSectors = matchedSectors.sort((a, b) => b.days - a.days);
             const MAX_VISIBLE = 10;
             const isOverflow = sortedSectors.length > MAX_VISIBLE;
-            const visibleSectors = isOverflow ? sortedSectors.slice(0, MAX_VISIBLE) : sortedSectors;
-            const hiddenSectors = isOverflow ? sortedSectors.slice(MAX_VISIBLE) : [];
 
-            /**
-             * 创建单个相关板块标签
-             */
+            // 辅助：创建单个相关板块标签
             function createMatchedTag(s) {
                 const tag = document.createElement('span');
                 tag.className = 'pair clickable';
@@ -446,37 +442,43 @@ function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, c
                 tag.dataset.sector = s.name;
                 tag.dataset.type = s._dataType || otherDataType;
                 tag.dataset.common = JSON.stringify(sCommonStocks);
-                matchedContainer.appendChild(tag);
+                return tag;
             }
 
-            // 渲染可见部分
-            visibleSectors.forEach(createMatchedTag);
+            // 前 MAX_VISIBLE 个放在「不换行」容器中
+            const primaryWrap = document.createElement('span');
+            primaryWrap.style.cssText = 'white-space:nowrap;display:inline;';
+            sortedSectors.slice(0, MAX_VISIBLE).forEach(s => {
+                primaryWrap.appendChild(createMatchedTag(s));
+            });
+            matchedContainer.appendChild(primaryWrap);
+
+            // 多余部分单独容器（显示时可换行）
+            let extraWrap = null;
+            if (isOverflow) {
+                extraWrap = document.createElement('span');
+                extraWrap.className = 'matched-extra-wrap';
+                extraWrap.style.display = 'none';
+                sortedSectors.slice(MAX_VISIBLE).forEach(s => {
+                    extraWrap.appendChild(createMatchedTag(s));
+                });
+                matchedContainer.appendChild(extraWrap);
+            }
 
             // 溢出时添加展开/收起按钮
             if (isOverflow) {
                 const toggleBtn = document.createElement('span');
-                toggleBtn.className = 'pair toggle';
-                toggleBtn.style.cssText = 'cursor:pointer;color:#667eea;font-weight:600;font-size:12px;padding:0 6px;';
+                toggleBtn.className = 'pair';
+                toggleBtn.style.cssText = 'cursor:pointer;color:#667eea;font-weight:600;font-size:12px;padding:0 6px;border-radius:4px;';
                 toggleBtn.textContent = `展开更多 ${sortedSectors.length - MAX_VISIBLE} 个▼`;
-                toggleBtn.dataset.expanded = 'false';
                 toggleBtn.addEventListener('click', function(e) {
                     e.stopPropagation();
-                    const expanded = this.dataset.expanded === 'true';
-                    if (expanded) {
-                        // 收起：移除隐藏部分
-                        hiddenSectors.forEach(() => {
-                            if (matchedContainer.lastChild && matchedContainer.lastChild !== titleSpan && matchedContainer.lastChild !== toggleBtn) {
-                                matchedContainer.removeChild(matchedContainer.lastChild);
-                            }
-                        });
-                        this.textContent = `展开更多 ${sortedSectors.length - MAX_VISIBLE} 个▼`;
-                        this.dataset.expanded = 'false';
-                    } else {
-                        // 展开：追加隐藏部分
-                        hiddenSectors.forEach(createMatchedTag);
-                        this.textContent = '收起▲';
-                        this.dataset.expanded = 'true';
-                    }
+                    if (!extraWrap) return;
+                    const isHidden = extraWrap.style.display === 'none';
+                    extraWrap.style.display = isHidden ? '' : 'none';
+                    this.textContent = isHidden
+                        ? '收起▲'
+                        : `展开更多 ${sortedSectors.length - MAX_VISIBLE} 个▼`;
                 });
                 matchedContainer.appendChild(toggleBtn);
             }
