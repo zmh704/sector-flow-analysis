@@ -212,8 +212,7 @@ function resetLoadedData() {
 }
 
 async function loadAllJsonFiles() {
-    const statusDiv = document.getElementById('loadStatus');
-    statusDiv.textContent = '正在扫描并加载数据文件...';
+    showLoadingStatus('正在扫描并加载数据文件...');
 
     resetLoadedData();
 
@@ -222,50 +221,47 @@ async function loadAllJsonFiles() {
         const response = await fetch('/api/list?' + Date.now());
         if (response.ok) {
             fileList = await response.json();
-            statusDiv.textContent = `API 返回了 ${fileList.length} 个文件`;
         } else {
             throw new Error('服务器 API 不可用，状态码: ' + response.status);
         }
     } catch (_error) {
         // 本地服务器不可用时，回退到 list.json（GitHub Pages 模式）
-        statusDiv.textContent = '⚠️ 本地服务器不可用，尝试通过静态列表加载...';
+        showWarningStatus('本地服务器不可用，尝试通过静态列表加载...');
         try {
             const fallbackResp = await fetch('list.json?t=' + Date.now());
             if (fallbackResp.ok) {
                 fileList = await fallbackResp.json();
-                statusDiv.textContent = '📄 静态列表返回了 ' + fileList.length + ' 个文件';
             } else {
                 throw new Error('list.json 加载失败');
             }
         } catch (_fallbackError) {
-            statusDiv.textContent = '⚠️ 数据加载失败：本地服务器和静态列表均不可用。请确保已启动服务器（双击 start.cmd）或部署到 GitHub Pages';
+            showWarningStatus('数据加载失败：本地服务器和静态列表均不可用。请确保已启动服务器（双击 start.cmd）或部署到 GitHub Pages');
             return;
         }
     }
 
     if (fileList.length === 0) {
-        statusDiv.textContent = '⚠️ data/ 目录下没有找到板块资金流向 JSON 文件';
+        showWarningStatus('data/ 目录下没有找到板块资金流向 JSON 文件');
         return;
     }
 
     let loadedCount = 0;
+    const totalFiles = fileList.length;
     const nowTs = Date.now();
-    const results = await Promise.all(fileList.map(async (filename) => {
+
+    // 逐个加载以便显示进度（替代 Promise.all，可跟踪每文件状态）
+    for (let i = 0; i < totalFiles; i++) {
+        const filename = fileList[i];
+        showLoadingProgress(`正在加载 ${i + 1}/${totalFiles}...`, i + 1, totalFiles);
         try {
             const response = await fetch(filename + '?t=' + nowTs);
             if (response.ok) {
                 const data = await response.json();
-                return { filename, data };
+                storeDataForDate(filename, data);
+                loadedCount++;
             }
         } catch (error) {
             console.error(`加载文件 ${filename} 失败:`, error);
-        }
-        return null;
-    }));
-    for (const result of results) {
-        if (result) {
-            storeDataForDate(result.filename, result.data);
-            loadedCount++;
         }
     }
 
@@ -273,11 +269,9 @@ async function loadAllJsonFiles() {
 
     try {
         updateCharts();
-        statusDiv.textContent = `✅ 已加载 ${loadedCount} 个文件`;
+        showSuccessStatus(`已加载 ${loadedCount} 个文件`);
     } catch (error) {
         console.error('❌ 渲染图表失败:', error);
-        statusDiv.textContent = '⚠️ 数据加载成功，但渲染失败: ' + error.message;
+        showWarningStatus('数据加载成功，但渲染失败: ' + error.message);
     }
-
-    setTimeout(() => { statusDiv.textContent = ''; }, 4000);
 }

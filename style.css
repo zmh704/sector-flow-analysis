@@ -4,10 +4,87 @@
     box-sizing: border-box;
 }
 
-/* 弹窗入场动画 */
+/* ===== 弹窗入场动画 ===== */
 @keyframes modalSlideIn {
     from { opacity: 0; transform: scale(0.96) translateY(12px); }
     to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* ===== 加载动画 ===== */
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
+@keyframes progressBar {
+    from { width: 0%; }
+    to   { width: 100%; }
+}
+
+#loadStatus {
+    text-align: center;
+    margin-bottom: 15px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 24px;
+}
+
+#loadStatus .spinner {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    border: 2.5px solid #e0e0e0;
+    border-top-color: #667eea;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+}
+
+#loadStatus .progress-bar-wrap {
+    display: inline-block;
+    width: 120px;
+    height: 6px;
+    background: #e8e8e8;
+    border-radius: 3px;
+    overflow: hidden;
+    vertical-align: middle;
+}
+
+#loadStatus .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea, #764ba2);
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
+/* 图表加载覆盖层 */
+.chart-wrapper.loading::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(255,255,255,0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+    border-radius: 8px;
+}
+
+.chart-wrapper.loading::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 32px;
+    height: 32px;
+    margin: -16px 0 0 -16px;
+    border: 3px solid #e0e0e0;
+    border-top-color: #667eea;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    z-index: 2;
 }
 
 body {

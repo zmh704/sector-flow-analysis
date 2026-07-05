@@ -166,8 +166,7 @@ async function handleExcelFile(event) {
     const file = event.target.files[0];
     if (!file) return;
 
-    const statusDiv = document.getElementById('loadStatus');
-    statusDiv.textContent = '⏳ 正在上传并解析Excel文件...';
+    showLoadingStatus('正在上传并解析Excel文件...');
 
     try {
         const formData = new FormData();
@@ -184,14 +183,14 @@ async function handleExcelFile(event) {
         }
 
         const result = await response.json();
-        statusDiv.textContent = `✅ 解析完成：${result.industries} 个行业，${result.concepts} 个概念`;
+        showSuccessStatus(`解析完成：${result.industries} 个行业，${result.concepts} 个概念`);
 
         // 刷新数据
         await loadAllJsonFiles();
 
     } catch (err) {
         console.error('解析失败:', err);
-        statusDiv.textContent = '❌ 解析失败: ' + err.message;
+        showWarningStatus('解析失败: ' + err.message);
     } finally {
         event.target.value = '';
     }

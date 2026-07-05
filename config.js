@@ -32,6 +32,45 @@ function debounceRAF(fn) {
     };
 }
 
+// ===== 加载状态管理 =====
+
+/** 显示加载状态文本（含 spinner 动画） */
+function showLoadingStatus(text) {
+    const el = document.getElementById('loadStatus');
+    if (!el) return;
+    el.innerHTML = `<span class="spinner"></span><span>${escapeHtml(text)}</span>`;
+}
+
+/** 显示加载进度条 + 文本 */
+function showLoadingProgress(text, loaded, total) {
+    const el = document.getElementById('loadStatus');
+    if (!el) return;
+    const pct = total > 0 ? Math.min(100, Math.round(loaded / total * 100)) : 0;
+    el.innerHTML = `<span class="spinner"></span><span>${escapeHtml(text)}</span> <span class="progress-bar-wrap"><span class="progress-bar-fill" style="width:${pct}%"></span></span>`;
+}
+
+/** 显示成功状态（绿色勾，定时自动清除） */
+function showSuccessStatus(text, timeout) {
+    const el = document.getElementById('loadStatus');
+    if (!el) return;
+    el.innerHTML = '✅ ' + escapeHtml(text);
+    if (timeout !== false) setTimeout(() => { if (el) el.textContent = ''; }, timeout || 4000);
+}
+
+/** 显示警告/错误状态 */
+function showWarningStatus(text) {
+    const el = document.getElementById('loadStatus');
+    if (!el) return;
+    el.innerHTML = '⚠️ ' + escapeHtml(text);
+}
+
+/** 图表加载状态切换 */
+function setChartLoading(loading) {
+    document.querySelectorAll('.chart-wrapper').forEach(el => {
+        el.classList.toggle('loading', loading);
+    });
+}
+
 // 数据状态
 let allDataByDate = {};
 let dateFileList = [];
@@ -94,7 +133,7 @@ Chart.register({
                 ? chartArea.bottom
                 : (ticks[i].y + ticks[i + 1].y) / 2;
 
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.03)';
             ctx.fillRect(chartArea.left, topY, chartArea.right - chartArea.left, bottomY - topY);
         }
 

@@ -61,7 +61,9 @@ function createChart(ctx, chartData, title, existingChart) {
         backgroundColor: chartData.colors,
         borderColor: chartData.borderColors,
         borderWidth: 2,
-        borderRadius: 6
+        borderRadius: 6,
+        hoverBorderWidth: 3,
+        hoverBorderColor: chartData.borderColors.map(c => c.replace('0.8', '1'))
     }];
 
     if (chartData.hasPrevData) {
@@ -74,7 +76,8 @@ function createChart(ctx, chartData, title, existingChart) {
                 return value > 0 ? 'rgba(239, 68, 68, 0.85)' : 'rgba(34, 197, 94, 0.85)';
             }),
             borderWidth: 3,
-            borderRadius: 6
+            borderRadius: 6,
+            borderDash: [6, 3] // 虚线区分前一日期
         });
     }
 
@@ -88,6 +91,10 @@ function createChart(ctx, chartData, title, existingChart) {
             indexAxis: 'y',
             responsive: true,
             maintainAspectRatio: false,
+            animation: {
+                duration: 800,
+                easing: 'easeOutQuart'
+            },
             barPercentage: 0.8,
             categoryPercentage: 0.9,
             plugins: {
@@ -95,10 +102,18 @@ function createChart(ctx, chartData, title, existingChart) {
                     display: true,
                     position: 'top',
                     labels: {
-                        font: { size: 14 }
+                        font: { size: 14 },
+                        usePointStyle: true,
+                        padding: 16
                     }
                 },
                 tooltip: {
+                    backgroundColor: 'rgba(30, 30, 40, 0.92)',
+                    titleFont: { size: 14 },
+                    bodyFont: { size: 13 },
+                    padding: 12,
+                    cornerRadius: 8,
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
                     callbacks: {
                         label: function(context) {
                             const datasetIndex = context.datasetIndex;
@@ -129,7 +144,8 @@ function createChart(ctx, chartData, title, existingChart) {
                 x: {
                     beginAtZero: false,
                     grid: {
-                        color: 'rgba(0, 0, 0, 0.1)'
+                        color: 'rgba(0, 0, 0, 0.1)',
+                        drawTicks: false
                     },
                     ticks: {
                         font: { size: 12 },
@@ -165,7 +181,58 @@ function createChart(ctx, chartData, title, existingChart) {
                     }
                 }
             }
-        }
+        },
+        plugins: [{
+            // 零值参考线插件（在 x=0 处绘制虚线）
+            id: 'zeroLine',
+            beforeDraw: function(chart) {
+                const ctx = chart.ctx;
+                const chartArea = chart.chartArea;
+                const xScale = chart.scales.x;
+                if (!xScale) return;
+                const zeroPos = xScale.getPixelForValue(0);
+                if (zeroPos < chartArea.left || zeroPos > chartArea.right) return;
+                ctx.save();
+                ctx.beginPath();
+                ctx.setLineDash([5, 5]);
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+                ctx.lineWidth = 1.5;
+                ctx.moveTo(zeroPos, chartArea.top);
+                ctx.lineTo(zeroPos, chartArea.bottom);
+                ctx.stroke();
+                ctx.restore();
+            }
+        }, {
+            // Top-3 数据标签插件
+            id: 'topLabels',
+            afterDraw: function(chart) {
+                const ctx = chart.ctx;
+                const chartArea = chart.chartArea;
+                const meta = chart.getDatasetMeta(0);
+                if (!meta || !meta.data) return;
+
+                const topCount = Math.min(3, meta.data.length);
+                ctx.save();
+                ctx.font = 'bold 12px "Segoe UI", "Microsoft YaHei", sans-serif';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+
+                for (let i = 0; i < topCount; i++) {
+                    const bar = meta.data[i];
+                    if (!bar || !bar.skip) {
+                        const x = bar.x;
+                        const y = bar.y;
+                        const value = chartData.values[i];
+                        if (value == null) continue;
+                        const label = (value >= 0 ? '+' : '') + value.toFixed(2) + '亿';
+                        ctx.fillStyle = value >= 0 ? '#c62828' : '#2e7d32';
+                        const offset = value >= 0 ? 8 : -ctx.measureText(label).width - 8;
+                        ctx.fillText(label, x + offset, y);
+                    }
+                }
+                ctx.restore();
+            }
+        }]
     });
 
     return chart;
@@ -192,9 +259,10 @@ function updateCharts() {
     try {
         if (_updatingCharts) return;
         _updatingCharts = true;
+        setChartLoading(true);
 
         if (typeof Chart === 'undefined') {
-            document.getElementById('loadStatus').textContent = '⚠️ Chart.js 库加载失败，请检查网络连接后刷新页面';
+            showWarningStatus('Chart.js 库加载失败，请检查网络连接后刷新页面');
             return;
         }
 
@@ -222,8 +290,9 @@ function updateCharts() {
         updateFocusArea(activeData);
     } catch (error) {
         console.error('❌ updateCharts 错误:', error);
-        document.getElementById('loadStatus').textContent = '⚠️ 图表渲染出错: ' + error.message;
+        showWarningStatus('图表渲染出错: ' + error.message);
     } finally {
+        setChartLoading(false);
         _updatingCharts = false;
     }
 }
