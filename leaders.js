@@ -79,22 +79,17 @@ function leaderCondVolumeUpChangeLimited(stockName) {
  * 修改下方任一条件的注释状态，今日推荐与加星会自动同步
  */
 function passesLeaderConditions(stockName, stockDays, sectors, focusSectors) {
-    const _isDebug = stockName === '三花智控';
-    if (_isDebug) console.log('三花智控 passesLeaderConditions 开始', { stockDays, sectorCount: sectors.length, sectorNames: sectors.map(s=>s.name), sectorDays: sectors.map(s=>s.days) });
-
-    if (!leaderCondMinDays(stockDays)) { if (_isDebug) console.log('× 条件A 不通过', { stockDays }); return false; }       // 条件A：股票连续天数 >= 最小值
+    if (!leaderCondMinDays(stockDays)) return false;       // 条件A：股票连续天数 >= 最小值
     // 条件B：至少一个所属板块在关注板块中（直接复用 getFocusSectors 的板块集合）
     const inFocus = sectors.some(s => focusSectors.has(s.name));
-    if (_isDebug) console.log('条件B 结果', { inFocus, focusSectors: [...focusSectors] });
-    if (!inFocus) { if (_isDebug) console.log('× 条件B 不通过'); return false; }
+    if (!inFocus) return false;
     // if (!leaderCondTurnoverNotTooLow(stockName)) return false;           // 条件C：股票当日成交额 > 前一日成交额 * 0.9（防缩量）
-    if (!leaderCondAmountNotTooHigh(stockName)) { if (_isDebug) console.log('× 条件D 不通过'); return false; }        // 条件D：股票当日成交额 < 前一日成交额 * 1.5（防放量）
-    if (!leaderCondAllSectorsDecreased(stockName, sectors)) { if (_isDebug) console.log('× 条件E 不通过'); return false; } // 条件E：所有所属板块成交额 < 板块前一日 * 1.5
+    if (!leaderCondAmountNotTooHigh(stockName)) return false;        // 条件D：股票当日成交额 < 前一日成交额 * 1.5（防放量）
+    if (!leaderCondAllSectorsDecreased(stockName, sectors)) return false; // 条件E：所有所属板块成交额 < 板块前一日 * 1.5
     // if (!leaderCondHighDaysSectorsAbove090(stockName, stockDays, sectors)) return false; // 条件F：高天数板块成交额 > 板块前一日 * 0.9
-    if (!leaderCondDaysWithinGap(stockDays, sectors)) { if (_isDebug) console.log('× 条件G 不通过', { stockDays, maxSectorDays: Math.max(...sectors.map(s=>s.days)), LEADER_GAP }); return false; } // 条件G：股票天数在所属板块最大天数 ± LEADER_GAP 范围内
+    if (!leaderCondDaysWithinGap(stockDays, sectors)) return false; // 条件G：股票天数在所属板块最大天数 ± LEADER_GAP 范围内
     // if (!leaderCondVolumeDecreased(stockName)) return false;             // 条件H：股票当日成交量 < 近5日内最大成交量
-    if (!leaderCondVolumeUpChangeLimited(stockName)) { if (_isDebug) console.log('× 条件I 不通过'); return false; } // 条件I：放量时涨跌幅必须 < 5%
-    if (_isDebug) console.log('✅ 三花智控 全部通过');
+    if (!leaderCondVolumeUpChangeLimited(stockName)) return false; // 条件I：放量时涨跌幅必须 < 5%
     return true;
 }
 

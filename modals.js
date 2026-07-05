@@ -274,11 +274,6 @@ function createBarChart(ctx, trendData, existingChart, field) {
     return chart;
 }
 
-function getCurrentActiveData() {
-    const activeData = allDataByDate[currentDateFile];
-    return activeData ? activeData.data : null;
-}
-
 /** 渲染股票表格（精简：股票名称、主力净额、连续流入天数） */
 function renderStockTable(panelList, stocks, bgSet, starSet, stockDaysMap) {
     panelList.innerHTML = '';
@@ -333,12 +328,12 @@ function showStocksInPanel(sectorName, type, commonStockNames) {
     const panelTitle = document.getElementById('stockPanelTitle');
     if (!panelList) return;
 
-    const activeData = getCurrentActiveData();
-    if (!activeData) {
+    if (!getCurrentData()) {
         panelList.innerHTML = '<span style="color:#999;">暂无数据</span>';
         return;
     }
 
+    const activeData = getActiveData();
     const sectorList = activeData[type] || [];
     const sector = sectorList.find(s => s.板块 === sectorName);
     if (!sector) {
@@ -385,7 +380,7 @@ function switchTrendView(sectorName, type, commonStockNames) {
 
 function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, commonStockNames) {
     // 无数据时提前返回，避免后续 DOM 操作异常
-    if (!getCurrentActiveData()) {
+    if (!getCurrentData()) {
         alert('暂无数据，请先加载数据文件');
         return;
     }
@@ -493,8 +488,9 @@ function showStockLeader(stockName, sectors) {
     if (!best) return;
 
     const type = best.type === '行业' ? '行业板块资金流向' : '概念板块资金流向';
-    const activeData = getCurrentActiveData();
-    if (!activeData) return;
+    if (!getCurrentData()) return;
+
+    const activeData = getActiveData();
 
     const sectorList = activeData[type] || [];
     const sector = sectorList.find(s => s.板块 === best.name);

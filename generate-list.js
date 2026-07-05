@@ -26,19 +26,13 @@ function generateFileList() {
                 .filter(file => JSON_PATTERN.test(file) && !file.includes('list.json'));
         }
 
+        // 按文件修改时间排序（比解析月日更可靠，且能正确处理跨年场景）
         files.sort((a, b) => {
-            // 尝试按日期排序（如果文件名包含日期）
-            const dateMatchA = a.match(/(\d+)月(\d+)日/);
-            const dateMatchB = b.match(/(\d+)月(\d+)日/);
-            if (dateMatchA && dateMatchB) {
-                const monthA = parseInt(dateMatchA[1]);
-                const dayA = parseInt(dateMatchA[2]);
-                const monthB = parseInt(dateMatchB[1]);
-                const dayB = parseInt(dateMatchB[2]);
-                if (monthA !== monthB) return monthA - monthB;
-                return dayA - dayB;
-            }
-            return a.localeCompare(b);
+            const aPath = path.isAbsolute(a) ? a : path.join(WORKSPACE, a);
+            const bPath = path.isAbsolute(b) ? b : path.join(WORKSPACE, b);
+            const mtimeA = fs.statSync(aPath).mtimeMs;
+            const mtimeB = fs.statSync(bPath).mtimeMs;
+            return mtimeA - mtimeB;
         });
 
         const listJsonPath = path.join(WORKSPACE, 'list.json');

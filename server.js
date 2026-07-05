@@ -27,16 +27,11 @@ function scanDataFiles() {
         console.log('[扫描] data/ 目录下文件:', allFiles);
         const matched = allFiles.filter(f => pattern.test(f) && !f.includes('.bak_'));
         console.log('[扫描] 匹配到的文件:', matched);
-        // 按文件名中的月、日数值排序（与 generate-list.js 一致）
-        return matched.map(f => 'data/' + f).sort((a, b) => {
-            const ma = a.match(/(\d+)月(\d+)日/);
-            const mb = b.match(/(\d+)月(\d+)日/);
-            if (ma && mb) {
-                if (ma[1] !== mb[1]) return Number(ma[1]) - Number(mb[1]);
-                return Number(ma[2]) - Number(mb[2]);
-            }
-            return a.localeCompare(b);
-        });
+        // 按文件修改时间排序（比解析月日更可靠，且能正确处理跨年场景）
+        return matched
+            .map(f => ({ name: 'data/' + f, mtime: fs.statSync(path.join(DATA_DIR, f)).mtimeMs }))
+            .sort((a, b) => a.mtime - b.mtime)
+            .map(item => item.name);
     } catch (err) {
         console.error('[扫描] 错误:', err.message);
         return [];
