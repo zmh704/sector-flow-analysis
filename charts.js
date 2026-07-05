@@ -273,16 +273,19 @@ function updateCharts() {
         const industryCount = parseInt(document.getElementById('industryCount').value) || 10;
         const conceptCount = parseInt(document.getElementById('conceptCount').value) || 10;
 
-        const flowRadio = document.querySelector('input[name="flowFilter"]:checked');
-        const flowFilter = flowRadio ? flowRadio.value : 'inflow';
+        const industryRadio = document.querySelector('input[name="flowFilterIndustry"]:checked');
+        const industryFlowFilter = industryRadio ? industryRadio.value : 'inflow';
+
+        const conceptRadio = document.querySelector('input[name="flowFilterConcept"]:checked');
+        const conceptFlowFilter = conceptRadio ? conceptRadio.value : 'inflow';
 
         const industryPrev = prevDayData?.['行业板块资金流向'] || null;
-        const industryData = prepareChartData(activeData.行业板块资金流向 || [], industryCount, industryPrev, flowFilter);
+        const industryData = prepareChartData(activeData.行业板块资金流向 || [], industryCount, industryPrev, industryFlowFilter);
         const ctx1 = document.getElementById('industryChart').getContext('2d');
         industryChart = createChart(ctx1, industryData, '行业板块资金流向', industryChart);
 
         const conceptPrev = prevDayData?.['概念板块资金流向'] || null;
-        const conceptData = prepareChartData(activeData.概念板块资金流向 || [], conceptCount, conceptPrev, flowFilter);
+        const conceptData = prepareChartData(activeData.概念板块资金流向 || [], conceptCount, conceptPrev, conceptFlowFilter);
         const ctx2 = document.getElementById('conceptChart').getContext('2d');
         conceptChart = createChart(ctx2, conceptData, '概念板块资金流向', conceptChart);
 

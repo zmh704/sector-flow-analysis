@@ -138,14 +138,6 @@ h1 {
     gap: 10px;
 }
 
-.flow-control-group {
-    gap: 6px;
-    padding: 4px;
-    background: #eef2ff;
-    border: 1px solid #e0e7ff;
-    border-radius: 18px;
-}
-
 .flow-option {
     display: inline-flex;
     align-items: center;
@@ -449,9 +441,63 @@ button.btn-secondary:hover {
     padding-bottom: 6px;
     border-bottom: 2px solid #f0f0f0;
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: center;
     gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* 图表标题中的流入/流出按钮组 - 小巧版 */
+.chart-flow-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px;
+    background: #eef2ff;
+    border: 1px solid #e0e7ff;
+    border-radius: 12px;
+    margin: 0 4px;
+}
+
+.chart-flow-option span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 38px;
+    padding: 3px 8px;
+    border-radius: 10px;
+    color: #64748b;
+    font-weight: 600;
+    font-size: 11px;
+    transition: all 0.2s;
+}
+
+.chart-flow-option:hover span {
+    transform: translateY(-1px);
+    color: #4f46e5;
+    background: rgba(255, 255, 255, 0.85);
+}
+
+.chart-flow-option input:checked + span {
+    color: white;
+    background: linear-gradient(135deg, #ef4444 0%, #f97316 100%);
+    box-shadow: 0 4px 10px rgba(239, 68, 68, 0.2);
+}
+
+.chart-flow-option.inflow input:checked + span::before {
+    content: "\2197";
+    margin-right: 4px;
+    font-size: 11px;
+}
+
+.chart-flow-option.outflow input:checked + span::before {
+    content: "\2198";
+    margin-right: 4px;
+    font-size: 11px;
+}
+
+.chart-title .view-all-btn {
+    margin-left: auto;
 }
 
 .view-all-btn {
@@ -1174,6 +1220,16 @@ footer {
     .chart-title {
         font-size: 16px;
     }
+    .chart-flow-option span {
+        min-width: 34px;
+        padding: 2px 7px;
+        font-size: 10px;
+        border-radius: 8px;
+    }
+    .chart-flow-group {
+        border-radius: 10px;
+        padding: 1px;
+    }
 }
 
 @media (max-width: 768px) {
@@ -1205,9 +1261,10 @@ footer {
         font-size: 20px;
     }
 
-    .flow-option span {
-        min-width: 64px;
-        padding: 10px 20px;
+    .chart-flow-option span {
+        min-width: 30px;
+        padding: 2px 6px;
+        font-size: 10px;
     }
 
     .trend-main-row {

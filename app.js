@@ -8,8 +8,12 @@ function initEventListeners() {
     document.getElementById('btnRefresh').addEventListener('click', updateCharts);
     document.getElementById('excelFileInput').addEventListener('change', handleExcelFile);
 
-    // 流入/流出单选（防抖 100ms）
-    document.querySelectorAll('input[name="flowFilter"]').forEach(el => {
+    // 行业流入/流出单选（独立控制行业图表）
+    document.querySelectorAll('input[name="flowFilterIndustry"]').forEach(el => {
+        el.addEventListener('change', debounce(updateCharts, 100));
+    });
+    // 概念流入/流出单选（独立控制概念图表）
+    document.querySelectorAll('input[name="flowFilterConcept"]').forEach(el => {
         el.addEventListener('change', debounce(updateCharts, 100));
     });
 

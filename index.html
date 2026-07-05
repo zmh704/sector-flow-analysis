@@ -27,16 +27,6 @@
             <button id="btnLoadData" title="从服务器重新加载所有 JSON 数据文件" style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);">📂 加载数据</button>
             <button id="btnRefresh" title="强制重新渲染所有组件（如显示异常时使用）" class="btn-secondary">🔄 刷新图表</button>
             <input type="file" id="excelFileInput" accept=".xlsx,.xls" style="display:none">
-            <div class="control-group flow-control-group">
-                <label class="flow-option inflow">
-                    <input type="radio" name="flowFilter" value="inflow" checked>
-                    <span>流入</span>
-                </label>
-                <label class="flow-option outflow">
-                    <input type="radio" name="flowFilter" value="outflow">
-                    <span>流出</span>
-                </label>
-            </div>
         </div>
         <div id="dateButtons" class="date-buttons"></div>
         <div class="leader-section" id="leaderSection">
@@ -53,6 +43,16 @@
             <div class="chart-box">
                 <div class="chart-title">
                     <span>🏛️ 行业板块资金流向</span>
+                    <div class="chart-flow-group">
+                        <label class="flow-option inflow chart-flow-option">
+                            <input type="radio" name="flowFilterIndustry" value="inflow" checked>
+                            <span>流入</span>
+                        </label>
+                        <label class="flow-option outflow chart-flow-option">
+                            <input type="radio" name="flowFilterIndustry" value="outflow">
+                            <span>流出</span>
+                        </label>
+                    </div>
                     <button class="view-all-btn" id="btnAllIndustry" title="查看所有行业板块的详细数据表格">查看全部</button>
                 </div>
                 <div class="chart-wrapper">
@@ -62,6 +62,16 @@
             <div class="chart-box">
                 <div class="chart-title">
                     <span>💡 概念板块资金流向</span>
+                    <div class="chart-flow-group">
+                        <label class="flow-option inflow chart-flow-option">
+                            <input type="radio" name="flowFilterConcept" value="inflow" checked>
+                            <span>流入</span>
+                        </label>
+                        <label class="flow-option outflow chart-flow-option">
+                            <input type="radio" name="flowFilterConcept" value="outflow">
+                            <span>流出</span>
+                        </label>
+                    </div>
                     <button class="view-all-btn" id="btnAllConcept" title="查看所有概念板块的详细数据表格">查看全部</button>
                 </div>
                 <div class="chart-wrapper">
