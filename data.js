@@ -126,15 +126,12 @@ function updateActiveDataMeta() {
     const data = current?.data || {};
     const label = current ? `${current.dateLabel}｜${current.filename}` : '未选择数据';
 
-    const prevDayData = getPrevDayData();
-    const prevLabel = prevDayData ? '（黄色为前一日期数据）' : '';
-
     if (data.生成时间) {
         document.getElementById('generateTime').textContent = data.生成时间;
-        document.getElementById('dataDate').textContent = `当前显示：${label}${prevLabel}｜数据生成时间：${data.生成时间}`;
+        document.getElementById('dataDate').textContent = `当前显示：${label}｜数据生成时间：${data.生成时间}`;
     } else {
         document.getElementById('generateTime').textContent = '-';
-        document.getElementById('dataDate').textContent = `当前显示：${label}${prevLabel}`;
+        document.getElementById('dataDate').textContent = `当前显示：${label}`;
     }
 }
 
