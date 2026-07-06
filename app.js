@@ -112,8 +112,8 @@ function initEventListeners() {
         }
     });
 
-    // 股票面板表格行事件委托（趋势弹窗右侧）
-    document.getElementById('stockPanelList').addEventListener('click', function(e) {
+    // 股票面板表格行事件委托（趋势弹窗右侧，涉及股票 / 今日推荐 两个页签共用）
+    function handleStockPanelClick(e) {
         // 预选按钮点击
         const preselectBtn = e.target.closest('.stock-preselect-btn');
         if (preselectBtn) {
@@ -121,8 +121,13 @@ function initEventListeners() {
             const stockName = preselectBtn.dataset.preselectStock;
             if (!stockName) return;
             const isNowPreselected = togglePreselectStock(stockName);
-            preselectBtn.textContent = isNowPreselected ? '取消' : '预选';
-            preselectBtn.classList.toggle('preselected', isNowPreselected);
+            // 同步更新弹窗内两个页签中同一股票的预选按钮
+            document.querySelectorAll('.stock-preselect-btn').forEach(btn => {
+                if (btn.dataset.preselectStock === stockName) {
+                    btn.textContent = isNowPreselected ? '取消' : '预选';
+                    btn.classList.toggle('preselected', isNowPreselected);
+                }
+            });
             // 同步更新首页今日推荐颜色
             const leaderItems = document.querySelectorAll('#leaderContent .leader-item');
             leaderItems.forEach(item => {
@@ -136,7 +141,31 @@ function initEventListeners() {
         if (!tr) return;
         const stockName = tr.dataset.stockName;
         const stockCode = tr.dataset.stockCode;
-        if (stockName) openStockQuote(stockName, stockCode || '');
+        if (!stockName) return;
+        // 今日推荐页签：板块详情、窗口标题、关联板块整体跟随该股票更新（同首页今日推荐点击）
+        if (e.currentTarget.id === 'stockPanelLeaderList') {
+            const sectors = buildStockSectorsMap().get(stockName) || [];
+            if (sectors.length > 0) {
+                const leaderList = e.currentTarget;
+                const scrollTop = leaderList.scrollTop;
+                showStockLeader(stockName, sectors);
+                // 保持停留在今日推荐页签并恢复滚动位置
+                switchStockPanelTab('leaders');
+                leaderList.scrollTop = scrollTop;
+                return;
+            }
+        }
+        openStockQuote(stockName, stockCode || '');
+    }
+    document.getElementById('stockPanelList').addEventListener('click', handleStockPanelClick);
+    document.getElementById('stockPanelLeaderList').addEventListener('click', handleStockPanelClick);
+
+    // 股票面板页签切换（涉及股票 / 今日推荐）
+    document.getElementById('stockPanelStocksTabBtn').addEventListener('click', function() {
+        switchStockPanelTab('stocks');
+    });
+    document.getElementById('stockPanelLeaderTabBtn').addEventListener('click', function() {
+        switchStockPanelTab('leaders');
     });
 
     // 趋势弹窗相关板块标签事件委托

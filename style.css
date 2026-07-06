@@ -972,7 +972,7 @@ footer {
 }
 
 .trend-right {
-    width: 300px;
+    width: 340px;
     flex-shrink: 0;
     background: #f8f9fa;
     border-radius: 12px;
@@ -982,14 +982,44 @@ footer {
     overflow: hidden;
 }
 
-.stock-panel-header {
+/* 股票面板页签（涉及股票 / 今日推荐） */
+.stock-panel-tabs {
+    display: flex;
+    gap: 0;
+    background: var(--gradient-primary);
+}
+
+.stock-panel-tab-btn {
+    padding: 10px 14px 8px;
     font-weight: 700;
     font-size: 13px;
-    padding: 10px 14px 8px;
-    color: white;
-    background: var(--gradient-primary);
-    border-bottom: none;
+    color: rgba(255, 255, 255, 0.65);
+    background: transparent;
+    border: none;
+    cursor: pointer;
     letter-spacing: 0.3px;
+    transition: all 0.2s;
+}
+
+.stock-panel-tab-btn.active {
+    color: white;
+    background: rgba(255, 255, 255, 0.18);
+}
+
+.stock-panel-tab-btn:hover:not(.active) {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.stock-panel-content {
+    display: none;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.stock-panel-content.active {
+    display: flex;
 }
 
 .stock-panel-title {
@@ -1342,7 +1372,7 @@ footer {
         padding: 12px 14px;
     }
     .trend-right {
-        width: min(240px, 25%);
+        width: min(280px, 28%);
     }
     h1 {
         font-size: 18px;

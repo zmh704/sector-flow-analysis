@@ -115,18 +115,16 @@ function calcLeaderStarSet(stocks, stockDaysMap) {
 
 // ============================
 
-function updateLeaderArea(activeData) {
-    const container = document.getElementById('leaderContent');
-    if (!container) return;
-
+/**
+ * 计算今日推荐股票列表（首页今日推荐区与弹窗【今日推荐】页签共用，保证两处一致）
+ * 返回 [{ name, code, net, change, stockDays, sectors, _allSectors }]，按连续天数降序
+ */
+function calcTodayLeaders() {
+    const activeData = getActiveData();
     const industryList = activeData.行业板块资金流向 || [];
     const conceptList = activeData.概念板块资金流向 || [];
     const allCurrentSectors = [...industryList, ...conceptList];
-
-    if (allCurrentSectors.length === 0) {
-        container.innerHTML = renderEmptyState('📭', '暂无数据', '请点击「加载数据」获取板块数据');
-        return;
-    }
+    if (allCurrentSectors.length === 0) return [];
 
     // 计算所有股票的连续流入天数
     const stockConsecutiveDays = calcStockConsecutiveDays();
@@ -136,13 +134,13 @@ function updateLeaderArea(activeData) {
 
     // 建立当前日期 股票→所属板块 的映射（复用共享函数 buildStockSectorsMap）
     const stockSectors = buildStockSectorsMap();
-    const stockChange = new Map(); // 股票→涨跌幅
+    const stockInfo = new Map(); // 股票→{code, net, change}（取首次出现的字段）
     for (const sector of allCurrentSectors) {
         if (!condNotPlaceholder(sector)) continue;
         const stocks = sector._parsedStocks || parseStocks(sector.涉及股票);
         for (const stock of stocks) {
-            if (!stockChange.has(stock.name)) {
-                stockChange.set(stock.name, stock.change);
+            if (!stockInfo.has(stock.name)) {
+                stockInfo.set(stock.name, stock);
             }
         }
     }
@@ -156,17 +154,40 @@ function updateLeaderArea(activeData) {
         const stockDays = stockConsecutiveDays.get(stockName) || 0;
         if (!passesLeaderConditions(stockName, stockDays, sectors, focusSectors, sectorMaps)) continue;
 
+        const info = stockInfo.get(stockName) || {};
         const sectorNames = sectors
             .filter(s => s.days >= 1)
             .map(s => `${s.name}(${s.type}${s.days}天)`);
         leaders.push({
             name: stockName,
+            code: info.code || '',
+            net: info.net || '',
+            change: info.change || '',
             stockDays: stockDays,
-            change: stockChange.get(stockName) || '',
             sectors: sectorNames,
-            _allSectors: stockSectors.get(stockName)
+            _allSectors: sectors
         });
     }
+
+    // 按股票连续天数降序排列
+    leaders.sort((a, b) => b.stockDays - a.stockDays || a.name.localeCompare(b.name));
+    return leaders;
+}
+
+function updateLeaderArea(activeData) {
+    const container = document.getElementById('leaderContent');
+    if (!container) return;
+
+    const industryList = activeData.行业板块资金流向 || [];
+    const conceptList = activeData.概念板块资金流向 || [];
+    const allCurrentSectors = [...industryList, ...conceptList];
+
+    if (allCurrentSectors.length === 0) {
+        container.innerHTML = renderEmptyState('📭', '暂无数据', '请点击「加载数据」获取板块数据');
+        return;
+    }
+
+    const leaders = calcTodayLeaders();
 
     // 渲染
     container.innerHTML = '';
@@ -174,9 +195,6 @@ function updateLeaderArea(activeData) {
         container.innerHTML = renderEmptyState('🏆', '暂无符合条件的龙头股票', '尝试调整筛选条件或切换日期');
         return;
     }
-
-    // 按股票连续天数降序排列
-    leaders.sort((a, b) => b.stockDays - a.stockDays || a.name.localeCompare(b.name));
 
     const html = leaders.map(leader => {
         const secJson = escapeHtml(JSON.stringify(leader._allSectors));
@@ -257,7 +275,7 @@ function updateFocusArea(activeData) {
             sector: item.name,
             type: type,
             matched: JSON.stringify(matched),
-            stocks: JSON.stringify(stocks.map(s => ({ name: s.name, code: s.code, net: s.net }))),
+            stocks: JSON.stringify(stocks.map(s => ({ name: s.name, code: s.code, net: s.net, change: s.change }))),
             common: JSON.stringify([...commonStocks])
         };
         return Object.entries(attrs).map(([k, v]) => `data-${k}="${escapeHtml(v)}"`).join(' ');
@@ -282,7 +300,7 @@ function updateFocusArea(activeData) {
                 .map(p => ({ name: p.concept.name, days: p.concept.days, commonStocks: p.commonStocks }));
             div.setAttribute('data-matched', JSON.stringify(matched));
             const stocks = parseStocks(item.stockStr || '');
-            div.setAttribute('data-stocks', JSON.stringify(stocks.map(s => ({ name: s.name, code: s.code, net: s.net }))));
+            div.setAttribute('data-stocks', JSON.stringify(stocks.map(s => ({ name: s.name, code: s.code, net: s.net, change: s.change }))));
             const commonStocks = new Set(allPairs.filter(p => p.industry.name === item.name).flatMap(p => p.commonStocks));
             div.setAttribute('data-common', JSON.stringify([...commonStocks]));
             indSection.appendChild(div);
@@ -308,7 +326,7 @@ function updateFocusArea(activeData) {
                 .map(p => ({ name: p.industry.name, days: p.industry.days, commonStocks: p.commonStocks }));
             div.setAttribute('data-matched', JSON.stringify(matched));
             const stocks = parseStocks(item.stockStr || '');
-            div.setAttribute('data-stocks', JSON.stringify(stocks.map(s => ({ name: s.name, code: s.code, net: s.net }))));
+            div.setAttribute('data-stocks', JSON.stringify(stocks.map(s => ({ name: s.name, code: s.code, net: s.net, change: s.change }))));
             const commonStocks = new Set(allPairs.filter(p => p.concept.name === item.name).flatMap(p => p.commonStocks));
             div.setAttribute('data-common', JSON.stringify([...commonStocks]));
             conSection.appendChild(div);

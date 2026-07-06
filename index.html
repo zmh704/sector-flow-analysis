@@ -146,9 +146,17 @@
                         </div>
                     </div>
                     <div class="trend-right">
-                        <div class="stock-panel-header">📊 涉及股票</div>
-                        <div class="stock-panel-title" id="stockPanelTitle"></div>
-                        <div class="stock-panel-list" id="stockPanelList"></div>
+                        <div class="stock-panel-tabs">
+                            <button class="stock-panel-tab-btn active" id="stockPanelStocksTabBtn">📊 涉及股票</button>
+                            <button class="stock-panel-tab-btn" id="stockPanelLeaderTabBtn">🔥 今日推荐</button>
+                        </div>
+                        <div class="stock-panel-content active" id="stockPanelStocksContent">
+                            <div class="stock-panel-title" id="stockPanelTitle"></div>
+                            <div class="stock-panel-list" id="stockPanelList"></div>
+                        </div>
+                        <div class="stock-panel-content" id="stockPanelLeaderContent">
+                            <div class="stock-panel-list" id="stockPanelLeaderList"></div>
+                        </div>
                     </div>
                 </div>
         </div>

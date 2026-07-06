@@ -345,7 +345,7 @@ function renderStockTable(panelList, stocks, bgSet, starSet, stockDaysMap) {
     const table = document.createElement('table');
     table.className = 'stock-table';
     const thead = document.createElement('thead');
-    thead.innerHTML = '<tr><th>股票名称</th><th>主力净额</th><th>连续流入天数</th><th class="th-action">操作</th></tr>';
+    thead.innerHTML = '<tr><th>股票名称</th><th>主力净额</th><th>天数</th><th class="th-action">操作</th></tr>';
     table.appendChild(thead);
     const tbody = document.createElement('tbody');
     sortedStocks.forEach((stock, i) => {
@@ -355,11 +355,18 @@ function renderStockTable(panelList, stocks, bgSet, starSet, stockDaysMap) {
         if (isBg) tr.classList.add('stock-common');
         const changeNum = parseFloat(stock.net);
         const changeCls = changeNum >= 0 ? 'stock-change-positive' : 'stock-change-negative';
+        // 涨跌幅拼在股票名称后
+        const chgNum = parseFloat(stock.change);
+        let changeBadge = '';
+        if (stock.change && !isNaN(chgNum)) {
+            const chgColor = chgNum >= 0 ? '#e53935' : '#43a047';
+            changeBadge = ` <span style="color:${chgColor};font-size:11px;">${chgNum >= 0 ? '▲' : '▼'} ${escapeHtml(stock.change)}</span>`;
+        }
         const stockDays = sdm.get(stock.name) || 0;
         const daysCls = stockDays >= 3 ? 'stock-days-high' : 'stock-days-normal';
         const isPreselected = isStockPreselected(stock.name);
         tr.innerHTML = `
-            <td>${isStarred ? '⭐ ' : ''}${escapeHtml(stock.name)}</td>
+            <td>${isStarred ? '⭐ ' : ''}${escapeHtml(stock.name)}${changeBadge}</td>
             <td class="${changeCls}">${escapeHtml(stock.net)}</td>
             <td class="stock-days ${daysCls}">${stockDays > 0 ? stockDays + '天' : '-'}</td>
             <td><span class="stock-preselect-btn ${isPreselected ? 'preselected' : ''}" data-preselect-stock="${escapeHtml(stock.name)}">${isPreselected ? '取消' : '预选'}</span></td>
@@ -371,6 +378,36 @@ function renderStockTable(panelList, stocks, bgSet, starSet, stockDaysMap) {
     });
     table.appendChild(tbody);
     panelList.appendChild(table);
+}
+
+/** 切换股票面板页签（stocks=涉及股票, leaders=今日推荐） */
+function switchStockPanelTab(tab) {
+    const isLeaders = tab === 'leaders';
+    document.getElementById('stockPanelStocksTabBtn').classList.toggle('active', !isLeaders);
+    document.getElementById('stockPanelLeaderTabBtn').classList.toggle('active', isLeaders);
+    document.getElementById('stockPanelStocksContent').classList.toggle('active', !isLeaders);
+    document.getElementById('stockPanelLeaderContent').classList.toggle('active', isLeaders);
+    if (isLeaders) renderLeaderPanel();
+}
+
+/** 渲染弹窗【今日推荐】页签（与首页今日推荐同一筛选逻辑，保证股票一致） */
+function renderLeaderPanel() {
+    const panelList = document.getElementById('stockPanelLeaderList');
+    if (!panelList) return;
+
+    if (!getCurrentData()) {
+        panelList.innerHTML = renderEmptyState('📭', '暂无数据', '请先加载数据文件');
+        return;
+    }
+
+    const leaders = calcTodayLeaders();
+    if (leaders.length === 0) {
+        panelList.innerHTML = renderEmptyState('🏆', '暂无符合条件的推荐股票', '尝试调整筛选条件或切换日期');
+        return;
+    }
+
+    const stockDaysMap = calcStockConsecutiveDays();
+    renderStockTable(panelList, leaders, null, null, stockDaysMap);
 }
 
 function showStocksInPanel(sectorName, type, commonStockNames) {
@@ -410,6 +447,8 @@ function showStocksInPanel(sectorName, type, commonStockNames) {
 function switchTrendView(sectorName, type, commonStockNames) {
     // 切换板块时回到板块详情页签
     switchTrendChartTab('chart');
+    // 股票面板切回涉及股票页签，展示新板块的股票
+    switchStockPanelTab('stocks');
 
     // 更新图表
     if (trendNetChart) { trendNetChart.destroy(); trendNetChart = null; }
@@ -437,6 +476,8 @@ function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, c
 
     // 默认显示板块详情页签
     switchTrendChartTab('chart');
+    // 股票面板默认显示涉及股票页签
+    switchStockPanelTab('stocks');
 
     if (trendNetChart) { trendNetChart.destroy(); trendNetChart = null; }
     if (trendTurnoverChart) { trendTurnoverChart.destroy(); trendTurnoverChart = null; }
