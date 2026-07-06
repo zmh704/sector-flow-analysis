@@ -11,6 +11,7 @@ const RATIO_TURNOVER_LOW = 0.9;   // 成交额缩量阈值（当日 > 前一日 
 const RATIO_TURNOVER_HIGH = 1.5;  // 成交额放量阈值（当日 < 前一日 × 此值）
 const CHANGE_LIMIT_PCT = 5;       // 放量时涨跌幅限制（%）
 const TREND_CHART_DAYS = 10;      // 趋势图显示天数
+const STOCK_CLICK_INTERVAL_MS = 3000; // 弹窗内涉及股票/今日推荐列表行点击最小间隔（毫秒），防止点击频率过快
 
 // ===== 通用工具函数 =====
 
