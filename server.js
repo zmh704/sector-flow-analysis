@@ -5,8 +5,9 @@ const XLSX = require('xlsx');
 const { buildAnalysisResult } = require('./analyze.js');
 
 const PORT = 3000;
-const ROOT = __dirname;
+const ROOT = __dirname + path.sep;
 const DATA_DIR = path.join(ROOT, 'data');
+const MAX_UPLOAD_BYTES = 50 * 1024 * 1024; // 50 MB upload limit
 const MIME = {
     '.html': 'text/html; charset=utf-8',
     '.js': 'application/javascript; charset=utf-8',
@@ -62,7 +63,8 @@ function parseMultipart(buffer, contentType) {
 
         if (headerStr.includes('name="file"')) {
             const filenameMatch = headerStr.match(/filename="(.+)"/);
-            const filename = filenameMatch ? filenameMatch[1] : 'upload.xlsx';
+            const rawFilename = filenameMatch ? filenameMatch[1] : 'upload.xlsx';
+            const filename = path.basename(rawFilename);
             return { buffer: fileData, filename };
         }
         start = nextBoundary;
@@ -75,6 +77,13 @@ const server = http.createServer((req, res) => {
     let pathname = decodeURIComponent(url.pathname);
 
     console.log('[请求]', req.method, url.pathname, '->', pathname);
+
+    // Block requests with null bytes (path traversal technique)
+    if (pathname.includes('\0')) {
+        res.writeHead(400);
+        res.end('Bad Request');
+        return;
+    }
 
     // API: 返回 data 目录下所有 JSON 文件列表
     if (pathname === '/api/list') {
@@ -95,8 +104,18 @@ const server = http.createServer((req, res) => {
             return;
         }
 
+        let totalBytes = 0;
         const chunks = [];
-        req.on('data', chunk => chunks.push(chunk));
+        req.on('data', chunk => {
+            totalBytes += chunk.length;
+            if (totalBytes > MAX_UPLOAD_BYTES) {
+                res.writeHead(413, { 'Content-Type': 'text/plain; charset=utf-8' });
+                res.end('上传文件过大，限制 50 MB');
+                req.destroy();
+                return;
+            }
+            chunks.push(chunk);
+        });
         req.on('end', () => {
             try {
                 const buffer = Buffer.concat(chunks);
@@ -120,6 +139,10 @@ const server = http.createServer((req, res) => {
                 const jsonFilename = `${datePart}_板块资金流向.json`;
                 const jsonPath = path.join(DATA_DIR, jsonFilename);
 
+                if (!jsonPath.startsWith(DATA_DIR)) {
+                    throw new Error('文件名异常');
+                }
+
                 fs.mkdirSync(DATA_DIR, { recursive: true });
                 fs.writeFileSync(jsonPath, JSON.stringify(result, null, 2), 'utf-8');
                 console.log('[解析] JSON 已生成:', jsonFilename);
@@ -136,7 +159,7 @@ const server = http.createServer((req, res) => {
             } catch (err) {
                 console.error('[解析错误]', err.message);
                 res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
-                res.end(err.message);
+                res.end('Excel 解析失败，请检查文件格式');
             }
         });
         return;
@@ -144,9 +167,17 @@ const server = http.createServer((req, res) => {
 
     // 提供静态文件服务
     if (pathname === '/') pathname = '/index.html';
-    const filePath = path.join(ROOT, pathname);
+    const filePath = path.resolve(ROOT, pathname.replace(/^\/+/, ''));
 
     if (!filePath.startsWith(ROOT)) {
+        res.writeHead(403);
+        res.end('Forbidden');
+        return;
+    }
+
+    // Block dotfiles (e.g. .env, .git)
+    const relative = path.relative(ROOT, filePath);
+    if (relative.split(path.sep).some(seg => seg.startsWith('.'))) {
         res.writeHead(403);
         res.end('Forbidden');
         return;
@@ -157,9 +188,8 @@ const server = http.createServer((req, res) => {
 
     fs.readFile(filePath, (err, data) => {
         if (err) {
-            console.log('[404]', pathname);
             res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-            res.end('404 Not Found: ' + pathname);
+            res.end('404 Not Found');
             return;
         }
         res.writeHead(200, { 'Content-Type': contentType });
@@ -167,7 +197,7 @@ const server = http.createServer((req, res) => {
     });
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, '127.0.0.1', () => {
     console.log('');
     console.log('====================================');
     console.log(' A股板块资金流向分析 - 启动成功');
