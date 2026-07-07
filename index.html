@@ -127,9 +127,17 @@
                             <button class="trend-tab-btn" id="trendStockTabBtn">📈 个股详情</button>
                             <select id="stockChartSource" title="切换个股图表数据源" style="margin-left:auto;font-size:12px;padding:2px 6px;border:1px solid #d0d0d0;border-radius:4px;color:#555;cursor:pointer;">
                                 <option value="sina">新浪财经</option>
+                                <option value="sina_chart">新浪图表</option>
                                 <option value="eastmoney">东方财富</option>
                                 <option value="tradingview">TradingView(嵌入)</option>
                                 <option value="tradingview_open">TradingView(新窗口)</option>
+                            </select>
+                            <select id="sinaChartPeriod" title="新浪图表周期" style="font-size:12px;padding:2px 6px;border:1px solid #d0d0d0;border-radius:4px;color:#555;cursor:pointer;display:none;">
+                                <option value="min">分时</option>
+                                <option value="daily" selected>日K</option>
+                                <option value="weekly">周K</option>
+                                <option value="monthly">月K</option>
+                                <option value="all">全部</option>
                             </select>
                         </div>
                         <div class="trend-chart-content active" id="trendChartContent">

@@ -697,7 +697,30 @@ function loadTrendStock(stockName, stockCode) {
         return;
     }
 
-    if (source === 'tradingview') {
+    if (source === 'sina_chart') {
+        // 新浪图表：根据周期选择显示对应图片
+        const exchange = stockCode.startsWith('6') ? 'sh' : 'sz';
+        const symbol = exchange + stockCode;
+        const ts = Date.now(); // 防缓存
+        const period = document.getElementById('sinaChartPeriod').value;
+        const periods = period === 'all'
+            ? [{key: 'min', label: '分时'}, {key: 'daily', label: '日K'}, {key: 'weekly', label: '周K'}, {key: 'monthly', label: '月K'}]
+            : [{key: period, label: ''}];
+        const isAll = period === 'all';
+        const imgStyle = 'width:100%;border-radius:4px;';
+        const itemStyle = isAll
+            ? 'flex:1 1 48%;min-width:280px;text-align:center;'
+            : 'width:100%;text-align:center;';
+        let html = '<div style="display:flex;flex-wrap:wrap;gap:8px;height:100%;overflow:auto;padding:4px;">';
+        periods.forEach(function(p) {
+            html += '<div style="' + itemStyle + '">';
+            if (isAll) html += '<div style="font-size:12px;color:#888;margin-bottom:2px;">' + p.label + '</div>';
+            html += '<img src="https://image.sinajs.cn/newchart/' + p.key + '/n/' + symbol + '.gif?' + ts + '" style="' + imgStyle + '" />';
+            html += '</div>';
+        });
+        html += '</div>';
+        container.innerHTML = html;
+    } else if (source === 'tradingview') {
         // TradingView 嵌入：数据延迟一天
         const tvExchange = stockCode.startsWith('6') ? 'SSE' : 'SZSE';
         const symbol = tvExchange + ':' + stockCode;
