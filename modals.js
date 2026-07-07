@@ -722,11 +722,42 @@ function loadTrendStock(stockName, stockCode) {
         html += '</div>';
         container.innerHTML = html;
     } else {
-        // TradingView 嵌入
+        // TradingView 嵌入（tv.js 组件版，支持 overrides/studies_overrides 改配色为 A 股红涨绿跌）
         const tvExchange = stockCode.startsWith('6') ? 'SSE' : 'SZSE';
         const symbol = tvExchange + ':' + stockCode;
-        const url = 'https://s.tradingview.com/widgetembed/?symbol=' + encodeURIComponent(symbol) + '&interval=D&theme=light&style=1&locale=zh_CN&toolbar_bg=f1f3f6&enable_publishing=0&hide_side_toolbar=0&allow_symbol_change=1';
-        container.innerHTML = '<iframe src="' + url + '" style="width:100%;height:100%;border:none;border-radius:8px;" allowfullscreen></iframe>';
+        const up = '#e53935';   // 涨=红
+        const down = '#43a047'; // 跌=绿
+        // 用内部子容器承载 widget，避免销毁固定 id 的外层容器（切换股票时可反复重建）
+        const inner = document.createElement('div');
+        inner.id = 'tvChartInner';
+        inner.style.cssText = 'width:100%;height:100%;';
+        container.appendChild(inner);
+        new TradingView.widget({
+            container_id: 'tvChartInner',
+            symbol: symbol,
+            interval: 'D',
+            timezone: 'Asia/Shanghai',
+            theme: 'light',
+            style: '1',
+            locale: 'zh_CN',
+            toolbar_bg: '#f1f3f6',
+            enable_publishing: false,
+            hide_side_toolbar: false,
+            allow_symbol_change: true,
+            autosize: true,
+            overrides: {
+                'mainSeriesProperties.candleStyle.upColor': up,
+                'mainSeriesProperties.candleStyle.downColor': down,
+                'mainSeriesProperties.candleStyle.borderUpColor': up,
+                'mainSeriesProperties.candleStyle.borderDownColor': down,
+                'mainSeriesProperties.candleStyle.wickUpColor': up,
+                'mainSeriesProperties.candleStyle.wickDownColor': down
+            },
+            studies_overrides: {
+                'volume.volume.color.0': up,   // 涨=红
+                'volume.volume.color.1': down  // 跌=绿
+            }
+        });
     }
     switchTrendChartTab('stock');
 }
