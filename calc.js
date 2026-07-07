@@ -45,9 +45,9 @@ function openStockQuote(stockName, stockCode) {
         loadTrendStock(stockName, stockCode);
         return;
     }
-    // 否则新窗口打开
-    const exchange = stockCode.startsWith('6') ? 'sh' : 'sz';
-    const url = 'https://quote.eastmoney.com/' + exchange + stockCode + '.html#fullScreenChart';
+    // 否则新窗口打开 TradingView 页面
+    const exchange = stockCode.startsWith('6') ? 'SSE' : 'SZSE';
+    const url = 'https://www.tradingview.com/chart/?symbol=' + exchange + ':' + stockCode;
     window.open(url, '_blank');
 }
 

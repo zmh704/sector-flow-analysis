@@ -113,7 +113,6 @@ function initEventListeners() {
     });
 
     // 股票面板表格行事件委托（趋势弹窗右侧，涉及股票 / 今日推荐 两个页签共用）
-    let _lastStockRowClick = 0; // 行点击节流计时（两个页签共用）
     function handleStockPanelClick(e) {
         // 预选按钮点击
         const preselectBtn = e.target.closest('.stock-preselect-btn');
@@ -143,10 +142,6 @@ function initEventListeners() {
         const stockName = tr.dataset.stockName;
         const stockCode = tr.dataset.stockCode;
         if (!stockName) return;
-        // 点击节流：间隔时间内的重复点击直接忽略（间隔可在 config.js 的 STOCK_CLICK_INTERVAL_MS 配置）
-        const now = Date.now();
-        if (now - _lastStockRowClick < STOCK_CLICK_INTERVAL_MS) return;
-        _lastStockRowClick = now;
         // 今日推荐页签：板块详情、窗口标题、关联板块整体跟随该股票更新（同首页今日推荐点击）
         if (e.currentTarget.id === 'stockPanelLeaderList') {
             const sectors = buildStockSectorsMap().get(stockName) || [];

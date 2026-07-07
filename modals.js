@@ -667,19 +667,31 @@ function switchTrendChartTab(tab) {
     }
 }
 
-/** 在弹窗个股详情页签中加载股票 */
+/** 在弹窗个股详情页签中加载股票（TradingView Widget，不会封 IP） */
 function loadTrendStock(stockName, stockCode) {
     if (!stockCode) {
         alert('未找到股票「' + stockName + '」的代码');
         return;
     }
-    const exchange = stockCode.startsWith('6') ? 'sh' : 'sz';
-    const url = 'https://quote.eastmoney.com/' + exchange + stockCode + '.html#fullScreenChart';
-    // 先清空再加载，确保滚动条在最上方
-    const iframe = document.getElementById('trendStockIframe');
-    iframe.src = 'about:blank';
-    setTimeout(function() {
-        iframe.src = url;
-    }, 50);
+    const exchange = stockCode.startsWith('6') ? 'SSE' : 'SZSE';
+    const symbol = exchange + ':' + stockCode;
+
+    // 清空容器后创建 TradingView Widget（容器 id 固定，可反复调用）
+    const container = document.getElementById('trendStockIframe');
+    container.innerHTML = '';
+    new TradingView.widget({
+        container_id: 'trendStockIframe',
+        symbol: symbol,
+        interval: 'D',
+        timezone: 'Asia/Shanghai',
+        theme: 'light',
+        style: '1',
+        locale: 'zh_CN',
+        toolbar_bg: '#f1f3f6',
+        enable_publishing: false,
+        hide_side_toolbar: false,
+        allow_symbol_change: true,
+        autosize: true
+    });
     switchTrendChartTab('stock');
 }
