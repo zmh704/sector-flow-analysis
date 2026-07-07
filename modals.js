@@ -690,22 +690,19 @@ function loadTrendStock(stockName, stockCode) {
     const container = document.getElementById('trendStockIframe');
     container.innerHTML = '';
 
+    if (source === 'tradingview_open') {
+        // TradingView 新窗口：完整版页面，有当日实时数据
+        const tvExchange = stockCode.startsWith('6') ? 'SSE' : 'SZSE';
+        window.open('https://cn.tradingview.com/chart/?symbol=' + tvExchange + ':' + stockCode, '_blank');
+        return;
+    }
+
     if (source === 'tradingview') {
-        const exchange = stockCode.startsWith('6') ? 'SSE' : 'SZSE';
-        new TradingView.widget({
-            container_id: 'trendStockIframe',
-            symbol: exchange + ':' + stockCode,
-            interval: 'D',
-            timezone: 'Asia/Shanghai',
-            theme: 'light',
-            style: '1',
-            locale: 'zh_CN',
-            toolbar_bg: '#f1f3f6',
-            enable_publishing: false,
-            hide_side_toolbar: false,
-            allow_symbol_change: true,
-            autosize: true
-        });
+        // TradingView 嵌入：数据延迟一天
+        const tvExchange = stockCode.startsWith('6') ? 'SSE' : 'SZSE';
+        const symbol = tvExchange + ':' + stockCode;
+        const url = 'https://s.tradingview.com/widgetembed/?symbol=' + encodeURIComponent(symbol) + '&interval=D&theme=light&style=1&locale=zh_CN&toolbar_bg=f1f3f6&enable_publishing=0&hide_side_toolbar=0&allow_symbol_change=1';
+        container.innerHTML = '<iframe src="' + url + '" style="width:100%;height:100%;border:none;border-radius:8px;" allowfullscreen></iframe>';
     } else {
         const exchange = stockCode.startsWith('6') ? 'sh' : 'sz';
         let url;

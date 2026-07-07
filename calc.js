@@ -49,9 +49,9 @@ function openStockQuote(stockName, stockCode) {
     const source = getStockChartSource();
     const exchange = stockCode.startsWith('6') ? 'sh' : 'sz';
     let url;
-    if (source === 'tradingview') {
+    if (source === 'tradingview' || source === 'tradingview_open') {
         const tvExchange = stockCode.startsWith('6') ? 'SSE' : 'SZSE';
-        url = 'https://www.tradingview.com/chart/?symbol=' + tvExchange + ':' + stockCode;
+        url = 'https://cn.tradingview.com/chart/?symbol=' + tvExchange + ':' + stockCode;
     } else if (source === 'eastmoney') {
         url = 'https://quote.eastmoney.com/' + exchange + stockCode + '.html#fullScreenChart';
     } else {
