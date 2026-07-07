@@ -127,16 +127,10 @@
                             <button class="trend-tab-btn active" id="trendChartTabBtn">📊 板块详情</button>
                             <button class="trend-tab-btn" id="trendStockTabBtn">📈 个股详情</button>
                             <span style="margin-left:auto;display:flex;gap:0;">
+                                <button class="trend-tab-btn" id="eastmoneyJumpBtn" title="在东方财富打开完整行情" style="font-size:11px;padding:5px 10px;">东方财富</button>
                                 <button class="trend-tab-btn source-btn active" data-source="sina_chart" style="font-size:11px;padding:5px 10px;">新浪图表</button>
                                 <button class="trend-tab-btn source-btn" data-source="tradingview" style="font-size:11px;padding:5px 10px;">TradingView</button>
                             </span>
-                            <select id="sinaChartPeriod" title="新浪图表周期" style="font-size:12px;padding:2px 6px;border:1px solid #d0d0d0;border-radius:4px;color:#555;cursor:pointer;">
-                                <option value="min">分时</option>
-                                <option value="daily" selected>日K</option>
-                                <option value="weekly">周K</option>
-                                <option value="monthly">月K</option>
-                                <option value="all">全部</option>
-                            </select>
                         </div>
                         <div class="trend-chart-content active" id="trendChartContent">
                             <div class="trend-chart-row">
@@ -152,7 +146,14 @@
                             </div>
                         </div>
                         <div class="trend-chart-content" id="trendStockContent">
-                            <div class="chart-wrap" style="position:relative;min-height:300px;margin-top:10px;">
+                            <div id="sinaPeriodTabs" style="display:flex;gap:6px;margin:8px 0 4px 0;flex-wrap:wrap;">
+                                <button class="period-btn" data-period="min">分时</button>
+                                <button class="period-btn active" data-period="daily">日K</button>
+                                <button class="period-btn" data-period="weekly">周K</button>
+                                <button class="period-btn" data-period="monthly">月K</button>
+                                <button class="period-btn" data-period="all">全部</button>
+                            </div>
+                            <div class="chart-wrap" style="position:relative;min-height:300px;">
                                 <div id="trendStockIframe" style="width:100%;height:100%;border:1px solid #e0e0e0;border-radius:8px;overflow:hidden;"></div>
                             </div>
                         </div>

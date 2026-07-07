@@ -691,17 +691,16 @@ function loadTrendStock(stockName, stockCode) {
     container.innerHTML = '';
 
     if (source === 'sina_chart') {
-        // 新浪图表：根据周期选择显示对应图片，点击图片跳转东方财富完整行情页
+        // 新浪图表：根据周期按钮选择显示对应图片
         const exchange = stockCode.startsWith('6') ? 'sh' : 'sz';
         const symbol = exchange + stockCode;
         const ts = Date.now(); // 防缓存
-        const emUrl = buildEastmoneyUrl(stockCode);
-        const period = document.getElementById('sinaChartPeriod').value;
+        const activePeriodBtn = document.querySelector('#sinaPeriodTabs .period-btn.active');
+        const period = activePeriodBtn ? activePeriodBtn.dataset.period : 'daily';
         const periods = period === 'all'
             ? [{key: 'min', label: '分时'}, {key: 'daily', label: '日K'}, {key: 'weekly', label: '周K'}, {key: 'monthly', label: '月K'}]
             : [{key: period, label: ''}];
         const isAll = period === 'all';
-        const imgStyle = 'width:100%;border-radius:4px;cursor:pointer;';
         const itemStyle = isAll
             ? 'flex:1 1 48%;min-width:280px;text-align:center;'
             : 'width:100%;text-align:center;';
@@ -709,14 +708,7 @@ function loadTrendStock(stockName, stockCode) {
         periods.forEach(function(p) {
             html += '<div style="' + itemStyle + '">';
             if (isAll) html += '<div style="font-size:12px;color:#888;margin-bottom:2px;">' + p.label + '</div>';
-            // 仅分时图可点击，跳转东方财富完整行情页
-            if (p.key === 'min') {
-                html += '<a href="' + emUrl + '" target="_blank" rel="noopener" title="点击查看东方财富完整行情">';
-                html += '<img src="https://image.sinajs.cn/newchart/' + p.key + '/n/' + symbol + '.gif?' + ts + '" style="' + imgStyle + '" />';
-                html += '</a>';
-            } else {
-                html += '<img src="https://image.sinajs.cn/newchart/' + p.key + '/n/' + symbol + '.gif?' + ts + '" style="width:100%;border-radius:4px;" />';
-            }
+            html += '<img src="https://image.sinajs.cn/newchart/' + p.key + '/n/' + symbol + '.gif?' + ts + '" style="width:100%;border-radius:4px;" />';
             html += '</div>';
         });
         html += '</div>';

@@ -64,24 +64,35 @@ function initEventListeners() {
         switchTrendChartTab('stock');
     });
 
-    // 数据源按钮切换：点击切换 active + 控制周期选择器显隐 + 重新加载图表
-    var sinaChartPeriodEl = document.getElementById('sinaChartPeriod');
+    // 东方财富按钮：新窗口打开当前股票的完整行情页
+    document.getElementById('eastmoneyJumpBtn').addEventListener('click', function() {
+        if (_currentStockCode) {
+            window.open(buildEastmoneyUrl(_currentStockCode), '_blank', 'noopener');
+        }
+    });
+
+    // 数据源按钮切换：点击切换 active + 控制周期按钮组显隐 + 重新加载图表
+    var sinaPeriodTabsEl = document.getElementById('sinaPeriodTabs');
     document.querySelectorAll('.source-btn').forEach(function(btn) {
         btn.addEventListener('click', function() {
             document.querySelectorAll('.source-btn').forEach(function(b) { b.classList.remove('active'); });
             btn.classList.add('active');
-            sinaChartPeriodEl.style.display = btn.dataset.source === 'sina_chart' ? '' : 'none';
+            sinaPeriodTabsEl.style.display = btn.dataset.source === 'sina_chart' ? '' : 'none';
             if (_currentStockName && _currentStockCode) {
                 loadTrendStock(_currentStockName, _currentStockCode);
             }
         });
     });
 
-    // 新浪图表周期切换：重新加载当前股票
-    sinaChartPeriodEl.addEventListener('change', function() {
-        if (_currentStockName && _currentStockCode) {
-            loadTrendStock(_currentStockName, _currentStockCode);
-        }
+    // 新浪图表周期按钮切换：切换 active + 重新加载当前股票
+    sinaPeriodTabsEl.querySelectorAll('.period-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            sinaPeriodTabsEl.querySelectorAll('.period-btn').forEach(function(b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+            if (_currentStockName && _currentStockCode) {
+                loadTrendStock(_currentStockName, _currentStockCode);
+            }
+        });
     });
 
     // 日期按钮事件委托
@@ -213,11 +224,11 @@ function initEventListeners() {
 }
 
 window.onload = function() {
-    // 初始化数据源按钮 active 状态 + 周期选择器显隐
+    // 初始化数据源按钮 active 状态 + 周期按钮组显隐
     document.querySelectorAll('.source-btn').forEach(function(b) {
         b.classList.toggle('active', b.dataset.source === STOCK_CHART_SOURCE);
     });
-    document.getElementById('sinaChartPeriod').style.display = STOCK_CHART_SOURCE === 'sina_chart' ? '' : 'none';
+    document.getElementById('sinaPeriodTabs').style.display = STOCK_CHART_SOURCE === 'sina_chart' ? '' : 'none';
     initEventListeners();
     initKeyboardShortcuts();
     loadAllJsonFiles();
