@@ -45,9 +45,18 @@ function openStockQuote(stockName, stockCode) {
         loadTrendStock(stockName, stockCode);
         return;
     }
-    // 否则新窗口打开 TradingView 页面
-    const exchange = stockCode.startsWith('6') ? 'SSE' : 'SZSE';
-    const url = 'https://www.tradingview.com/chart/?symbol=' + exchange + ':' + stockCode;
+    // 否则新窗口打开（根据当前数据源选择对应网站）
+    const source = getStockChartSource();
+    const exchange = stockCode.startsWith('6') ? 'sh' : 'sz';
+    let url;
+    if (source === 'tradingview') {
+        const tvExchange = stockCode.startsWith('6') ? 'SSE' : 'SZSE';
+        url = 'https://www.tradingview.com/chart/?symbol=' + tvExchange + ':' + stockCode;
+    } else if (source === 'eastmoney') {
+        url = 'https://quote.eastmoney.com/' + exchange + stockCode + '.html#fullScreenChart';
+    } else {
+        url = 'https://finance.sina.com.cn/realstock/company/' + exchange + stockCode + '/nc.shtml';
+    }
     window.open(url, '_blank');
 }
 

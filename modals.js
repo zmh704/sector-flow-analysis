@@ -667,31 +667,54 @@ function switchTrendChartTab(tab) {
     }
 }
 
-/** 在弹窗个股详情页签中加载股票（TradingView Widget，不会封 IP） */
+// 记住当前加载的股票，供切换数据源时重新加载
+let _currentStockName = '';
+let _currentStockCode = '';
+
+/** 获取当前选中的数据源 */
+function getStockChartSource() {
+    const sel = document.getElementById('stockChartSource');
+    return sel ? sel.value : STOCK_CHART_SOURCE;
+}
+
+/** 在弹窗个股详情页签中加载股票（支持三种数据源切换） */
 function loadTrendStock(stockName, stockCode) {
     if (!stockCode) {
         alert('未找到股票「' + stockName + '」的代码');
         return;
     }
-    const exchange = stockCode.startsWith('6') ? 'SSE' : 'SZSE';
-    const symbol = exchange + ':' + stockCode;
+    _currentStockName = stockName;
+    _currentStockCode = stockCode;
 
-    // 清空容器后创建 TradingView Widget（容器 id 固定，可反复调用）
+    const source = getStockChartSource();
     const container = document.getElementById('trendStockIframe');
     container.innerHTML = '';
-    new TradingView.widget({
-        container_id: 'trendStockIframe',
-        symbol: symbol,
-        interval: 'D',
-        timezone: 'Asia/Shanghai',
-        theme: 'light',
-        style: '1',
-        locale: 'zh_CN',
-        toolbar_bg: '#f1f3f6',
-        enable_publishing: false,
-        hide_side_toolbar: false,
-        allow_symbol_change: true,
-        autosize: true
-    });
+
+    if (source === 'tradingview') {
+        const exchange = stockCode.startsWith('6') ? 'SSE' : 'SZSE';
+        new TradingView.widget({
+            container_id: 'trendStockIframe',
+            symbol: exchange + ':' + stockCode,
+            interval: 'D',
+            timezone: 'Asia/Shanghai',
+            theme: 'light',
+            style: '1',
+            locale: 'zh_CN',
+            toolbar_bg: '#f1f3f6',
+            enable_publishing: false,
+            hide_side_toolbar: false,
+            allow_symbol_change: true,
+            autosize: true
+        });
+    } else {
+        const exchange = stockCode.startsWith('6') ? 'sh' : 'sz';
+        let url;
+        if (source === 'eastmoney') {
+            url = 'https://quote.eastmoney.com/' + exchange + stockCode + '.html#fullScreenChart';
+        } else {
+            url = 'https://finance.sina.com.cn/realstock/company/' + exchange + stockCode + '/nc.shtml';
+        }
+        container.innerHTML = '<iframe src="' + url + '" style="width:100%;height:100%;border:none;border-radius:8px;" allowfullscreen></iframe>';
+    }
     switchTrendChartTab('stock');
 }

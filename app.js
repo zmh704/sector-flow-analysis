@@ -64,6 +64,13 @@ function initEventListeners() {
         switchTrendChartTab('stock');
     });
 
+    // 数据源切换：用当前股票重新加载图表
+    document.getElementById('stockChartSource').addEventListener('change', function() {
+        if (_currentStockName && _currentStockCode) {
+            loadTrendStock(_currentStockName, _currentStockCode);
+        }
+    });
+
     // 日期按钮事件委托
     document.getElementById('dateButtons').addEventListener('click', function(e) {
         const btn = e.target.closest('.date-btn');
@@ -193,6 +200,8 @@ function initEventListeners() {
 }
 
 window.onload = function() {
+    // 初始化数据源下拉框默认值
+    document.getElementById('stockChartSource').value = STOCK_CHART_SOURCE;
     initEventListeners();
     initKeyboardShortcuts();
     loadAllJsonFiles();
