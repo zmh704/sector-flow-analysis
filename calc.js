@@ -33,6 +33,19 @@ function parseStocks(stockStr) {
     }).filter(Boolean);
 }
 
+// 构建东方财富个股完整行情页 URL（区分市场：科创板走 /kcb/，其余走 sh/sz 前缀）
+function buildEastmoneyUrl(stockCode) {
+    let path;
+    if (stockCode.startsWith('688')) {
+        path = 'kcb/' + stockCode;          // 科创板
+    } else if (stockCode.startsWith('6')) {
+        path = 'sh' + stockCode;            // 沪市主板
+    } else {
+        path = 'sz' + stockCode;            // 深市主板 / 创业板
+    }
+    return 'https://quote.eastmoney.com/' + path + '.html#fullScreenChart';
+}
+
 // 点击股票 → 打开个股详情（弹窗已开则在弹窗内加载图表，否则新窗口打开对应网站整页）
 function openStockQuote(stockName, stockCode) {
     if (!stockCode) {
