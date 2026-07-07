@@ -146,7 +146,9 @@ const server = http.createServer((req, res) => {
     if (pathname === '/') pathname = '/index.html';
     const filePath = path.join(ROOT, pathname);
 
-    if (!filePath.startsWith(ROOT)) {
+    // 防路径遍历：解析后必须仍在 ROOT 之内（用 relative 判断，避免同前缀目录误判）
+    const rel = path.relative(ROOT, filePath);
+    if (rel.startsWith('..') || path.isAbsolute(rel)) {
         res.writeHead(403);
         res.end('Forbidden');
         return;

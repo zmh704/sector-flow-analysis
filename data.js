@@ -142,6 +142,12 @@ function updateActiveDataMeta() {
         document.getElementById('generateTime').textContent = '-';
         document.getElementById('dataDate').textContent = `当前显示：${label}`;
     }
+
+    // 数据来源：优先显示实际来源（上传文件名），无则回退到通用描述
+    const sourceEl = document.getElementById('dataSource');
+    if (sourceEl) {
+        sourceEl.textContent = data.数据来源 || 'A股成交额TOP200';
+    }
 }
 
 function renderDateButtons() {

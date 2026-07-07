@@ -33,19 +33,19 @@ function parseStocks(stockStr) {
     }).filter(Boolean);
 }
 
-// 点击股票 → 打开个股详情（弹窗内用iframe，否则新窗口）
+// 点击股票 → 打开个股详情（弹窗已开则在弹窗内加载图表，否则新窗口打开对应网站整页）
 function openStockQuote(stockName, stockCode) {
     if (!stockCode) {
         alert('未找到股票「' + stockName + '」的代码');
         return;
     }
-    // 如果趋势弹窗打开，在弹窗内加载
+    // 弹窗已打开：在弹窗内按当前数据源加载图表
     const trendModal = document.getElementById('trendModalOverlay');
     if (trendModal && trendModal.classList.contains('active')) {
         loadTrendStock(stockName, stockCode);
         return;
     }
-    // 否则新窗口打开（根据当前数据源选择对应网站）
+    // 弹窗未打开：新窗口打开对应网站的完整行情页（TradingView 或新浪财经）
     const source = getStockChartSource();
     let url;
     if (source === 'tradingview') {

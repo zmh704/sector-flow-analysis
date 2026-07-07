@@ -11,7 +11,7 @@ const RATIO_TURNOVER_LOW = 0.9;   // 成交额缩量阈值（当日 > 前一日 
 const RATIO_TURNOVER_HIGH = 1.5;  // 成交额放量阈值（当日 < 前一日 × 此值）
 const CHANGE_LIMIT_PCT = 5;       // 放量时涨跌幅限制（%）
 const TREND_CHART_DAYS = 10;      // 趋势图显示天数
-const STOCK_CHART_SOURCE = 'sina_chart'; // 个股图表数据源：'sina' | 'sina_chart' | 'eastmoney' | 'tradingview' | 'tradingview_open'
+const STOCK_CHART_SOURCE = 'sina_chart'; // 个股图表默认数据源：'sina_chart'（新浪图片） | 'tradingview'（TV嵌入）
 
 // ===== 通用工具函数 =====
 
