@@ -655,7 +655,7 @@ function showStockLeader(stockName, sectors) {
 
 /** 切换弹窗内图表区域页签（chart=板块详情, stock=个股详情） */
 function switchTrendChartTab(tab) {
-    document.querySelectorAll('.trend-tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.trend-tab-btn:not(.source-btn)').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.trend-chart-content').forEach(c => c.classList.remove('active'));
 
     if (tab === 'stock') {
