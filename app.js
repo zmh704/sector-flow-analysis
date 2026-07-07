@@ -64,16 +64,17 @@ function initEventListeners() {
         switchTrendChartTab('stock');
     });
 
-    // 数据源切换：用当前股票重新加载图表 + 控制周期选择器显隐
+    // 数据源按钮切换：点击切换 active + 控制周期选择器显隐 + 重新加载图表
     var sinaChartPeriodEl = document.getElementById('sinaChartPeriod');
-    function updatePeriodVisibility() {
-        sinaChartPeriodEl.style.display = document.getElementById('stockChartSource').value === 'sina_chart' ? '' : 'none';
-    }
-    document.getElementById('stockChartSource').addEventListener('change', function() {
-        updatePeriodVisibility();
-        if (_currentStockName && _currentStockCode) {
-            loadTrendStock(_currentStockName, _currentStockCode);
-        }
+    document.querySelectorAll('.source-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.source-btn').forEach(function(b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+            sinaChartPeriodEl.style.display = btn.dataset.source === 'sina_chart' ? '' : 'none';
+            if (_currentStockName && _currentStockCode) {
+                loadTrendStock(_currentStockName, _currentStockCode);
+            }
+        });
     });
 
     // 新浪图表周期切换：重新加载当前股票
@@ -212,8 +213,10 @@ function initEventListeners() {
 }
 
 window.onload = function() {
-    // 初始化数据源下拉框默认值 + 周期选择器显隐
-    document.getElementById('stockChartSource').value = STOCK_CHART_SOURCE;
+    // 初始化数据源按钮 active 状态 + 周期选择器显隐
+    document.querySelectorAll('.source-btn').forEach(function(b) {
+        b.classList.toggle('active', b.dataset.source === STOCK_CHART_SOURCE);
+    });
     document.getElementById('sinaChartPeriod').style.display = STOCK_CHART_SOURCE === 'sina_chart' ? '' : 'none';
     initEventListeners();
     initKeyboardShortcuts();

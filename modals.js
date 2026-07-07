@@ -673,8 +673,8 @@ let _currentStockCode = '';
 
 /** 获取当前选中的数据源 */
 function getStockChartSource() {
-    const sel = document.getElementById('stockChartSource');
-    return sel ? sel.value : STOCK_CHART_SOURCE;
+    const active = document.querySelector('.source-btn.active');
+    return active ? active.dataset.source : STOCK_CHART_SOURCE;
 }
 
 /** 在弹窗个股详情页签中加载股票（支持三种数据源切换） */
@@ -689,13 +689,6 @@ function loadTrendStock(stockName, stockCode) {
     const source = getStockChartSource();
     const container = document.getElementById('trendStockIframe');
     container.innerHTML = '';
-
-    if (source === 'tradingview_open') {
-        // TradingView 新窗口：完整版页面，有当日实时数据
-        const tvExchange = stockCode.startsWith('6') ? 'SSE' : 'SZSE';
-        window.open('https://cn.tradingview.com/chart/?symbol=' + tvExchange + ':' + stockCode, '_blank');
-        return;
-    }
 
     if (source === 'sina_chart') {
         // 新浪图表：根据周期选择显示对应图片
@@ -720,20 +713,11 @@ function loadTrendStock(stockName, stockCode) {
         });
         html += '</div>';
         container.innerHTML = html;
-    } else if (source === 'tradingview') {
-        // TradingView 嵌入：数据延迟一天
+    } else {
+        // TradingView 嵌入
         const tvExchange = stockCode.startsWith('6') ? 'SSE' : 'SZSE';
         const symbol = tvExchange + ':' + stockCode;
         const url = 'https://s.tradingview.com/widgetembed/?symbol=' + encodeURIComponent(symbol) + '&interval=D&theme=light&style=1&locale=zh_CN&toolbar_bg=f1f3f6&enable_publishing=0&hide_side_toolbar=0&allow_symbol_change=1';
-        container.innerHTML = '<iframe src="' + url + '" style="width:100%;height:100%;border:none;border-radius:8px;" allowfullscreen></iframe>';
-    } else {
-        const exchange = stockCode.startsWith('6') ? 'sh' : 'sz';
-        let url;
-        if (source === 'eastmoney') {
-            url = 'https://quote.eastmoney.com/' + exchange + stockCode + '.html#fullScreenChart';
-        } else {
-            url = 'https://finance.sina.com.cn/realstock/company/' + exchange + stockCode + '/nc.shtml';
-        }
         container.innerHTML = '<iframe src="' + url + '" style="width:100%;height:100%;border:none;border-radius:8px;" allowfullscreen></iframe>';
     }
     switchTrendChartTab('stock');

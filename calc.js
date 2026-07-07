@@ -47,14 +47,12 @@ function openStockQuote(stockName, stockCode) {
     }
     // 否则新窗口打开（根据当前数据源选择对应网站）
     const source = getStockChartSource();
-    const exchange = stockCode.startsWith('6') ? 'sh' : 'sz';
     let url;
-    if (source === 'tradingview' || source === 'tradingview_open') {
+    if (source === 'tradingview') {
         const tvExchange = stockCode.startsWith('6') ? 'SSE' : 'SZSE';
         url = 'https://cn.tradingview.com/chart/?symbol=' + tvExchange + ':' + stockCode;
-    } else if (source === 'eastmoney') {
-        url = 'https://quote.eastmoney.com/' + exchange + stockCode + '.html#fullScreenChart';
     } else {
+        const exchange = stockCode.startsWith('6') ? 'sh' : 'sz';
         url = 'https://finance.sina.com.cn/realstock/company/' + exchange + stockCode + '/nc.shtml';
     }
     window.open(url, '_blank');
