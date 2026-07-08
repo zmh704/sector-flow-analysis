@@ -191,12 +191,27 @@ function initEventListeners() {
     document.getElementById('stockPanelList').addEventListener('click', handleStockPanelClick);
     document.getElementById('stockPanelLeaderList').addEventListener('click', handleStockPanelClick);
 
-    // 股票面板页签切换（涉及股票 / 今日推荐）
+    // 股票面板页签切换（涉及股票 / 今日推荐 / 关注板块）
     document.getElementById('stockPanelStocksTabBtn').addEventListener('click', function() {
         switchStockPanelTab('stocks');
     });
     document.getElementById('stockPanelLeaderTabBtn').addEventListener('click', function() {
         switchStockPanelTab('leaders');
+    });
+    document.getElementById('stockPanelFocusTabBtn').addEventListener('click', function() {
+        switchStockPanelTab('focus');
+    });
+
+    // 关注板块页签表格行点击：打开该板块趋势弹窗（同首页关注板块点击效果）
+    document.getElementById('stockPanelFocusList').addEventListener('click', function(e) {
+        const tr = e.target.closest('tr');
+        if (!tr || !tr.dataset.sector) return;
+        const sectorName = tr.dataset.sector;
+        const dataType = tr.dataset.type;
+        const { getSectorPayload } = calcFocusSectorsData(getActiveData());
+        const { matched, stocks, common } = getSectorPayload(sectorName, dataType);
+        const typeLabel = dataType === '行业板块资金流向' ? '🏛️' : '💡';
+        showSingleTrendModal(sectorName, dataType, typeLabel + ' ' + sectorName, matched, stocks, new Set(common));
     });
 
     // 趋势弹窗相关板块标签事件委托

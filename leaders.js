@@ -211,11 +211,14 @@ function updateLeaderArea(activeData) {
     container.innerHTML = html;
 }
 
-function updateFocusArea(activeData) {
-    const container = document.getElementById('focusContent');
-    if (!container) return;
-    container.innerHTML = '';
-
+/**
+ * 计算关注板块的结构化数据（首页关注板块区与弹窗【关注板块】页签共用，保证两处一致）。
+ * 返回 { industries, concepts, allPairs, buildDataAttrs(item, type) }
+ *   - industries/concepts: [{ name, days, stocks:Set, stockStr }]，未排序
+ *   - allPairs: 行业↔概念共同股票配对
+ *   - getSectorPayload(name, type): 返回 { matched, stocks, common } 供点击时打开弹窗
+ */
+function calcFocusSectorsData(activeData) {
     const industryList = activeData.行业板块资金流向 || [];
     const conceptList = activeData.概念板块资金流向 || [];
 
@@ -233,11 +236,6 @@ function updateFocusArea(activeData) {
         stockStr: c.涉及股票
     }));
 
-    if (industries.length === 0 && concepts.length === 0) {
-        container.innerHTML = renderEmptyState('📌', '暂无符合条件的关注板块', '尝试切换日期或调整筛选条件');
-        return;
-    }
-
     // 建立行业↔概念共同股票配对（供弹窗展示关联板块使用）
     const allPairs = [];
     industries.forEach(ind => {
@@ -249,36 +247,38 @@ function updateFocusArea(activeData) {
         });
     });
 
-    /**
-     * 生成关注板块标签的 data-* 属性字符串（供事件委托使用）
-     */
-    function buildSectorDataAttrs(item, type, allPairs, stockStr) {
-        const otherType = type === '行业板块资金流向' ? '概念' : '行业';
-        const matched = allPairs
-            .filter(p => {
-                const targetField = type === '行业板块资金流向' ? 'industry' : 'concept';
-                return p[targetField].name === item.name;
-            })
-            .map(p => {
-                const otherField = type === '行业板块资金流向' ? 'concept' : 'industry';
-                return { name: p[otherField].name, days: p[otherField].days, commonStocks: p.commonStocks };
-            });
-        const commonStocks = new Set(allPairs
-            .filter(p => {
-                const targetField = type === '行业板块资金流向' ? 'industry' : 'concept';
-                return p[targetField].name === item.name;
-            })
-            .flatMap(p => p.commonStocks)
-        );
-        const stocks = parseStocks(stockStr);
-        const attrs = {
-            sector: item.name,
-            type: type,
-            matched: JSON.stringify(matched),
-            stocks: JSON.stringify(stocks.map(s => ({ name: s.name, code: s.code, net: s.net, change: s.change }))),
-            common: JSON.stringify([...commonStocks])
-        };
-        return Object.entries(attrs).map(([k, v]) => `data-${k}="${escapeHtml(v)}"`).join(' ');
+    /** 计算某关注板块打开弹窗所需的 { matched, stocks, common } */
+    function getSectorPayload(name, type) {
+        const isIndustry = type === '行业板块资金流向';
+        const targetField = isIndustry ? 'industry' : 'concept';
+        const otherField = isIndustry ? 'concept' : 'industry';
+        const relatedPairs = allPairs.filter(p => p[targetField].name === name);
+        const matched = relatedPairs.map(p => ({
+            name: p[otherField].name,
+            days: p[otherField].days,
+            commonStocks: p.commonStocks
+        }));
+        const common = new Set(relatedPairs.flatMap(p => p.commonStocks));
+        const list = isIndustry ? industries : concepts;
+        const item = list.find(s => s.name === name);
+        const stocks = parseStocks(item ? item.stockStr || '' : '')
+            .map(s => ({ name: s.name, code: s.code, net: s.net, change: s.change }));
+        return { matched, stocks, common: [...common] };
+    }
+
+    return { industries, concepts, allPairs, getSectorPayload };
+}
+
+function updateFocusArea(activeData) {
+    const container = document.getElementById('focusContent');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const { industries, concepts, allPairs } = calcFocusSectorsData(activeData);
+
+    if (industries.length === 0 && concepts.length === 0) {
+        container.innerHTML = renderEmptyState('📌', '暂无符合条件的关注板块', '尝试切换日期或调整筛选条件');
+        return;
     }
 
     // 渲染行业部分

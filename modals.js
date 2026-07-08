@@ -380,14 +380,16 @@ function renderStockTable(panelList, stocks, bgSet, starSet, stockDaysMap) {
     panelList.appendChild(table);
 }
 
-/** 切换股票面板页签（stocks=涉及股票, leaders=今日推荐） */
+/** 切换股票面板页签（stocks=涉及股票, leaders=今日推荐, focus=关注板块） */
 function switchStockPanelTab(tab) {
-    const isLeaders = tab === 'leaders';
-    document.getElementById('stockPanelStocksTabBtn').classList.toggle('active', !isLeaders);
-    document.getElementById('stockPanelLeaderTabBtn').classList.toggle('active', isLeaders);
-    document.getElementById('stockPanelStocksContent').classList.toggle('active', !isLeaders);
-    document.getElementById('stockPanelLeaderContent').classList.toggle('active', isLeaders);
-    if (isLeaders) renderLeaderPanel();
+    document.getElementById('stockPanelStocksTabBtn').classList.toggle('active', tab === 'stocks');
+    document.getElementById('stockPanelLeaderTabBtn').classList.toggle('active', tab === 'leaders');
+    document.getElementById('stockPanelFocusTabBtn').classList.toggle('active', tab === 'focus');
+    document.getElementById('stockPanelStocksContent').classList.toggle('active', tab === 'stocks');
+    document.getElementById('stockPanelLeaderContent').classList.toggle('active', tab === 'leaders');
+    document.getElementById('stockPanelFocusContent').classList.toggle('active', tab === 'focus');
+    if (tab === 'leaders') renderLeaderPanel();
+    if (tab === 'focus') renderFocusPanel();
 }
 
 /** 渲染弹窗【今日推荐】页签（与首页今日推荐同一筛选逻辑，保证股票一致） */
@@ -408,6 +410,50 @@ function renderLeaderPanel() {
 
     const stockDaysMap = calcStockConsecutiveDays();
     renderStockTable(panelList, leaders, null, null, stockDaysMap);
+}
+
+/** 渲染弹窗【关注板块】页签（与首页关注板块同一数据，点击行同首页点击效果） */
+function renderFocusPanel() {
+    const panelList = document.getElementById('stockPanelFocusList');
+    if (!panelList) return;
+
+    if (!getCurrentData()) {
+        panelList.innerHTML = renderEmptyState('📭', '暂无数据', '请先加载数据文件');
+        return;
+    }
+
+    const { industries, concepts } = calcFocusSectorsData(getActiveData());
+    if (industries.length === 0 && concepts.length === 0) {
+        panelList.innerHTML = renderEmptyState('📌', '暂无符合条件的关注板块', '尝试切换日期或调整筛选条件');
+        return;
+    }
+
+    // 合并行业+概念，按天数降序
+    const rows = [
+        ...industries.map(s => ({ name: s.name, type: '行业', dataType: '行业板块资金流向', days: s.days })),
+        ...concepts.map(s => ({ name: s.name, type: '概念', dataType: '概念板块资金流向', days: s.days }))
+    ].sort((a, b) => b.days - a.days);
+
+    const table = document.createElement('table');
+    table.className = 'stock-table';
+    table.innerHTML = '<thead><tr><th>板块</th><th>类型</th><th>净流入天数</th></tr></thead>';
+    const tbody = document.createElement('tbody');
+    rows.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.style.cursor = 'pointer';
+        tr.dataset.sector = row.name;
+        tr.dataset.type = row.dataType;
+        const typeColor = row.type === '行业' ? '#2563eb' : '#7c3aed';
+        const daysColor = row.days >= HIGHLIGHT_MIN_DAYS ? '#dc2626' : '#555';
+        tr.innerHTML =
+            `<td style="color:${typeColor};font-weight:600;">${escapeHtml(row.name)}</td>` +
+            `<td style="text-align:center;color:${typeColor};">${row.type}</td>` +
+            `<td style="text-align:center;color:${daysColor};font-weight:700;">${row.days}天</td>`;
+        tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    panelList.innerHTML = '';
+    panelList.appendChild(table);
 }
 
 function showStocksInPanel(sectorName, type, commonStockNames) {
