@@ -5,6 +5,11 @@ let modalSortState = { key: 'net', asc: false };
 let modalDataType = '';
 let modalDataCache = [];
 
+// 股票面板表格排序：缓存各面板最后渲染上下文，供点击表头重排（key=panelList.id）
+const _stockTableCtx = new Map();
+// 关注板块表格排序状态（null=默认按天数降序）
+let _focusSortState = null;
+
 // ===== 查看全部弹窗 =====
 
 function renderModalTable() {
@@ -321,8 +326,10 @@ function createBarChart(ctx, trendData, existingChart, field) {
     return chart;
 }
 
-/** 渲染股票表格（精简：股票名称、主力净额、连续流入天数、操作） */
-function renderStockTable(panelList, stocks, bgSet, starSet, stockDaysMap) {
+/** 渲染股票表格（精简：股票名称、主力净额、连续流入天数、操作）
+ *  @param {Object|null} sortState - {key:'net'|'days', asc:bool}；null=默认加星置顶分组排序
+ */
+function renderStockTable(panelList, stocks, bgSet, starSet, stockDaysMap, sortState) {
     panelList.innerHTML = '';
     if (!stocks || stocks.length === 0) {
         panelList.innerHTML = renderEmptyState('📊', '无涉及股票数据');
@@ -333,19 +340,42 @@ function renderStockTable(panelList, stocks, bgSet, starSet, stockDaysMap) {
     const ss = starSet || bs;
     const sdm = stockDaysMap || new Map();
 
-    // 排序：加星股票始终在最上面，其次共同股票，其余在后，各自按主力净额降序
-    const starred = stocks.filter(s => ss.has(s.name))
-        .sort((a, b) => (parseFloat(b.net) || -999) - (parseFloat(a.net) || -999));
-    const commonOnly = stocks.filter(s => !ss.has(s.name) && bs.has(s.name))
-        .sort((a, b) => (parseFloat(b.net) || -999) - (parseFloat(a.net) || -999));
-    const otherStocks = stocks.filter(s => !ss.has(s.name) && !bs.has(s.name))
-        .sort((a, b) => (parseFloat(b.net) || -999) - (parseFloat(a.net) || -999));
-    const sortedStocks = [...starred, ...commonOnly, ...otherStocks];
+    // 缓存渲染上下文，供点击表头重排时复用（排序状态除外）
+    _stockTableCtx.set(panelList.id, { stocks, bgSet, starSet, stockDaysMap, sortState: sortState || null });
+
+    let sortedStocks;
+    if (sortState) {
+        // 表头排序：打破分组，全局按列排序（⭐标记与共同股票高亮保留）
+        const dir = sortState.asc ? 1 : -1;
+        sortedStocks = [...stocks].sort((a, b) => {
+            let va, vb;
+            if (sortState.key === 'days') {
+                va = sdm.get(a.name) || 0;
+                vb = sdm.get(b.name) || 0;
+            } else { // net
+                va = parseFloat(a.net); if (isNaN(va)) va = -Infinity;
+                vb = parseFloat(b.net); if (isNaN(vb)) vb = -Infinity;
+            }
+            return (va - vb) * dir;
+        });
+    } else {
+        // 默认：加星股票始终在最上面，其次共同股票，其余在后，各自按主力净额降序
+        const starred = stocks.filter(s => ss.has(s.name))
+            .sort((a, b) => (parseFloat(b.net) || -999) - (parseFloat(a.net) || -999));
+        const commonOnly = stocks.filter(s => !ss.has(s.name) && bs.has(s.name))
+            .sort((a, b) => (parseFloat(b.net) || -999) - (parseFloat(a.net) || -999));
+        const otherStocks = stocks.filter(s => !ss.has(s.name) && !bs.has(s.name))
+            .sort((a, b) => (parseFloat(b.net) || -999) - (parseFloat(a.net) || -999));
+        sortedStocks = [...starred, ...commonOnly, ...otherStocks];
+    }
+
+    const netArrow = sortState && sortState.key === 'net' ? (sortState.asc ? ' ▲' : ' ▼') : '';
+    const daysArrow = sortState && sortState.key === 'days' ? (sortState.asc ? ' ▲' : ' ▼') : '';
 
     const table = document.createElement('table');
     table.className = 'stock-table';
     const thead = document.createElement('thead');
-    thead.innerHTML = '<tr><th>股票名称</th><th>主力净额</th><th>天数</th><th class="th-action">操作</th></tr>';
+    thead.innerHTML = `<tr><th>股票名称</th><th class="th-sortable" data-sort="net" style="cursor:pointer;">主力净额<span class="sort-arrow">${netArrow}</span></th><th class="th-sortable" data-sort="days" style="cursor:pointer;">天数<span class="sort-arrow">${daysArrow}</span></th><th class="th-action">操作</th></tr>`;
     table.appendChild(thead);
     const tbody = document.createElement('tbody');
     sortedStocks.forEach((stock, i) => {
@@ -380,7 +410,22 @@ function renderStockTable(panelList, stocks, bgSet, starSet, stockDaysMap) {
     panelList.appendChild(table);
 }
 
-/** 切换股票面板页签（stocks=涉及股票, leaders=今日推荐, focus=关注板块） */
+/** 处理股票表格表头点击排序（涉及股票 / 今日推荐 共用）
+ *  同列再次点击翻转升降序；从默认态首次点击时，net→降序、days→降序 */
+function sortStockTable(panelList, key) {
+    const ctx = _stockTableCtx.get(panelList.id);
+    if (!ctx) return;
+    const prev = ctx.sortState;
+    let asc;
+    if (prev && prev.key === key) {
+        asc = !prev.asc;
+    } else {
+        asc = false; // 首次点击默认降序
+    }
+    renderStockTable(panelList, ctx.stocks, ctx.bgSet, ctx.starSet, ctx.stockDaysMap, { key, asc });
+}
+
+
 function switchStockPanelTab(tab) {
     document.getElementById('stockPanelStocksTabBtn').classList.toggle('active', tab === 'stocks');
     document.getElementById('stockPanelLeaderTabBtn').classList.toggle('active', tab === 'leaders');
@@ -428,15 +473,31 @@ function renderFocusPanel() {
         return;
     }
 
-    // 合并行业+概念，按天数降序
+    // 合并行业+概念
     const rows = [
         ...industries.map(s => ({ name: s.name, type: '行业', dataType: '行业板块资金流向', days: s.days })),
         ...concepts.map(s => ({ name: s.name, type: '概念', dataType: '概念板块资金流向', days: s.days }))
-    ].sort((a, b) => b.days - a.days);
+    ];
+
+    // 排序：默认按天数降序；点击表头后按指定列排序
+    if (_focusSortState) {
+        const dir = _focusSortState.asc ? 1 : -1;
+        rows.sort((a, b) => {
+            if (_focusSortState.key === 'type') {
+                return a.type.localeCompare(b.type) * dir || b.days - a.days;
+            }
+            return (a.days - b.days) * dir; // days
+        });
+    } else {
+        rows.sort((a, b) => b.days - a.days);
+    }
+
+    const typeArrow = _focusSortState && _focusSortState.key === 'type' ? (_focusSortState.asc ? ' ▲' : ' ▼') : '';
+    const daysArrow = _focusSortState && _focusSortState.key === 'days' ? (_focusSortState.asc ? ' ▲' : ' ▼') : '';
 
     const table = document.createElement('table');
     table.className = 'stock-table';
-    table.innerHTML = '<thead><tr><th>板块</th><th>类型</th><th>净流入天数</th></tr></thead>';
+    table.innerHTML = `<thead><tr><th>板块</th><th class="th-sortable" data-sort="type" style="cursor:pointer;text-align:center;">类型<span class="sort-arrow">${typeArrow}</span></th><th class="th-sortable" data-sort="days" style="cursor:pointer;text-align:center;">净流入天数<span class="sort-arrow">${daysArrow}</span></th></tr></thead>`;
     const tbody = document.createElement('tbody');
     rows.forEach(row => {
         const tr = document.createElement('tr');
@@ -454,6 +515,16 @@ function renderFocusPanel() {
     table.appendChild(tbody);
     panelList.innerHTML = '';
     panelList.appendChild(table);
+}
+
+/** 处理关注板块表格表头点击排序（同列再次点击翻转升降序） */
+function sortFocusTable(key) {
+    if (_focusSortState && _focusSortState.key === key) {
+        _focusSortState.asc = !_focusSortState.asc;
+    } else {
+        _focusSortState = { key, asc: false }; // 首次点击默认降序
+    }
+    renderFocusPanel();
 }
 
 function showStocksInPanel(sectorName, type, commonStockNames) {

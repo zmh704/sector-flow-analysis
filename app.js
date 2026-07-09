@@ -191,6 +191,15 @@ function initEventListeners() {
     document.getElementById('stockPanelList').addEventListener('click', handleStockPanelClick);
     document.getElementById('stockPanelLeaderList').addEventListener('click', handleStockPanelClick);
 
+    // 股票面板表头排序委托（涉及股票 / 今日推荐）
+    function handleStockHeaderSort(e) {
+        const th = e.target.closest('th[data-sort]');
+        if (!th) return;
+        sortStockTable(e.currentTarget, th.dataset.sort);
+    }
+    document.getElementById('stockPanelList').addEventListener('click', handleStockHeaderSort);
+    document.getElementById('stockPanelLeaderList').addEventListener('click', handleStockHeaderSort);
+
     // 股票面板页签切换（涉及股票 / 今日推荐 / 关注板块）
     document.getElementById('stockPanelStocksTabBtn').addEventListener('click', function() {
         switchStockPanelTab('stocks');
@@ -204,14 +213,23 @@ function initEventListeners() {
 
     // 关注板块页签表格行点击：打开该板块趋势弹窗（同首页关注板块点击效果）
     document.getElementById('stockPanelFocusList').addEventListener('click', function(e) {
+        // 表头点击：排序
+        const th = e.target.closest('th[data-sort]');
+        if (th) { sortFocusTable(th.dataset.sort); return; }
+
         const tr = e.target.closest('tr');
         if (!tr || !tr.dataset.sector) return;
         const sectorName = tr.dataset.sector;
         const dataType = tr.dataset.type;
+        const focusList = e.currentTarget;
+        const scrollTop = focusList.scrollTop;
         const { getSectorPayload } = calcFocusSectorsData(getActiveData());
         const { matched, stocks, common } = getSectorPayload(sectorName, dataType);
         const typeLabel = dataType === '行业板块资金流向' ? '🏛️' : '💡';
         showSingleTrendModal(sectorName, dataType, typeLabel + ' ' + sectorName, matched, stocks, new Set(common));
+        // 保持停留在关注板块页签并恢复滚动位置（showSingleTrendModal 内部会切到涉及股票页签）
+        switchStockPanelTab('focus');
+        focusList.scrollTop = scrollTop;
     });
 
     // 趋势弹窗相关板块标签事件委托

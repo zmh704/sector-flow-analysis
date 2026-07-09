@@ -1129,6 +1129,20 @@ footer {
     width: 44px;
 }
 
+/* 股票表格可排序表头 */
+.stock-table thead th.th-sortable {
+    user-select: none;
+    transition: color 0.15s;
+}
+
+.stock-table thead th.th-sortable:hover {
+    color: var(--color-primary);
+}
+
+.stock-table thead th.th-sortable .sort-arrow {
+    font-size: 10px;
+}
+
 .stock-table tbody td:nth-child(4) {
     text-align: center;
 }
