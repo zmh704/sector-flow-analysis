@@ -180,12 +180,19 @@ function initEventListeners() {
                 const leaderList = e.currentTarget;
                 const scrollTop = leaderList.scrollTop;
                 showStockLeader(stockName, sectors);
+                // 记录选中股票（须在 showStockLeader 之后，避免被其内部重置覆盖）
+                _selectedStockName = stockName;
+                _selectedFocusKey = null;
                 // 保持停留在今日推荐页签并恢复滚动位置
                 switchStockPanelTab('leaders');
                 leaderList.scrollTop = scrollTop;
                 return;
             }
         }
+        // 涉及股票页签不重绘，记录选中并即时高亮当前行
+        _selectedStockName = stockName;
+        _selectedFocusKey = null;
+        highlightSelectedStockRow(e.currentTarget);
         openStockQuote(stockName, stockCode || '');
     }
     document.getElementById('stockPanelList').addEventListener('click', handleStockPanelClick);
@@ -227,6 +234,9 @@ function initEventListeners() {
         const { matched, stocks, common } = getSectorPayload(sectorName, dataType);
         const typeLabel = dataType === '行业板块资金流向' ? '🏛️' : '💡';
         showSingleTrendModal(sectorName, dataType, typeLabel + ' ' + sectorName, matched, stocks, new Set(common));
+        // 记录选中板块（须在 showSingleTrendModal 之后，避免被其内部重置覆盖）
+        _selectedFocusKey = sectorName + '|' + dataType;
+        _selectedStockName = null;
         // 保持停留在关注板块页签并恢复滚动位置（showSingleTrendModal 内部会切到涉及股票页签）
         switchStockPanelTab('focus');
         focusList.scrollTop = scrollTop;

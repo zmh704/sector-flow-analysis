@@ -1107,6 +1107,16 @@ footer {
     background: #fef9c3 !important;
 }
 
+/* 当前选中行高亮（标记图表正在显示的那条数据） */
+.stock-table tbody tr.row-selected {
+    background: #dbeafe !important;
+    border-left: 3px solid var(--color-primary);
+}
+
+.stock-table tbody tr.row-selected:hover {
+    background: #bfdbfe !important;
+}
+
 .stock-table tbody td:nth-child(2) {
     text-align: right;
     font-weight: 600;

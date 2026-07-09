@@ -9,6 +9,19 @@ let modalDataCache = [];
 const _stockTableCtx = new Map();
 // 关注板块表格排序状态（null=默认按天数降序）
 let _focusSortState = null;
+// 当前选中项高亮：股票类（涉及股票/今日推荐共用）与板块类（关注板块）
+let _selectedStockName = null;
+let _selectedFocusKey = null; // 格式 "板块名|数据类型"
+
+/** 高亮指定股票面板中当前选中的行（供不重绘的涉及股票点击即时应用） */
+function highlightSelectedStockRow(panelList) {
+    if (!panelList) return;
+    panelList.querySelectorAll('tr.row-selected').forEach(r => r.classList.remove('row-selected'));
+    if (!_selectedStockName) return;
+    panelList.querySelectorAll('tr[data-stock-name]').forEach(r => {
+        if (r.dataset.stockName === _selectedStockName) r.classList.add('row-selected');
+    });
+}
 
 // ===== 查看全部弹窗 =====
 
@@ -383,6 +396,7 @@ function renderStockTable(panelList, stocks, bgSet, starSet, stockDaysMap, sortS
         const isBg = bs.has(stock.name);
         const isStarred = ss.has(stock.name);
         if (isBg) tr.classList.add('stock-common');
+        if (_selectedStockName && stock.name === _selectedStockName) tr.classList.add('row-selected');
         const changeNum = parseFloat(stock.net);
         const changeCls = changeNum >= 0 ? 'stock-change-positive' : 'stock-change-negative';
         // 涨跌幅拼在股票名称后
@@ -504,6 +518,7 @@ function renderFocusPanel() {
         tr.style.cursor = 'pointer';
         tr.dataset.sector = row.name;
         tr.dataset.type = row.dataType;
+        if (_selectedFocusKey === row.name + '|' + row.dataType) tr.classList.add('row-selected');
         const typeColor = row.type === '行业' ? '#2563eb' : '#7c3aed';
         const daysColor = row.days >= HIGHLIGHT_MIN_DAYS ? '#dc2626' : '#555';
         tr.innerHTML =
@@ -590,6 +605,10 @@ function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, c
         alert('暂无数据，请先加载数据文件');
         return;
     }
+
+    // 打开新板块视图，重置选中高亮（面板内点击会在调用后按需重设）
+    _selectedStockName = null;
+    _selectedFocusKey = null;
 
     // 默认显示板块详情页签
     switchTrendChartTab('chart');
