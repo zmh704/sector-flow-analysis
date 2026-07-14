@@ -228,6 +228,15 @@ async function loadAllJsonFiles() {
         return;
     }
 
+    // 只加载最近 12 个交易日的文件，避免一次性加载全部历史数据
+    const MAX_RECENT_FILES = 12;
+    if (fileList.length > MAX_RECENT_FILES) {
+        fileList = fileList
+            .slice()
+            .sort((a, b) => toDateNum(extractDateLabel(a)) - toDateNum(extractDateLabel(b)))
+            .slice(-MAX_RECENT_FILES);
+    }
+
     let loadedCount = 0;
     const totalFiles = fileList.length;
     const nowTs = Date.now();
