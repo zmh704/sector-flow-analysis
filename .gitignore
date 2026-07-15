@@ -3,3 +3,6 @@ data/
 data.db
 *.bak_*.json
 server.log.claude/
+.vscode/
+temp_readme_new.md
+temp_readme_old.md

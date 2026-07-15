@@ -8,7 +8,7 @@ const LEADER_STOCK_MIN_DAYS = 1;   // 今日推荐：股票连续流入最低天
 const LEADER_GAP = 1;              // 今日推荐：股票天数 vs 所属板块最大天数 容差
 const VOLUME_WINDOW = 5;           // 成交量比较窗口（含当日，从选中日期往前）
 const RATIO_TURNOVER_LOW = 0.9;   // 成交额缩量阈值（当日 > 前一日 × 此值）
-const RATIO_TURNOVER_HIGH = 1.5;  // 成交额放量阈值（当日 < 前一日 × 此值）
+const RATIO_TURNOVER_HIGH = 1.6;  // 成交额放量阈值（当日 < 前一日 × 此值）
 const CHANGE_LIMIT_PCT = 5;       // 放量时涨跌幅限制（%）
 const TREND_CHART_DAYS = 10;      // 趋势图显示天数
 const STOCK_CHART_SOURCE = 'sina_chart'; // 个股图表默认数据源：'sina_chart'（新浪图片） | 'tradingview'（TV嵌入）
@@ -18,7 +18,7 @@ const STOCK_CHART_SOURCE = 'sina_chart'; // 个股图表默认数据源：'sina_
 /** 防抖：延迟 delay ms 后执行 fn，连续调用重置计时器 */
 function debounce(fn, delay) {
     let timer = null;
-    return function(...args) {
+    return function (...args) {
         if (timer) clearTimeout(timer);
         timer = setTimeout(() => { timer = null; fn.apply(this, args); }, delay);
     };
@@ -27,7 +27,7 @@ function debounce(fn, delay) {
 /** rAF 防抖：将多次触发合并到下一帧执行（适用于 DOM 批量更新） */
 function debounceRAF(fn) {
     let rafId = null;
-    return function(...args) {
+    return function (...args) {
         if (rafId) cancelAnimationFrame(rafId);
         rafId = requestAnimationFrame(() => { rafId = null; fn.apply(this, args); });
     };
@@ -125,11 +125,11 @@ const _preselectedStocks = new Set(
 function togglePreselectStock(stockName) {
     if (_preselectedStocks.has(stockName)) {
         _preselectedStocks.delete(stockName);
-        try { localStorage.setItem('preselectedStocks', JSON.stringify([..._preselectedStocks])); } catch {}
+        try { localStorage.setItem('preselectedStocks', JSON.stringify([..._preselectedStocks])); } catch { }
         return false;
     } else {
         _preselectedStocks.add(stockName);
-        try { localStorage.setItem('preselectedStocks', JSON.stringify([..._preselectedStocks])); } catch {}
+        try { localStorage.setItem('preselectedStocks', JSON.stringify([..._preselectedStocks])); } catch { }
         return true;
     }
 }
@@ -153,7 +153,7 @@ let trendTurnoverChart = null;
 // Chart.js 交替行背景插件
 Chart.register({
     id: 'alternatingRows',
-    beforeDraw: function(chart) {
+    beforeDraw: function (chart) {
         const ctx = chart.ctx;
         const chartArea = chart.chartArea;
         const yScale = chart.scales.y;
