@@ -115,6 +115,14 @@ function getCurrentData() {
     return currentDateFile ? allDataByDate[currentDateFile] : null;
 }
 
+/** 获取当前选中日期前一个交易日的数据（供今日推荐条件E等需要比较前一日场景使用） */
+function getPrevDayData() {
+    const sorted = sortDateFileList();
+    const currentIdx = sorted.indexOf(currentDateFile);
+    if (currentIdx <= 0) return null;
+    return allDataByDate[sorted[currentIdx - 1]]?.data || null;
+}
+
 /** 切换当前选中日期，并失效依赖于该日期的缓存 */
 function setCurrentDateFile(filename) {
     if (currentDateFile === filename) return;

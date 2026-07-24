@@ -40,9 +40,13 @@ function buildLeaderSectorMaps() {
     };
 }
 
-/** 条件E：所有所属板块当日成交额均 < 板块前一日成交额 × RATIO_TURNOVER_HIGH */
+/** 条件E：净流入天数最大的所属板块，当日成交额均 < 板块前一日成交额 × RATIO_TURNOVER_HIGH
+ *  只检查天数最大的板块，忽略天数较小的板块（可能刚启动放量正常） */
 function leaderCondAllSectorsDecreased(stockName, sectors, sectorMaps) {
-    return sectors.every(s => {
+    if (!sectors || sectors.length === 0) return true;
+    const maxDays = Math.max(...sectors.map(s => s.days));
+    const topSectors = sectors.filter(s => s.days === maxDays);
+    return topSectors.every(s => {
         const st = s.type === '行业' ? '行业板块资金流向' : '概念板块资金流向';
         const maps = sectorMaps[st];
         return maps ? isSectorTurnoverDecreased(s.name, maps.curr, maps.prev) : true;
@@ -82,17 +86,18 @@ function leaderCondVolumeUpChangeLimited(stockName) {
  * @param {Object} sectorMaps - 预构建的板块 Maps（由 buildLeaderSectorMaps() 生成），避免每次条件判断重复构建
  */
 function passesLeaderConditions(stockName, stockDays, sectors, focusSectors, sectorMaps) {
-    if (!leaderCondMinDays(stockDays)) return false;       // 条件A：股票连续天数 >= 最小值
+    if (!leaderCondMinDays(stockDays)) { if (stockName === '雅克科技') console.log('❌ 条件A失败: 天数', stockDays); return false; }
     // 条件B：至少一个所属板块在关注板块中（直接复用 getFocusSectors 的板块集合）
     const inFocus = sectors.some(s => focusSectors.has(s.name));
-    if (!inFocus) return false;
+    if (!inFocus) { if (stockName === '雅克科技') console.log('❌ 条件B失败: 无关注板块, sectors:', sectors.map(s => s.name+'('+s.days+'天)')); return false; }
     // if (!leaderCondTurnoverNotTooLow(stockName)) return false;           // 条件C：股票当日成交额 > 前一日成交额 * 0.9（防缩量）
-    if (!leaderCondAmountNotTooHigh(stockName)) return false;        // 条件D：股票当日成交额 < 前一日成交额 * 1.5（防放量）
-    if (!leaderCondAllSectorsDecreased(stockName, sectors, sectorMaps)) return false; // 条件E：所有所属板块成交额 < 板块前一日 * 1.5
+    if (!leaderCondAmountNotTooHigh(stockName)) { if (stockName === '雅克科技') console.log('❌ 条件D失败'); return false; }
+    // if (!leaderCondAllSectorsDecreased(stockName, sectors, sectorMaps)) return false; // 条件E：板块成交额放量检查（已注释，该逻辑属于关注板块筛选，今日推荐不重复检查）
     // if (!leaderCondHighDaysSectorsAbove090(stockName, stockDays, sectors, sectorMaps)) return false; // 条件F：高天数板块成交额 > 板块前一日 * 0.9
-    if (!leaderCondDaysWithinGap(stockDays, sectors)) return false; // 条件G：股票天数在所属板块最大天数 ± LEADER_GAP 范围内
+    if (!leaderCondDaysWithinGap(stockDays, sectors)) { if (stockName === '雅克科技') console.log('❌ 条件G失败: 天数', stockDays, '板块天数:', sectors.map(s => s.name+'='+s.days)); return false; }
     // if (!leaderCondVolumeDecreased(stockName)) return false;             // 条件H：股票当日成交量 < 近5日内最大成交量
-    if (!leaderCondVolumeUpChangeLimited(stockName)) return false; // 条件I：放量时涨跌幅必须 < 5%
+    if (!leaderCondVolumeUpChangeLimited(stockName)) { if (stockName === '雅克科技') console.log('❌ 条件I失败'); return false; }
+    if (stockName === '雅克科技') console.log('✅ 雅克科技通过所有条件！');
     return true;
 }
 
