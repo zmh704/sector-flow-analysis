@@ -11,6 +11,9 @@ function initEventListeners() {
         el.addEventListener('change', debounce(updateCharts, 100));
     });
     // 概念流入/流出单选（独立控制概念图表）
+    document.querySelectorAll('input[name="flowFilterConcept"]').forEach(el => {
+        el.addEventListener('change', debounce(updateCharts, 100));
+    });
 
     // 查看全部弹窗
     document.getElementById('modalOverlay').addEventListener('click', function(e) {
@@ -45,7 +48,7 @@ function initEventListeners() {
         if (!item) return;
 
         const matchedSectors = item._matched || [];
-        const stocks = item._parsedStocks || parseStocks(item.涉及股票);
+        const stocks = getSectorStocks(item);
         const commonStocks = new Set(matchedSectors.flatMap(m => m.commonStocks));
         const title = tr.dataset.title || `${escapeHtml(sectorName)} (${typeof item._days === 'number' ? item._days : '?'})天`;
 
@@ -134,19 +137,7 @@ function initEventListeners() {
         if (!pair) return;
         const sectorName = pair.dataset.sector;
         const dataType = pair.dataset.type;
-        const matchedJson = pair.dataset.matched;
-        const stocksJson = pair.dataset.stocks;
-        const commonJson = pair.dataset.common;
-        if (!sectorName || !dataType) return;
-        try {
-            const matchedSectors = matchedJson ? JSON.parse(matchedJson) : [];
-            const stocks = stocksJson ? JSON.parse(stocksJson) : [];
-            const commonStockNames = commonJson ? new Set(JSON.parse(commonJson)) : new Set();
-            const typeLabel = dataType === '行业板块资金流向' ? '🏛️' : '💡';
-            showSingleTrendModal(sectorName, dataType, typeLabel + ' ' + sectorName, matchedSectors, stocks, commonStockNames);
-        } catch (err) {
-            console.error('解析关注板块标签数据失败:', err);
-        }
+        openFocusSector(sectorName, dataType);
     });
 
     // 股票面板表格行事件委托（趋势弹窗右侧，涉及股票 / 今日推荐 两个页签共用）
@@ -177,11 +168,13 @@ function initEventListeners() {
         const tr = e.target.closest('tr');
         if (!tr) return;
         const stockName = tr.dataset.stockName;
+        const stockKey = tr.dataset.stockKey;
         const stockCode = tr.dataset.stockCode;
         if (!stockName) return;
         // 今日推荐页签：板块详情、窗口标题、关联板块整体跟随该股票更新（同首页今日推荐点击）
         if (e.currentTarget.id === 'stockPanelLeaderList') {
-            const sectors = buildStockSectorsMap().get(stockName) || [];
+            const identity = stockKey || resolveStockKey(stockName);
+            const sectors = buildStockSectorsMap().get(identity) || [];
             if (sectors.length > 0) {
                 const leaderList = e.currentTarget;
                 const scrollTop = leaderList.scrollTop;
@@ -236,10 +229,7 @@ function initEventListeners() {
         const dataType = tr.dataset.type;
         const focusList = e.currentTarget;
         const scrollTop = focusList.scrollTop;
-        const { getSectorPayload } = calcFocusSectorsData(getActiveData());
-        const { matched, stocks, common } = getSectorPayload(sectorName, dataType);
-        const typeLabel = dataType === '行业板块资金流向' ? '🏛️' : '💡';
-        showSingleTrendModal(sectorName, dataType, typeLabel + ' ' + sectorName, matched, stocks, new Set(common));
+        if (!openFocusSector(sectorName, dataType)) return;
         // 记录选中板块（须在 showSingleTrendModal 之后，避免被其内部重置覆盖）
         _selectedFocusKey = sectorName + '|' + dataType;
         _selectedStockName = null;
@@ -348,6 +338,16 @@ function parseExcelFile() {
 async function handleExcelFile(event) {
     const file = event.target.files[0];
     if (!file) return;
+    if (!/\.(xlsx|xls)$/i.test(file.name)) {
+        showWarningStatus('请选择 .xlsx 或 .xls 文件');
+        event.target.value = '';
+        return;
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+        showWarningStatus(`文件过大，最大允许 ${(MAX_UPLOAD_BYTES / 1024 / 1024).toFixed(0)} MiB`);
+        event.target.value = '';
+        return;
+    }
 
     showLoadingStatus('正在上传并解析Excel文件...');
 

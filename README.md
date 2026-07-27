@@ -32,7 +32,7 @@
 
 ### 方式一：本地服务器（推荐，支持 Excel 解析）
 
-1. 安装 [Node.js](https://nodejs.org/)（建议 16+）
+1. 安装 [Node.js](https://nodejs.org/)（18+）
 2. 安装依赖：
    ```bash
    npm install
@@ -42,7 +42,7 @@
    npm start
    ```
    或双击 `start.cmd`（Windows）
-4. 浏览器访问 <http://localhost:3000>
+4. 浏览器访问 <http://localhost:3001>。服务默认仅监听 `127.0.0.1`；可通过 `HOST`、`PORT` 环境变量覆盖。
 
 ### 方式二：静态部署（GitHub Pages，仅查看）
 
@@ -58,7 +58,7 @@
 
 ### 从 Excel 生成数据
 
-**方式 A — 页面上传**：点击页面右上角「📊 解析数据」，选择 `.xlsx` 文件，服务端解析后自动写入 `data/`。
+**方式 A — 页面上传**：点击页面右上角「📊 解析数据」，选择 `.xlsx` 或 `.xls` 文件。默认最大 20 MiB，前后端都会校验；服务端解析后以 ISO 交易日期写入 `data/`。
 
 **方式 B — 批量重处理**：将 Excel 放入 `data/源数据/`，文件名需含日期（如 `6月24日.xlsx`），执行：
 ```bash
@@ -69,6 +69,8 @@ node reprocess.js
 
 ```json
 {
+  "schemaVersion": 2,
+  "交易日期": "2026-06-24",
   "生成时间": "2026-06-24 12:22:22",
   "数据来源": "6月24日.xlsx",
   "行业板块资金流向": [
@@ -98,7 +100,7 @@ node reprocess.js
 }
 ```
 
-**`涉及股票` 字段格式**：`股票简称(股票代码|成交额|主力净额|涨跌幅|成交量)`，多只股票以英文逗号分隔。其中成交额/主力净额为格式化字符串（如 `50.41亿`、`-5.00亿`），涨跌幅带 `%`，成交量为 `xxxx万手`。
+**股票数据兼容格式**：schema v2 在每个板块中新增结构化 `股票明细`，业务计算优先读取其中的标准数值和 `stockKey`；`涉及股票` 继续保留用于兼容旧页面与历史 JSON。旧文本支持 4/5/8/9 段格式，金额可为元、万或亿。
 
 ## 使用说明
 
@@ -137,7 +139,8 @@ gp_analyze/
 ├── chart.umd.min.js        # Chart.js 4.4.1 本地化
 ├── config.js               # 全局常量、状态、缓存、工具函数
 ├── data.js                 # 数据加载、日期排序、日期按钮
-├── calc.js                 # 股票解析、连续天数、关注板块条件
+├── calc.js                 # 连续天数、关注板块与推荐条件
+├── stock-utils.js          # 股票代码、单位解析、旧/新股票 schema 兼容
 ├── charts.js               # 主图表（行业/概念柱状图）
 ├── leaders.js              # 今日推荐 & 关注板块渲染
 ├── modals.js               # 全部弹窗（查看全部 / 趋势对比 / 个股）
@@ -158,8 +161,8 @@ gp_analyze/
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/list` | 返回 `data/` 下匹配 `*板块资金流向*.json` 的文件列表（按修改时间排序） |
-| POST | `/api/parse` | 接收 `multipart/form-data` 上传的 Excel，解析后写入 `data/`，返回 `{ success, industries, concepts, file }` |
+| GET | `/api/list` | 返回 v2 manifest，按 `tradingDate` 排序并对同交易日择优去重 |
+| POST | `/api/parse` | 接收单个 Excel；默认上限 20 MiB，解析后原子写入 `data/`，返回 `{ success, industries, concepts, file }` |
 
 其余路径按静态文件服务（已做路径遍历防护）。
 
@@ -168,7 +171,7 @@ gp_analyze/
 - **Chart.js 4.4.1**：主图表与趋势图渲染（本地引入）
 - **TradingView tv.js**：个股行情嵌入（CDN）
 - **新浪财经图表**：个股分时/K 线图片
-- **xlsx**：服务端 Excel 解析
+- **xlsx 0.18.5**：服务端 Excel 解析。npm registry 暂无包含上游安全修复的新版，服务因此默认仅监听本机、限制 20 MiB 并校验扩展名；不要将导入接口直接暴露到公网。
 - **原生 JavaScript（ES6+）**：无前端框架、无构建步骤
 - **CSS Grid & Flexbox**：响应式布局
 
@@ -184,7 +187,7 @@ gp_analyze/
 | `LEADER_GAP` | 1 | 股票天数 vs 所属板块最大天数容差 |
 | `VOLUME_WINDOW` | 5 | 成交量比较窗口 |
 | `RATIO_TURNOVER_LOW` | 0.9 | 成交额缩量阈值 |
-| `RATIO_TURNOVER_HIGH` | 1.5 | 成交额放量阈值 |
+| `RATIO_TURNOVER_HIGH` | 1.6 | 成交额放量阈值 |
 | `CHANGE_LIMIT_PCT` | 5 | 放量时涨跌幅限制（%） |
 | `TREND_CHART_DAYS` | 10 | 趋势图显示天数 |
 | `STOCK_CHART_SOURCE` | `sina_chart` | 个股图表默认数据源（`sina_chart` / `tradingview`） |

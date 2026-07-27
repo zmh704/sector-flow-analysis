@@ -8,6 +8,9 @@ const XLSX = require('xlsx');
 const fs = require('fs');
 const path = require('path');
 const { buildAnalysisResult, detectColumns } = require('./analyze.js');
+const { generateFileList } = require('./generate-list.js');
+const { getHasPriceData } = require('./lib/manifest.js');
+const { writeJsonAtomic } = require('./lib/file-utils.js');
 
 const DATA_DIR = path.join(__dirname, 'data');
 const SRC_DIR = path.join(DATA_DIR, '源数据');
@@ -24,17 +27,10 @@ function hasPriceColumns(workbook) {
 /** 判断已有JSON是否包含价格数据（检查涉及股票字符串中是否有9个|分隔部分） */
 function jsonHasPriceData(jsonPath) {
     try {
-        const data = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
-        const sectors = data.行业板块资金流向 || data.概念板块资金流向 || [];
-        for (const s of sectors) {
-            if (s.涉及股票) {
-                const firstStock = s.涉及股票.split(',')[0];
-                const m = firstStock.match(/\(([^)]+)\)/);
-                if (m && m[1].split('|').length >= 8) return true;
-            }
-        }
-    } catch {}
-    return false;
+        return getHasPriceData(JSON.parse(fs.readFileSync(jsonPath, 'utf-8')));
+    } catch {
+        return false;
+    }
 }
 
 // 处理所有源数据文件
@@ -45,16 +41,13 @@ for (const file of files) {
         const filePath = path.join(SRC_DIR, file);
         const workbook = XLSX.readFile(filePath);
         const result = buildAnalysisResult(workbook, file);
-        const baseName = path.basename(file, path.extname(file));
-        const dateMatch = baseName.match(/(\d{1,2}月\d{1,2}日)/);
-        const datePart = dateMatch ? dateMatch[1] : '';
-
-        if (!datePart) {
-            console.log(`跳过(无日期): ${file}`);
+        const tradingDate = result.交易日期;
+        if (!tradingDate) {
+            console.log(`跳过(无可识别交易日期): ${file}`);
             continue;
         }
 
-        const jsonFile = `${datePart}_板块资金流向.json`;
+        const jsonFile = `${tradingDate}_板块资金流向.json`;
         const jsonPath = path.join(DATA_DIR, jsonFile);
 
         // 判断当前文件是否为新格式（含价格数据）
@@ -66,7 +59,7 @@ for (const file of files) {
             continue;
         }
 
-        fs.writeFileSync(jsonPath, JSON.stringify(result, null, 2), 'utf-8');
+        writeJsonAtomic(jsonPath, result);
 
         const industryRows = result.行业板块资金流向 || [];
         const conceptRows = result.概念板块资金流向 || [];
@@ -78,3 +71,9 @@ for (const file of files) {
     }
 }
 console.log(`\n已完成 ${count}/${files.length} 个文件`);
+try {
+    generateFileList({ quiet: true });
+    console.log('已同步生成 v2 list.json');
+} catch (error) {
+    console.error('生成 list.json 失败:', error.message);
+}

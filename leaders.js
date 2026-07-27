@@ -115,10 +115,11 @@ function calcLeaderStarSet(stocks, stockDaysMap) {
     const sectorMaps = buildLeaderSectorMaps();  // 预构建一次，避免条件判断重复构建
     const starSet = new Set();
     for (const stock of stocks) {
-        const stockDays = daysMap.get(stock.name) || 0;
-        const sectors = stockSectorsMap.get(stock.name) || [];
-        if (passesLeaderConditions(stock.name, stockDays, sectors, focusSectors, sectorMaps)) {
-            starSet.add(stock.name);
+        const identity = stock.stockKey || resolveStockKey(stock.name);
+        const stockDays = daysMap.get(identity) || 0;
+        const sectors = stockSectorsMap.get(identity) || [];
+        if (passesLeaderConditions(identity, stockDays, sectors, focusSectors, sectorMaps)) {
+            starSet.add(identity);
         }
     }
     return starSet;
@@ -126,14 +127,22 @@ function calcLeaderStarSet(stocks, stockDaysMap) {
 
 // ============================
 
-/** 判断当前日期数据是否包含价格字段（最高价等），用于提示条件J是否实际生效 */
-function currentDateHasPriceData() {
-    const perDate = _stockFieldIndex || {};
-    for (const stockName of Object.keys(perDate)) {
-        const entry = perDate[stockName][currentDateFile];
-        if (entry) return entry.high !== '' && entry.high != null;
+/** 统计当前日期与前一日期最高价的可比较情况 */
+function getCurrentPriceDataStats() {
+    const sorted = sortDateFileList();
+    const currentIdx = sorted.indexOf(currentDateFile);
+    const stats = { total: 0, comparable: 0, missing: 0 };
+    if (currentIdx <= 0) return stats;
+    const previousDate = sorted[currentIdx - 1];
+    for (const stockKey of Object.keys(_stockFieldIndex || {})) {
+        const current = _stockFieldIndex[stockKey][currentDateFile];
+        if (!current) continue;
+        stats.total++;
+        const previous = _stockFieldIndex[stockKey][previousDate];
+        if (Number.isFinite(current.high) && Number.isFinite(previous?.high)) stats.comparable++;
+        else stats.missing++;
     }
-    return false;
+    return stats;
 }
 
 /**
@@ -141,6 +150,9 @@ function currentDateHasPriceData() {
  * 返回 [{ name, code, net, change, stockDays, sectors, _allSectors }]，按连续天数降序
  */
 function calcTodayLeaders() {
+    if (_todayLeadersCache && _todayLeadersCache.dateFile === currentDateFile) {
+        return _todayLeadersCache.value;
+    }
     const activeData = getActiveData();
     const industryList = activeData.行业板块资金流向 || [];
     const conceptList = activeData.概念板块资金流向 || [];
@@ -155,13 +167,13 @@ function calcTodayLeaders() {
 
     // 建立当前日期 股票→所属板块 的映射（复用共享函数 buildStockSectorsMap）
     const stockSectors = buildStockSectorsMap();
-    const stockInfo = new Map(); // 股票→{code, net, change}（取首次出现的字段）
+    const stockInfo = new Map(); // stockKey→股票字段（取首次出现的字段）
     for (const sector of allCurrentSectors) {
         if (!condNotPlaceholder(sector)) continue;
-        const stocks = sector._parsedStocks || parseStocks(sector.涉及股票);
+        const stocks = getSectorStocks(sector);
         for (const stock of stocks) {
-            if (!stockInfo.has(stock.name)) {
-                stockInfo.set(stock.name, stock);
+            if (!stockInfo.has(stock.stockKey)) {
+                stockInfo.set(stock.stockKey, stock);
             }
         }
     }
@@ -171,19 +183,21 @@ function calcTodayLeaders() {
 
     // 筛选龙头股票（条件集中在 passesLeaderConditions，加星逻辑也复用，自动同步）
     const leaders = [];
-    for (const [stockName, sectors] of stockSectors) {
-        const stockDays = stockConsecutiveDays.get(stockName) || 0;
-        if (!passesLeaderConditions(stockName, stockDays, sectors, focusSectors, sectorMaps)) continue;
+    for (const [stockKey, sectors] of stockSectors) {
+        const stockDays = stockConsecutiveDays.get(stockKey) || 0;
+        if (!passesLeaderConditions(stockKey, stockDays, sectors, focusSectors, sectorMaps)) continue;
 
-        const info = stockInfo.get(stockName) || {};
+        const info = stockInfo.get(stockKey) || {};
         const sectorNames = sectors
             .filter(s => s.days >= 1)
             .map(s => `${s.name}(${s.type}${s.days}天)`);
         leaders.push({
-            name: stockName,
+            name: info.name || stockKey,
+            stockKey,
             code: info.code || '',
             net: info.net || '',
             change: info.change || '',
+            changePct: info.changePct,
             stockDays: stockDays,
             sectors: sectorNames,
             _allSectors: sectors
@@ -192,6 +206,7 @@ function calcTodayLeaders() {
 
     // 按股票连续天数降序排列
     leaders.sort((a, b) => b.stockDays - a.stockDays || a.name.localeCompare(b.name));
+    _todayLeadersCache = { dateFile: currentDateFile, value: leaders };
     return leaders;
 }
 
@@ -202,8 +217,14 @@ function updateLeaderArea(activeData) {
     // 条件J提示：开关开启但当前日期无价格数据时，标注该条件未生效（不影响筛选行为）
     const condHint = document.getElementById('condHighHigherHint');
     if (condHint) {
-        const showHint = LEADER_COND_HIGH_HIGHER && !currentDateHasPriceData();
-        condHint.textContent = showHint ? '（当前日期无价格数据，未生效）' : '';
+        const priceStats = getCurrentPriceDataStats();
+        if (!LEADER_COND_HIGH_HIGHER || priceStats.total === 0 || priceStats.missing === 0) {
+            condHint.textContent = '';
+        } else if (priceStats.comparable === 0) {
+            condHint.textContent = '（当前日期无可比较价格，未生效）';
+        } else {
+            condHint.textContent = `（${priceStats.missing}/${priceStats.total} 只缺少可比较价格，仅对其余股票生效）`;
+        }
     }
 
     const industryList = activeData.行业板块资金流向 || [];
@@ -226,9 +247,9 @@ function updateLeaderArea(activeData) {
 
     const html = leaders.map(leader => {
         const secJson = escapeHtml(JSON.stringify(leader._allSectors));
-        const changeNum = parseFloat(leader.change);
-        const changeColor = changeNum >= 0 ? '#e53935' : '#43a047';
-        const changeArrow = changeNum >= 0 ? '▲' : '▼';
+        const changeNum = leader.changePct;
+        const changeColor = changeNum != null && changeNum >= 0 ? '#e53935' : '#43a047';
+        const changeArrow = changeNum != null && changeNum >= 0 ? '▲' : '▼';
         const isPreselected = isStockPreselected(leader.name);
         return `<span class="leader-item leader-clickable${isPreselected ? ' leader-preselected' : ''}" title="连续流入${leader.stockDays}天 | 所属板块: ${leader.sectors.map(s => escapeHtml(s)).join('、')}" data-stock="${escapeHtml(leader.name)}" data-sectors='${secJson}'>
             <span class="leader-name">${escapeHtml(leader.name)}</span>
@@ -247,54 +268,94 @@ function updateLeaderArea(activeData) {
  *   - getSectorPayload(name, type): 返回 { matched, stocks, common } 供点击时打开弹窗
  */
 function calcFocusSectorsData(activeData) {
+    if (_focusDataCache && _focusDataCache.dateFile === currentDateFile && _focusDataCache.data === activeData) {
+        return _focusDataCache.value;
+    }
     const industryList = activeData.行业板块资金流向 || [];
     const conceptList = activeData.概念板块资金流向 || [];
 
     const industries = filterSectors(industryList, '行业板块资金流向').map(i => ({
         name: i.板块,
         days: calcConsecutiveInflow(i.板块, '行业板块资金流向'),
-        stocks: new Set((i._parsedStocks || parseStocks(i.涉及股票)).map(s => s.name)),
+        stocks: new Map(getSectorStocks(i).map(s => [s.stockKey, s])),
         stockStr: i.涉及股票
     }));
 
     const concepts = filterSectors(conceptList, '概念板块资金流向').map(c => ({
         name: c.板块,
         days: calcConsecutiveInflow(c.板块, '概念板块资金流向'),
-        stocks: new Set((c._parsedStocks || parseStocks(c.涉及股票)).map(s => s.name)),
+        stocks: new Map(getSectorStocks(c).map(s => [s.stockKey, s])),
         stockStr: c.涉及股票
     }));
 
-    // 建立行业↔概念共同股票配对（供弹窗展示关联板块使用）
-    const allPairs = [];
-    industries.forEach(ind => {
-        concepts.forEach(con => {
-            const common = [...ind.stocks].filter(s => con.stocks.has(s));
-            if (common.length > 0) {
-                allPairs.push({ industry: ind, concept: con, commonCount: common.length, commonStocks: common });
+    // 以股票为中心建立行业↔概念关联，只生成真实存在的组合
+    const memberships = new Map();
+    for (const industry of industries) {
+        for (const stockKey of industry.stocks.keys()) {
+            if (!memberships.has(stockKey)) memberships.set(stockKey, { industries: [], concepts: [] });
+            memberships.get(stockKey).industries.push(industry);
+        }
+    }
+    for (const concept of concepts) {
+        for (const stockKey of concept.stocks.keys()) {
+            if (!memberships.has(stockKey)) memberships.set(stockKey, { industries: [], concepts: [] });
+            memberships.get(stockKey).concepts.push(concept);
+        }
+    }
+    const pairMap = new Map();
+    for (const [stockKey, membership] of memberships) {
+        for (const industry of membership.industries) {
+            for (const concept of membership.concepts) {
+                const key = industry.name + '|' + concept.name;
+                if (!pairMap.has(key)) pairMap.set(key, { industry, concept, commonStocks: [] });
+                const stock = industry.stocks.get(stockKey) || concept.stocks.get(stockKey);
+                pairMap.get(key).commonStocks.push(stock ? stock.name : stockKey);
             }
-        });
-    });
+        }
+    }
+    const allPairs = [...pairMap.values()].map(pair => ({ ...pair, commonCount: pair.commonStocks.length }));
+    const payloadBySectorKey = new Map();
 
-    /** 计算某关注板块打开弹窗所需的 { matched, stocks, common } */
-    function getSectorPayload(name, type) {
-        const isIndustry = type === '行业板块资金流向';
+    function buildPayload(item, isIndustry) {
         const targetField = isIndustry ? 'industry' : 'concept';
         const otherField = isIndustry ? 'concept' : 'industry';
-        const relatedPairs = allPairs.filter(p => p[targetField].name === name);
-        const matched = relatedPairs.map(p => ({
-            name: p[otherField].name,
-            days: p[otherField].days,
-            commonStocks: p.commonStocks
+        const relatedPairs = allPairs.filter(pair => pair[targetField] === item);
+        const matched = relatedPairs.map(pair => ({
+            name: pair[otherField].name,
+            days: pair[otherField].days,
+            commonStocks: pair.commonStocks
         }));
-        const common = new Set(relatedPairs.flatMap(p => p.commonStocks));
-        const list = isIndustry ? industries : concepts;
-        const item = list.find(s => s.name === name);
-        const stocks = parseStocks(item ? item.stockStr || '' : '')
-            .map(s => ({ name: s.name, code: s.code, net: s.net, change: s.change }));
-        return { matched, stocks, common: [...common] };
+        const common = [...new Set(relatedPairs.flatMap(pair => pair.commonStocks))];
+        const stocks = [...item.stocks.values()].map(stock => ({
+            name: stock.name,
+            code: stock.code,
+            stockKey: stock.stockKey,
+            net: stock.net,
+            netYi: stock.netYi,
+            change: stock.change,
+            changePct: stock.changePct
+        }));
+        return { matched, stocks, common };
+    }
+    for (const item of industries) payloadBySectorKey.set('行业板块资金流向|' + item.name, buildPayload(item, true));
+    for (const item of concepts) payloadBySectorKey.set('概念板块资金流向|' + item.name, buildPayload(item, false));
+
+    function getSectorPayload(name, type) {
+        return payloadBySectorKey.get(type + '|' + name) || { matched: [], stocks: [], common: [] };
     }
 
-    return { industries, concepts, allPairs, getSectorPayload };
+    const value = { industries, concepts, allPairs, payloadBySectorKey, getSectorPayload };
+    _focusDataCache = { dateFile: currentDateFile, data: activeData, value };
+    return value;
+}
+
+function openFocusSector(sectorName, dataType) {
+    if (!sectorName || !dataType) return false;
+    const { getSectorPayload } = calcFocusSectorsData(getActiveData());
+    const { matched, stocks, common } = getSectorPayload(sectorName, dataType);
+    const typeLabel = dataType === '行业板块资金流向' ? '🏛️' : '💡';
+    showSingleTrendModal(sectorName, dataType, typeLabel + ' ' + sectorName, matched, stocks, new Set(common));
+    return true;
 }
 
 function updateFocusArea(activeData) {
@@ -302,7 +363,7 @@ function updateFocusArea(activeData) {
     if (!container) return;
     container.innerHTML = '';
 
-    const { industries, concepts, allPairs } = calcFocusSectorsData(activeData);
+    const { industries, concepts } = calcFocusSectorsData(activeData);
 
     if (industries.length === 0 && concepts.length === 0) {
         container.innerHTML = renderEmptyState('📌', '暂无符合条件的关注板块', '尝试切换日期或调整筛选条件');
@@ -323,14 +384,6 @@ function updateFocusArea(activeData) {
             div.innerHTML = `<span style="color:#2563eb;font-weight:600;">${escapeHtml(item.name)}</span> <span style="font-size:11px;color:${daysColor};font-weight:700;">${item.days}天</span>`;
             div.setAttribute('data-sector', item.name);
             div.setAttribute('data-type', '行业板块资金流向');
-            const matched = allPairs
-                .filter(p => p.industry.name === item.name)
-                .map(p => ({ name: p.concept.name, days: p.concept.days, commonStocks: p.commonStocks }));
-            div.setAttribute('data-matched', JSON.stringify(matched));
-            const stocks = parseStocks(item.stockStr || '');
-            div.setAttribute('data-stocks', JSON.stringify(stocks.map(s => ({ name: s.name, code: s.code, net: s.net, change: s.change }))));
-            const commonStocks = new Set(allPairs.filter(p => p.industry.name === item.name).flatMap(p => p.commonStocks));
-            div.setAttribute('data-common', JSON.stringify([...commonStocks]));
             indSection.appendChild(div);
         });
         container.appendChild(indSection);
@@ -349,14 +402,6 @@ function updateFocusArea(activeData) {
             div.innerHTML = `<span style="color:#7c3aed;font-weight:600;">${escapeHtml(item.name)}</span> <span style="font-size:11px;color:${daysColor};font-weight:700;">${item.days}天</span>`;
             div.setAttribute('data-sector', item.name);
             div.setAttribute('data-type', '概念板块资金流向');
-            const matched = allPairs
-                .filter(p => p.concept.name === item.name)
-                .map(p => ({ name: p.industry.name, days: p.industry.days, commonStocks: p.commonStocks }));
-            div.setAttribute('data-matched', JSON.stringify(matched));
-            const stocks = parseStocks(item.stockStr || '');
-            div.setAttribute('data-stocks', JSON.stringify(stocks.map(s => ({ name: s.name, code: s.code, net: s.net, change: s.change }))));
-            const commonStocks = new Set(allPairs.filter(p => p.concept.name === item.name).flatMap(p => p.commonStocks));
-            div.setAttribute('data-common', JSON.stringify([...commonStocks]));
             conSection.appendChild(div);
         });
         container.appendChild(conSection);

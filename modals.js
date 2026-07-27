@@ -48,7 +48,7 @@ function renderModalTable() {
             // 1. 板块名称匹配
             if (item.板块.toLowerCase().includes(searchTerm)) return true;
             // 2. 涉及股票名称匹配
-            const stocks = item._parsedStocks || parseStocks(item.涉及股票);
+            const stocks = getSectorStocks(item);
             return stocks.some(stock => stock.name.toLowerCase().includes(searchTerm));
         });
     }
@@ -167,23 +167,29 @@ function showAllData(type) {
             _stockCount: Number(item.股票数量),
             _days: days,
             _highlighted: highlighted,
-            _parsedStocks: item._parsedStocks || parseStocks(item.涉及股票)
+            _parsedStocks: getSectorStocks(item)
         };
     });
 
-    // 第二步：预计算配对信息（行业↔概念 共同股票）
+    // 第二步：对侧关注板块只构建一次股票 Set，再计算当前全部板块的关联
+    const otherIndex = otherList.map(otherItem => ({
+        item: otherItem,
+        days: calcConsecutiveInflow(otherItem.板块, otherType),
+        stocks: new Set(getSectorStocks(otherItem).map(stock => stock.stockKey))
+    }));
     modalDataCache.forEach(item => {
-        const itemStocks = new Set(item._parsedStocks.map(s => s.name));
+        const stocksByKey = new Map(item._parsedStocks.map(stock => [stock.stockKey, stock]));
         const matched = [];
-        otherList.forEach(otherItem => {
-            const otherStocks = new Set((otherItem._parsedStocks || parseStocks(otherItem.涉及股票)).map(s => s.name));
-            const common = [...itemStocks].filter(s => otherStocks.has(s));
+        otherIndex.forEach(other => {
+            const common = [...stocksByKey.keys()]
+                .filter(stockKey => other.stocks.has(stockKey))
+                .map(stockKey => stocksByKey.get(stockKey).name);
             if (common.length > 0) {
                 matched.push({
-                    name: otherItem.板块,
-                    days: calcConsecutiveInflow(otherItem.板块, otherType),
+                    name: other.item.板块,
+                    days: other.days,
                     commonStocks: common,
-                    _dataType: otherType // 用于标记数据类型
+                    _dataType: otherType
                 });
             }
         });
@@ -249,11 +255,7 @@ function getTrendData(sectorName, type, field) {
     return { dates, values };
 }
 
-function createBarChart(ctx, trendData, existingChart, field) {
-    if (existingChart) {
-        existingChart.destroy();
-    }
-
+function updateTrendBarChart(existingChart, ctx, trendData, field) {
     const colors = trendData.values.map(v => {
         if (v == null) return 'rgba(150, 150, 150, 0.5)';
         if (field === 'net') {
@@ -271,7 +273,17 @@ function createBarChart(ctx, trendData, existingChart, field) {
 
     const tooltipLabel = field === 'net' ? '主力净额' : '成交额';
     const yAxisTitle = field === 'net' ? '主力净额（亿元）' : '成交额（亿）';
-    const valueSuffix = field === 'net' ? '' : '';
+
+    if (existingChart) {
+        existingChart.data.labels = trendData.dates;
+        existingChart.data.datasets[0].data = trendData.values;
+        existingChart.data.datasets[0].backgroundColor = colors;
+        existingChart.data.datasets[0].borderColor = borderColors;
+        existingChart.options.scales.y.title.text = yAxisTitle;
+        existingChart.$tooltipLabel = tooltipLabel;
+        existingChart.update();
+        return existingChart;
+    }
 
     const chart = new Chart(ctx, {
         type: 'bar',
@@ -297,7 +309,7 @@ function createBarChart(ctx, trendData, existingChart, field) {
                         label: function(context) {
                             const val = context.parsed.y;
                             const sign = val >= 0 ? '+' : '';
-                            return `${tooltipLabel}: ${sign}${val.toFixed(2)} 亿`;
+                            return `${context.chart.$tooltipLabel || tooltipLabel}: ${sign}${val.toFixed(2)} 亿`;
                         }
                     }
                 }
@@ -336,6 +348,7 @@ function createBarChart(ctx, trendData, existingChart, field) {
         }
     });
 
+    chart.$tooltipLabel = tooltipLabel;
     return chart;
 }
 
@@ -363,22 +376,26 @@ function renderStockTable(panelList, stocks, bgSet, starSet, stockDaysMap, sortS
         sortedStocks = [...stocks].sort((a, b) => {
             let va, vb;
             if (sortState.key === 'days') {
-                va = sdm.get(a.name) || 0;
-                vb = sdm.get(b.name) || 0;
+                va = sdm.get(a.stockKey || resolveStockKey(a.name)) || 0;
+                vb = sdm.get(b.stockKey || resolveStockKey(b.name)) || 0;
             } else { // net
-                va = parseFloat(a.net); if (isNaN(va)) va = -Infinity;
-                vb = parseFloat(b.net); if (isNaN(vb)) vb = -Infinity;
+                va = a.netYi == null ? -Infinity : a.netYi;
+                vb = b.netYi == null ? -Infinity : b.netYi;
             }
             return (va - vb) * dir;
         });
     } else {
         // 默认：加星股票始终在最上面，其次共同股票，其余在后，各自按主力净额降序
-        const starred = stocks.filter(s => ss.has(s.name))
-            .sort((a, b) => (parseFloat(b.net) || -999) - (parseFloat(a.net) || -999));
-        const commonOnly = stocks.filter(s => !ss.has(s.name) && bs.has(s.name))
-            .sort((a, b) => (parseFloat(b.net) || -999) - (parseFloat(a.net) || -999));
-        const otherStocks = stocks.filter(s => !ss.has(s.name) && !bs.has(s.name))
-            .sort((a, b) => (parseFloat(b.net) || -999) - (parseFloat(a.net) || -999));
+        const byNetDesc = (a, b) => (b.netYi ?? -Infinity) - (a.netYi ?? -Infinity);
+        const starred = stocks.filter(s => ss.has(s.stockKey || resolveStockKey(s.name))).sort(byNetDesc);
+        const commonOnly = stocks.filter(s => {
+            const stockKey = s.stockKey || resolveStockKey(s.name);
+            return !ss.has(stockKey) && (bs.has(s.name) || bs.has(stockKey));
+        }).sort(byNetDesc);
+        const otherStocks = stocks.filter(s => {
+            const stockKey = s.stockKey || resolveStockKey(s.name);
+            return !ss.has(stockKey) && !bs.has(s.name) && !bs.has(stockKey);
+        }).sort(byNetDesc);
         sortedStocks = [...starred, ...commonOnly, ...otherStocks];
     }
 
@@ -393,20 +410,21 @@ function renderStockTable(panelList, stocks, bgSet, starSet, stockDaysMap, sortS
     const tbody = document.createElement('tbody');
     sortedStocks.forEach((stock, i) => {
         const tr = document.createElement('tr');
-        const isBg = bs.has(stock.name);
-        const isStarred = ss.has(stock.name);
+        const stockIdentity = stock.stockKey || resolveStockKey(stock.name);
+        const isBg = bs.has(stock.name) || bs.has(stockIdentity);
+        const isStarred = ss.has(stockIdentity);
         if (isBg) tr.classList.add('stock-common');
         if (_selectedStockName && stock.name === _selectedStockName) tr.classList.add('row-selected');
-        const changeNum = parseFloat(stock.net);
-        const changeCls = changeNum >= 0 ? 'stock-change-positive' : 'stock-change-negative';
+        const changeNum = stock.netYi;
+        const changeCls = changeNum != null && changeNum >= 0 ? 'stock-change-positive' : 'stock-change-negative';
         // 涨跌幅拼在股票名称后
-        const chgNum = parseFloat(stock.change);
+        const chgNum = stock.changePct;
         let changeBadge = '';
         if (stock.change && !isNaN(chgNum)) {
             const chgColor = chgNum >= 0 ? '#e53935' : '#43a047';
             changeBadge = ` <span style="color:${chgColor};font-size:11px;">${chgNum >= 0 ? '▲' : '▼'} ${escapeHtml(stock.change)}</span>`;
         }
-        const stockDays = sdm.get(stock.name) || 0;
+        const stockDays = sdm.get(stockIdentity) || 0;
         const daysCls = stockDays >= 3 ? 'stock-days-high' : 'stock-days-normal';
         const isPreselected = isStockPreselected(stock.name);
         tr.innerHTML = `
@@ -417,6 +435,7 @@ function renderStockTable(panelList, stocks, bgSet, starSet, stockDaysMap, sortS
         `;
         tr.style.cursor = 'pointer';
         tr.dataset.stockName = stock.name;
+        tr.dataset.stockKey = stockIdentity;
         tr.dataset.stockCode = stock.code;
         tbody.appendChild(tr);
     });
@@ -560,7 +579,7 @@ function showStocksInPanel(sectorName, type, commonStockNames) {
         return;
     }
 
-    const stocks = sector._parsedStocks || parseStocks(sector.涉及股票);
+    const stocks = getSectorStocks(sector);
 
     if (panelTitle) {
         const typeLabel = type === '行业板块资金流向' ? '🏛️' : '💡';
@@ -582,18 +601,15 @@ function switchTrendView(sectorName, type, commonStockNames) {
     // 股票面板切回涉及股票页签，展示新板块的股票
     switchStockPanelTab('stocks');
 
-    // 更新图表
-    if (trendNetChart) { trendNetChart.destroy(); trendNetChart = null; }
-    if (trendTurnoverChart) { trendTurnoverChart.destroy(); trendTurnoverChart = null; }
-
+    // 更新图表（复用现有 Chart 实例，减少闪烁和资源分配）
     const netTrend = getTrendData(sectorName, type, 'net');
     const turnoverTrend = getTrendData(sectorName, type, 'turnover');
 
     const netCtx = document.getElementById('trendNetChart').getContext('2d');
-    trendNetChart = createBarChart(netCtx, netTrend, trendNetChart, 'net');
+    trendNetChart = updateTrendBarChart(trendNetChart, netCtx, netTrend, 'net');
 
     const turnoverCtx = document.getElementById('trendTurnoverChart').getContext('2d');
-    trendTurnoverChart = createBarChart(turnoverCtx, turnoverTrend, trendTurnoverChart, 'turnover');
+    trendTurnoverChart = updateTrendBarChart(trendTurnoverChart, turnoverCtx, turnoverTrend, 'turnover');
 
     // 更新股票面板
     showStocksInPanel(sectorName, type, commonStockNames);
@@ -614,9 +630,6 @@ function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, c
     switchTrendChartTab('chart');
     // 股票面板默认显示涉及股票页签
     switchStockPanelTab('stocks');
-
-    if (trendNetChart) { trendNetChart.destroy(); trendNetChart = null; }
-    if (trendTurnoverChart) { trendTurnoverChart.destroy(); trendTurnoverChart = null; }
 
     const typeIcon = type === '行业板块资金流向' ? '🏛️' : '💡';
     const sectorColor = type === '行业板块资金流向' ? '#2563eb' : '#7c3aed';
@@ -723,9 +736,9 @@ function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, c
     const netTrend = getTrendData(sectorName, type, 'net');
     const turnoverTrend = getTrendData(sectorName, type, 'turnover');
     const netCtx = document.getElementById('trendNetChart').getContext('2d');
-    trendNetChart = createBarChart(netCtx, netTrend, trendNetChart, 'net');
+    trendNetChart = updateTrendBarChart(trendNetChart, netCtx, netTrend, 'net');
     const turnoverCtx = document.getElementById('trendTurnoverChart').getContext('2d');
-    trendTurnoverChart = createBarChart(turnoverCtx, turnoverTrend, trendTurnoverChart, 'turnover');
+    trendTurnoverChart = updateTrendBarChart(trendTurnoverChart, turnoverCtx, turnoverTrend, 'turnover');
 
     document.getElementById('trendModalOverlay').classList.add('active');
 }
@@ -733,6 +746,8 @@ function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, c
 function closeTrendModal(event) {
     if (event && event.target !== event.currentTarget) return;
     document.getElementById('trendModalOverlay').classList.remove('active');
+    _stockChartGeneration++;
+    disposeTradingViewWidget();
 
     if (trendNetChart) {
         trendNetChart.destroy();
@@ -763,7 +778,7 @@ function showStockLeader(stockName, sectors) {
     const sector = sectorList.find(s => s.板块 === best.name);
     if (!sector) return;
 
-    const stocks = sector._parsedStocks || parseStocks(sector.涉及股票);
+    const stocks = getSectorStocks(sector);
 
     // 将股票所属的所有其他板块作为匹配板块展示
     const matchedSectors = sectors
@@ -783,7 +798,8 @@ function showStockLeader(stockName, sectors) {
     );
 
     // 从今日推荐进入，直接加载个股详情
-    const stockCode = _stockFieldIndex[stockName] && Object.values(_stockFieldIndex[stockName])[0]?.code;
+    const stockKey = resolveStockKey(stockName);
+    const stockCode = _stockFieldIndex[stockKey] && Object.values(_stockFieldIndex[stockKey])[0]?.code;
     if (stockCode) {
         loadTrendStock(stockName, stockCode);
     }
@@ -806,6 +822,15 @@ function switchTrendChartTab(tab) {
 // 记住当前加载的股票，供切换数据源时重新加载
 let _currentStockName = '';
 let _currentStockCode = '';
+let _tradingViewWidget = null;
+let _stockChartGeneration = 0;
+
+function disposeTradingViewWidget() {
+    if (_tradingViewWidget && typeof _tradingViewWidget.remove === 'function') {
+        try { _tradingViewWidget.remove(); } catch (error) { console.warn('清理 TradingView 组件失败:', error); }
+    }
+    _tradingViewWidget = null;
+}
 
 /** 获取当前选中的数据源 */
 function getStockChartSource() {
@@ -815,12 +840,16 @@ function getStockChartSource() {
 
 /** 在弹窗个股详情页签中加载股票（支持三种数据源切换） */
 function loadTrendStock(stockName, stockCode) {
-    if (!stockCode) {
-        alert('未找到股票「' + stockName + '」的代码');
+    const quote = resolveStockQuote(stockCode);
+    if (!quote) {
+        alert('股票「' + stockName + '」缺少有效的六位 A 股代码');
         return;
     }
+    const { code, market } = quote;
+    const generation = ++_stockChartGeneration;
+    disposeTradingViewWidget();
     _currentStockName = stockName;
-    _currentStockCode = stockCode;
+    _currentStockCode = code;
 
     const source = getStockChartSource();
     const container = document.getElementById('trendStockIframe');
@@ -828,9 +857,7 @@ function loadTrendStock(stockName, stockCode) {
 
     if (source === 'sina_chart') {
         // 新浪图表：根据周期按钮选择显示对应图片
-        const exchange = stockCode.startsWith('6') ? 'sh' : 'sz';
-        const symbol = exchange + stockCode;
-        const ts = Date.now(); // 防缓存
+        const symbol = market.toLowerCase() + code;
         const activePeriodBtn = document.querySelector('#sinaPeriodTabs .period-btn.active');
         const period = activePeriodBtn ? activePeriodBtn.dataset.period : 'daily';
         const periods = period === 'all'
@@ -840,19 +867,36 @@ function loadTrendStock(stockName, stockCode) {
         const itemStyle = isAll
             ? 'flex:1 1 48%;min-width:280px;text-align:center;'
             : 'width:100%;text-align:center;';
-        let html = '<div style="display:flex;flex-wrap:wrap;gap:8px;height:100%;overflow:auto;padding:4px;">';
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;height:100%;overflow:auto;padding:4px;';
         periods.forEach(function(p) {
-            html += '<div style="' + itemStyle + '">';
-            if (isAll) html += '<div style="font-size:12px;color:#888;margin-bottom:2px;">' + p.label + '</div>';
-            html += '<img src="https://image.sinajs.cn/newchart/' + p.key + '/n/' + symbol + '.gif?' + ts + '" style="width:100%;border-radius:4px;" />';
-            html += '</div>';
+            const item = document.createElement('div');
+            item.style.cssText = itemStyle;
+            if (isAll) {
+                const label = document.createElement('div');
+                label.style.cssText = 'font-size:12px;color:#888;margin-bottom:2px;';
+                label.textContent = p.label;
+                item.appendChild(label);
+            }
+            const image = document.createElement('img');
+            image.src = 'https://image.sinajs.cn/newchart/' + encodeURIComponent(p.key) + '/n/' + encodeURIComponent(symbol) + '.gif';
+            image.alt = stockName + (p.label ? ' ' + p.label : '') + '行情图';
+            image.style.cssText = 'width:100%;border-radius:4px;';
+            item.appendChild(image);
+            wrapper.appendChild(item);
         });
-        html += '</div>';
-        container.innerHTML = html;
+        container.appendChild(wrapper);
     } else {
         // TradingView 嵌入（tv.js 组件版，支持 overrides/studies_overrides 改配色为 A 股红涨绿跌）
-        const tvExchange = stockCode.startsWith('6') ? 'SSE' : 'SZSE';
-        const symbol = tvExchange + ':' + stockCode;
+        const symbol = StockUtils.getTradingViewSymbol(code);
+        if (!symbol) {
+            const message = document.createElement('div');
+            message.style.cssText = 'display:flex;height:100%;align-items:center;justify-content:center;color:#666;text-align:center;padding:24px;box-sizing:border-box;';
+            message.textContent = '该股票暂未配置 TradingView 行情，请切换至新浪图表查看。';
+            container.appendChild(message);
+            switchTrendChartTab('stock');
+            return;
+        }
         const up = '#e53935';   // 涨=红
         const down = '#43a047'; // 跌=绿
         // 用内部子容器承载 widget，避免销毁固定 id 的外层容器（切换股票时可反复重建）
@@ -860,7 +904,8 @@ function loadTrendStock(stockName, stockCode) {
         inner.id = 'tvChartInner';
         inner.style.cssText = 'width:100%;height:100%;';
         container.appendChild(inner);
-        new TradingView.widget({
+        if (generation !== _stockChartGeneration) return;
+        _tradingViewWidget = new TradingView.widget({
             container_id: 'tvChartInner',
             symbol: symbol,
             interval: 'D',

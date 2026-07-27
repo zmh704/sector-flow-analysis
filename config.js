@@ -13,6 +13,7 @@ const CHANGE_LIMIT_PCT = 5;       // 放量时涨跌幅限制（%）
 let LEADER_COND_HIGH_HIGHER = true; // 今日推荐条件：当日最高价 > 前一日最高价（设为false可关闭此条件）
 const TREND_CHART_DAYS = 10;      // 趋势图显示天数
 const STOCK_CHART_SOURCE = 'sina_chart'; // 个股图表默认数据源：'sina_chart'（新浪图片） | 'tradingview'（TV嵌入）
+const MAX_UPLOAD_BYTES = 20 * 1024 * 1024; // Excel 上传上限（20 MiB，与服务端默认值一致）
 
 // ===== 通用工具函数 =====
 
@@ -86,8 +87,14 @@ let _sortedDateFileList = null;
 
 // 计算缓存（随数据/选中日期变化而失效）
 let _consecutiveInflowCache = null;  // Map<"板块|type", days>
-let _stockDaysCache = null;          // Map<stockName, days>
-let _stockFieldIndex = null;         // { [stockName]: { [dateFile]: { volume, net, amount(亿,数值), change, code, high, open, low, close } } }
+let _stockDaysCache = null;          // Map<stockKey, days>
+let _stockFieldIndex = null;         // { [stockKey]: { [dateFile]: { volume, net, amount(亿,数值), change, code, high, open, low, close } } }
+let _stockNameKeyIndex = null;       // Map<股票名称, stockKey>，兼容旧名称型交互和 localStorage
+let _sectorFilterCache = null;       // Map<"日期|类型", Array>，当前日期板块筛选结果
+let _focusDataCache = null;          // { dateFile, data, value }，关注板块派生 view model
+let _todayLeadersCache = null;       // { dateFile, value }，今日推荐派生结果
+let _loadGeneration = 0;             // 数据加载代次，最后一次请求胜出
+let _loadAbortController = null;     // 取消上一轮数据 fetch
 
 /**
  * 清空所有缓存（数据完全重置时调用）。
@@ -98,6 +105,10 @@ function invalidateAllCaches() {
     _consecutiveInflowCache = null;
     _stockDaysCache = null;
     _stockFieldIndex = null;
+    _stockNameKeyIndex = null;
+    _sectorFilterCache = null;
+    _focusDataCache = null;
+    _todayLeadersCache = null;
     // _stockSectorsMap 在 calc.js 中声明，控制流确保调用时已加载
     if (typeof _stockSectorsMap !== 'undefined') _stockSectorsMap = null;
 }
@@ -109,6 +120,9 @@ function invalidateAllCaches() {
 function invalidateDateCaches() {
     _consecutiveInflowCache = null;
     _stockDaysCache = null;
+    _sectorFilterCache = null;
+    _focusDataCache = null;
+    _todayLeadersCache = null;
     if (typeof _stockSectorsMap !== 'undefined') _stockSectorsMap = null;
 }
 
@@ -117,30 +131,44 @@ const _preselectedStocks = new Set(
     (() => {
         try {
             const saved = localStorage.getItem('preselectedStocks');
-            return saved ? JSON.parse(saved) : [];
+            if (!saved) return [];
+            const parsed = JSON.parse(saved);
+            return Array.isArray(parsed) ? parsed : (Array.isArray(parsed.items) ? parsed.items : []);
         } catch { return []; }
     })()
 );
 
+function getPreselectKey(stockIdentity) {
+    return resolveStockKey(stockIdentity);
+}
+
+function savePreselectedStocks() {
+    try {
+        localStorage.setItem('preselectedStocks', JSON.stringify({ version: 2, items: [..._preselectedStocks] }));
+    } catch { }
+}
+
 /** 切换股票的预选/取消状态，返回切换后的状态（true=预选） */
-function togglePreselectStock(stockName) {
-    if (_preselectedStocks.has(stockName)) {
-        _preselectedStocks.delete(stockName);
-        try { localStorage.setItem('preselectedStocks', JSON.stringify([..._preselectedStocks])); } catch { }
+function togglePreselectStock(stockIdentity) {
+    const key = getPreselectKey(stockIdentity);
+    if (_preselectedStocks.has(key)) {
+        _preselectedStocks.delete(key);
+        savePreselectedStocks();
         return false;
     } else {
-        _preselectedStocks.add(stockName);
-        try { localStorage.setItem('preselectedStocks', JSON.stringify([..._preselectedStocks])); } catch { }
+        _preselectedStocks.add(key);
+        savePreselectedStocks();
         return true;
     }
 }
 
 /** 判断股票是否已被预选 */
-function isStockPreselected(stockName) {
-    return _preselectedStocks.has(stockName);
+function isStockPreselected(stockIdentity) {
+    const key = getPreselectKey(stockIdentity);
+    return _preselectedStocks.has(key) || _preselectedStocks.has(stockIdentity);
 }
 
-/** 获取所有预选股票名称的数组 */
+/** 获取所有预选股票 key 的数组 */
 function getPreselectedStocks() {
     return [..._preselectedStocks];
 }

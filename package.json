@@ -1,7 +1,18 @@
 {
   "name": "stock-sector-chart",
   "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test",
+    "check": "node --check server.js && node --check analyze.js && node --check reprocess.js && node --check generate-list.js && node --check stock-utils.js && node --check config.js && node --check calc.js && node --check data.js && node --check charts.js && node --check leaders.js && node --check modals.js && node --check app.js",
+    "generate:list": "node generate-list.js",
+    "reprocess": "node reprocess.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
-    "chart.js": "^4.4.1"
+    "chart.js": "^4.4.1",
+    "xlsx": "^0.18.5"
   }
 }

@@ -17,7 +17,10 @@ function extractDateLabel(filename) {
  * 例：处理时间 2026/1/5 + 文件「12月20日」→ 20251220。
  */
 function toDateNum(label, genTime) {
-    const m = label.match(/(\d{1,2})月(\d{1,2})日/);
+    const iso = String(label).match(/(\d{4})[-年](\d{1,2})[-月](\d{1,2})日?/);
+    if (iso) return Number(iso[1]) * 10000 + Number(iso[2]) * 100 + Number(iso[3]);
+
+    const m = String(label).match(/(\d{1,2})月(\d{1,2})日/);
     if (!m) return 0;
     const fileMonth = Number(m[1]);
     let year = new Date().getFullYear();
@@ -45,74 +48,79 @@ function sortDateFileList() {
     return _sortedDateFileList;
 }
 
+/** 创建一份可独立构建的数据状态。 */
+function createLoadedState() {
+    return {
+        allDataByDate: {},
+        dateFileList: [],
+        stockFieldIndex: {},
+        stockNameKeyIndex: new Map()
+    };
+}
+
 /**
  * 存储单个日期的数据，并预解析股票、构建字段索引。
- * @param {string} filename
- * @param {Object} data
- * @param {{skipInvalidate?: boolean}} [opts] - 批量加载时传 skipInvalidate:true，
- *        由调用方在全部加载完成后统一调用一次 invalidateDateCaches()
+ * 传入 state 时只修改该局部状态；省略时写入当前页面状态。
  */
-function storeDataForDate(filename, data, opts) {
+function storeDataForDate(filename, data, opts, state) {
+    const target = state || {
+        allDataByDate,
+        dateFileList,
+        stockFieldIndex: _stockFieldIndex || {},
+        stockNameKeyIndex: _stockNameKeyIndex || new Map()
+    };
     const key = filename;
-    allDataByDate[key] = {
-        filename: filename,
-        dateLabel: extractDateLabel(filename),
-        data: data
+    target.allDataByDate[key] = {
+        filename,
+        dateLabel: opts?.tradingDate || data.交易日期 || extractDateLabel(filename),
+        data
     };
 
-    if (!dateFileList.includes(key)) {
-        dateFileList.push(key);
-        _sortedDateFileList = null;
-    }
+    if (!target.dateFileList.includes(key)) target.dateFileList.push(key);
 
-    // 预解析涉及股票并缓存
     const industryList = data.行业板块资金流向 || [];
     const conceptList = data.概念板块资金流向 || [];
     for (const item of [...industryList, ...conceptList]) {
-        if (item.涉及股票) {
-            item._parsedStocks = parseStocks(item.涉及股票);
-        }
+        item._parsedStocks = getSectorStocks(item);
     }
 
-    // 构建股票字段索引（供 isStockVolumeDecreased 等 O(1) 查询）
-    _stockFieldIndex = _stockFieldIndex || {};
-
-    // 清除该日期在索引中的旧条目，确保增量加载时数据一致
-    for (const stockName of Object.keys(_stockFieldIndex)) {
-        if (key in _stockFieldIndex[stockName]) {
-            delete _stockFieldIndex[stockName][key];
-        }
-        if (Object.keys(_stockFieldIndex[stockName]).length === 0) {
-            delete _stockFieldIndex[stockName];
-        }
+    for (const stockKey of Object.keys(target.stockFieldIndex)) {
+        if (key in target.stockFieldIndex[stockKey]) delete target.stockFieldIndex[stockKey][key];
+        if (Object.keys(target.stockFieldIndex[stockKey]).length === 0) delete target.stockFieldIndex[stockKey];
     }
 
     for (const item of [...industryList, ...conceptList]) {
-        const stocks = item._parsedStocks || parseStocks(item.涉及股票);
-        for (const stock of stocks) {
-            if (!_stockFieldIndex[stock.name]) _stockFieldIndex[stock.name] = {};
-            // 同一股票同一天可能在行业/概念重复出现，仅首次记录
-            if (!_stockFieldIndex[stock.name][key]) {
-                const vol = parseFloat(stock.volume);
-                const netNum = parseFloat(stock.net);
-                _stockFieldIndex[stock.name][key] = {
-                    volume: isNaN(vol) ? null : vol,
-                    net: isNaN(netNum) ? null : netNum,
-                    amount: parseAmountToYi(stock.amount),
-                    change: stock.change,
+        for (const stock of item._parsedStocks) {
+            const stockKey = stock.stockKey || getStockKey(stock.code, stock.name);
+            target.stockNameKeyIndex.set(stock.name, stockKey);
+            if (!target.stockFieldIndex[stockKey]) target.stockFieldIndex[stockKey] = {};
+            if (!target.stockFieldIndex[stockKey][key]) {
+                target.stockFieldIndex[stockKey][key] = {
+                    name: stock.name,
+                    stockKey,
+                    volume: stock.volumeWanShou,
+                    net: stock.netYi,
+                    amount: stock.amountYi,
+                    change: stock.changePct,
                     code: stock.code,
-                    high: stock.high || '',
-                    open: stock.open || '',
-                    low: stock.low || '',
-                    close: stock.close || ''
+                    high: stock.high,
+                    open: stock.open,
+                    low: stock.low,
+                    close: stock.close
                 };
             }
         }
     }
-    // 新数据加入后，日期依赖的缓存失效（批量加载时跳过，由调用方统一失效一次）
-    if (!opts || !opts.skipInvalidate) {
-        invalidateDateCaches();
+
+    if (!state) {
+        allDataByDate = target.allDataByDate;
+        dateFileList = target.dateFileList;
+        _stockFieldIndex = target.stockFieldIndex;
+        _stockNameKeyIndex = target.stockNameKeyIndex;
+        _sortedDateFileList = null;
+        if (!opts || !opts.skipInvalidate) invalidateDateCaches();
     }
+    return target;
 }
 
 function getCurrentData() {
@@ -199,96 +207,116 @@ function createDateButton(filename) {
     return btn;
 }
 
-function resetLoadedData() {
-    allDataByDate = {};
-    dateFileList = [];
-    currentDateFile = null;
-    invalidateAllCaches();
+function normalizeManifest(payload) {
+    if (Array.isArray(payload)) {
+        return payload.map(path => ({ path, tradingDate: '', schemaVersion: 1 }));
+    }
+    if (payload && payload.schemaVersion >= 2 && Array.isArray(payload.files)) {
+        return payload.files.filter(item => item && typeof item.path === 'string');
+    }
+    throw new Error('文件列表格式无效');
+}
+
+/**
+ * 将本轮下载结果构建成独立 staging 状态，避免加载过程中污染当前页面。
+ */
+function buildLoadedState(results) {
+    const state = createLoadedState();
+    for (const result of results) {
+        storeDataForDate(result.entry.path, result.data, {
+            skipInvalidate: true,
+            tradingDate: result.entry.tradingDate
+        }, state);
+    }
+    return state;
 }
 
 async function loadAllJsonFiles() {
+    const generation = ++_loadGeneration;
+    if (_loadAbortController) _loadAbortController.abort();
+    const controller = new AbortController();
+    _loadAbortController = controller;
+    const previousDate = currentDateFile;
+    const hadPreviousData = dateFileList.length > 0;
     showLoadingStatus('正在扫描并加载数据文件...');
 
-    resetLoadedData();
-
-    let fileList = [];
+    let manifest;
     try {
-        const response = await fetch('/api/list?' + Date.now());
-        if (response.ok) {
-            fileList = await response.json();
-        } else {
-            throw new Error('服务器 API 不可用，状态码: ' + response.status);
-        }
-    } catch (_error) {
-        // 本地服务器不可用时，回退到 list.json（GitHub Pages 模式）
+        const response = await fetch('/api/list', { signal: controller.signal, cache: 'no-cache' });
+        if (!response.ok) throw new Error('服务器 API 不可用，状态码: ' + response.status);
+        manifest = normalizeManifest(await response.json());
+    } catch (error) {
+        if (error.name === 'AbortError' || generation !== _loadGeneration) return;
         showWarningStatus('本地服务器不可用，尝试通过静态列表加载...');
         try {
-            const fallbackResp = await fetch('list.json?t=' + Date.now());
-            if (fallbackResp.ok) {
-                fileList = await fallbackResp.json();
-            } else {
-                throw new Error('list.json 加载失败');
-            }
-        } catch (_fallbackError) {
-            showWarningStatus('数据加载失败：本地服务器和静态列表均不可用。请确保已启动服务器（双击 start.cmd）或部署到 GitHub Pages');
+            const fallbackResp = await fetch('list.json', { signal: controller.signal, cache: 'no-cache' });
+            if (!fallbackResp.ok) throw new Error('list.json 加载失败');
+            manifest = normalizeManifest(await fallbackResp.json());
+        } catch (fallbackError) {
+            if (fallbackError.name === 'AbortError' || generation !== _loadGeneration) return;
+            showWarningStatus(hadPreviousData
+                ? '刷新失败，继续显示上次成功加载的数据'
+                : '数据加载失败：请确保已启动服务器（双击 start.cmd）或已生成 list.json');
             return;
         }
     }
 
-    if (fileList.length === 0) {
-        showWarningStatus('data/ 目录下没有找到板块资金流向 JSON 文件');
+    if (generation !== _loadGeneration) return;
+    if (manifest.length === 0) {
+        showWarningStatus(hadPreviousData ? '未发现新数据，继续显示当前数据' : 'data/ 目录下没有找到板块资金流向 JSON 文件');
         return;
     }
 
-    // 只加载最近 12 个交易日的文件，避免一次性加载全部历史数据
     const MAX_RECENT_FILES = 12;
-    if (fileList.length > MAX_RECENT_FILES) {
-        fileList = fileList
-            .slice()
-            .sort((a, b) => toDateNum(extractDateLabel(a), Date.now()) - toDateNum(extractDateLabel(b), Date.now()))
-            .slice(-MAX_RECENT_FILES);
-    }
+    manifest = manifest.slice().sort((a, b) => {
+        const aDate = a.tradingDate || extractDateLabel(a.path);
+        const bDate = b.tradingDate || extractDateLabel(b.path);
+        return toDateNum(aDate, Date.now()) - toDateNum(bDate, Date.now());
+    }).slice(-MAX_RECENT_FILES);
 
-    let loadedCount = 0;
-    const totalFiles = fileList.length;
-    const nowTs = Date.now();
-    const BATCH_SIZE = 6; // 分批并发，避免一次性发出过多请求
-
+    const totalFiles = manifest.length;
+    const loadedResults = [];
+    const BATCH_SIZE = 6;
     showLoadingProgress(`正在加载 0/${totalFiles}...`, 0, totalFiles);
 
     for (let i = 0; i < totalFiles; i += BATCH_SIZE) {
-        const batch = fileList.slice(i, i + BATCH_SIZE);
-        const results = await Promise.all(batch.map(async filename => {
+        const batch = manifest.slice(i, i + BATCH_SIZE);
+        const results = await Promise.all(batch.map(async entry => {
             try {
-                const response = await fetch(filename + '?t=' + nowTs);
+                const response = await fetch(entry.path, { signal: controller.signal });
                 if (!response.ok) return null;
-                const data = await response.json();
-                return { filename, data };
+                return { entry, data: await response.json() };
             } catch (error) {
-                console.error(`加载文件 ${filename} 失败:`, error);
+                if (error.name !== 'AbortError') console.error(`加载文件 ${entry.path} 失败:`, error);
                 return null;
             }
         }));
-
-        // Promise.all 保证 batch 内顺序，按序存储（渲染顺序由 sortDateFileList 决定）
-        for (const result of results) {
-            if (result) {
-                storeDataForDate(result.filename, result.data, { skipInvalidate: true });
-                loadedCount++;
-            }
-        }
+        if (generation !== _loadGeneration || controller.signal.aborted) return;
+        loadedResults.push(...results.filter(Boolean));
         const done = Math.min(i + BATCH_SIZE, totalFiles);
         showLoadingProgress(`正在加载 ${done}/${totalFiles}...`, done, totalFiles);
     }
 
-    // 批量加载完成后统一失效一次日期依赖缓存
-    invalidateDateCaches();
+    if (loadedResults.length === 0) {
+        showWarningStatus(hadPreviousData ? '刷新失败，继续显示上次成功加载的数据' : '没有成功加载任何数据文件');
+        return;
+    }
 
+    const staged = buildLoadedState(loadedResults);
+    if (generation !== _loadGeneration) return;
+
+    allDataByDate = staged.allDataByDate;
+    dateFileList = staged.dateFileList;
+    _stockFieldIndex = staged.stockFieldIndex;
+    _stockNameKeyIndex = staged.stockNameKeyIndex;
+    _sortedDateFileList = null;
+    currentDateFile = previousDate && allDataByDate[previousDate] ? previousDate : null;
+    invalidateDateCaches();
     renderDateButtons();
 
     try {
         updateCharts();
-        showSuccessStatus(`已加载 ${loadedCount} 个文件`);
+        showSuccessStatus(`已加载 ${loadedResults.length} 个文件`);
     } catch (error) {
         console.error('❌ 渲染图表失败:', error);
         showWarningStatus('数据加载成功，但渲染失败: ' + error.message);

@@ -10,97 +10,53 @@ function escapeHtml(s) {
         .replace(/'/g, '&#39;');
 }
 
-/** 解析涉及股票字符串为结构化数组 */
-function parseStocks(stockStr) {
-    if (!stockStr) return [];
-    return stockStr.split(',').map(s => {
-        const m = s.trim().match(/^(.+?)\(([^)]+)\)$/);
-        if (m) {
-            if (!m[1] || m[1] === '股票简称') return null;
-            const parts = m[2].split('|');
-            // 新格式：name(code|amount|net|change|volume|high|open|low|close) — 9个部分（有涨跌幅）
-            // 或 name(code|amount|net|volume|high|open|low|close) — 8个部分（无涨跌幅）
-            // 旧格式：name(code|amount|net|change|volume) — 5个部分（有涨跌幅）
-            // 或 name(code|amount|net|volume) — 4个部分（无涨跌幅）
-            const isNewFormat = parts.length >= 8;
-            if (isNewFormat) {
-                const hasChange = parts.length === 9;
-                return {
-                    name: m[1],
-                    code: parts[0] || '',
-                    amount: parts[1] || '',
-                    net: parts[2] || '',
-                    change: hasChange ? parts[3] || '' : '',
-                    volume: hasChange ? parts[4] || '' : parts[3] || '',
-                    high: hasChange ? parts[5] || '' : parts[4] || '',
-                    open: hasChange ? parts[6] || '' : parts[5] || '',
-                    low: hasChange ? parts[7] || '' : parts[6] || '',
-                    close: hasChange ? parts[8] || '' : parts[7] || ''
-                };
-            } else {
-                // 旧格式
-                return {
-                    name: m[1],
-                    code: parts[0] || '',
-                    amount: parts[1] || '',
-                    net: parts[2] || '',
-                    change: parts[3] || '',
-                    volume: parts[4] || '',
-                    high: '',
-                    open: '',
-                    low: '',
-                    close: ''
-                };
-            }
-        }
-        const nameOnly = s.trim().match(/^(.+?)\(/);
-        if (nameOnly && nameOnly[1] === '股票简称') return null;
-        return nameOnly ? { name: nameOnly[1], code: '', amount: '', net: '', change: '', volume: '', high: '', open: '', low: '', close: '' } : null;
-    }).filter(Boolean);
-}
+const {
+    resolveStockQuote,
+    getTradingViewSymbol,
+    getStockKey,
+    parseAmountToYi,
+    parseStocks,
+    getSectorStocks
+} = StockUtils;
 
-/** 解析带单位的金额字符串为「亿」为单位的数值，如 "60.17亿"→60.17，"9000.00万"→0.9；无法解析返回 null */
-function parseAmountToYi(str) {
-    const n = parseFloat(str);
-    if (isNaN(n)) return null;
-    if (String(str).includes('万')) return n / 10000;
-    return n; // 默认按亿（现有数据格式）
-}
-
-// 构建东方财富个股完整行情页 URL（区分市场：科创板走 /kcb/，其余走 sh/sz 前缀）
+// 构建东方财富个股完整行情页 URL（按统一市场映射生成）
 function buildEastmoneyUrl(stockCode) {
+    const quote = resolveStockQuote(stockCode);
+    if (!quote) return '';
+    const { code, market } = quote;
     let path;
-    if (stockCode.startsWith('688')) {
-        path = 'kcb/' + stockCode;          // 科创板
-    } else if (stockCode.startsWith('6')) {
-        path = 'sh' + stockCode;            // 沪市主板
+    if (code.startsWith('688')) {
+        path = 'kcb/' + code;
     } else {
-        path = 'sz' + stockCode;            // 深市主板 / 创业板
+        path = market.toLowerCase() + code;
     }
     return 'https://quote.eastmoney.com/' + path + '.html#fullScreenChart';
 }
 
 // 点击股票 → 打开个股详情（弹窗已开则在弹窗内加载图表，否则新窗口打开对应网站整页）
 function openStockQuote(stockName, stockCode) {
-    if (!stockCode) {
-        alert('未找到股票「' + stockName + '」的代码');
+    const quote = resolveStockQuote(stockCode);
+    if (!quote) {
+        alert('股票「' + stockName + '」缺少有效的六位 A 股代码');
         return;
     }
+    const { code, market } = quote;
     // 弹窗已打开：在弹窗内按当前数据源加载图表
     const trendModal = document.getElementById('trendModalOverlay');
     if (trendModal && trendModal.classList.contains('active')) {
-        loadTrendStock(stockName, stockCode);
+        loadTrendStock(stockName, code);
         return;
     }
     // 弹窗未打开：新窗口打开对应网站的完整行情页（TradingView 或新浪财经）
     const source = getStockChartSource();
     let url;
     if (source === 'tradingview') {
-        const tvExchange = stockCode.startsWith('6') ? 'SSE' : 'SZSE';
-        url = 'https://cn.tradingview.com/chart/?symbol=' + tvExchange + ':' + stockCode;
+        const symbol = getTradingViewSymbol(code);
+        url = symbol
+            ? 'https://cn.tradingview.com/chart/?symbol=' + encodeURIComponent(symbol)
+            : 'https://finance.sina.com.cn/realstock/company/' + market.toLowerCase() + code + '/nc.shtml';
     } else {
-        const exchange = stockCode.startsWith('6') ? 'sh' : 'sz';
-        url = 'https://finance.sina.com.cn/realstock/company/' + exchange + stockCode + '/nc.shtml';
+        url = 'https://finance.sina.com.cn/realstock/company/' + market.toLowerCase() + code + '/nc.shtml';
     }
     window.open(url, '_blank');
 }
@@ -126,9 +82,9 @@ function calcStockConsecutiveDays() {
         ...(currData.概念板块资金流向 || [])
     ];
     for (const sector of allSectors) {
-        const stocks = sector._parsedStocks || parseStocks(sector.涉及股票);
+        const stocks = getSectorStocks(sector);
         for (const stock of stocks) {
-            allNames.add(stock.name);
+            allNames.add(stock.stockKey);
         }
     }
 
@@ -145,11 +101,10 @@ function calcStockConsecutiveDays() {
                     ...(dayData.概念板块资金流向 || [])
                 ];
                 for (const sector of sectors) {
-                    const stocks = sector._parsedStocks || parseStocks(sector.涉及股票);
+                    const stocks = getSectorStocks(sector);
                     for (const stock of stocks) {
-                        if (!dayMap.has(stock.name)) {
-                            const netNum = parseFloat(stock.net);
-                            dayMap.set(stock.name, !isNaN(netNum) && netNum > 0);
+                        if (!dayMap.has(stock.stockKey)) {
+                            dayMap.set(stock.stockKey, stock.netYi != null && stock.netYi > 0);
                         }
                     }
                 }
@@ -160,32 +115,40 @@ function calcStockConsecutiveDays() {
     }
 
     // 逐股票倒查连续天数（懒加载，零流出的股票仅检查当日）
-    for (const name of allNames) {
+    for (const stockKey of allNames) {
         let count = 0;
         for (let i = currentIdx; i >= 0; i--) {
             const dayMap = getDateMap(i);
-            if (dayMap.get(name) === true) {
+            if (dayMap.get(stockKey) === true) {
                 count++;
                 if (count >= MAX_CONSECUTIVE) break;
             } else {
                 break;
             }
         }
-        stockDays.set(name, count);
+        stockDays.set(stockKey, count);
     }
 
     _stockDaysCache = stockDays;
     return stockDays;
 }
 
+/** 将股票名称或 stockKey 解析为当前索引使用的稳定 key */
+function resolveStockKey(stockIdentity) {
+    if (typeof stockIdentity === 'string' && (stockIdentity.startsWith('SH:') || stockIdentity.startsWith('SZ:') || stockIdentity.startsWith('BJ:') || stockIdentity.startsWith('legacy:name:'))) {
+        return stockIdentity;
+    }
+    return (_stockNameKeyIndex && _stockNameKeyIndex.get(stockIdentity)) || getStockKey('', stockIdentity);
+}
+
 /** 判断某股票当日成交量是否小于近 VOLUME_WINDOW 日内（不含当日）的最大成交量 */
-function isStockVolumeDecreased(stockName) {
+function isStockVolumeDecreased(stockIdentity) {
     const sorted = sortDateFileList();
     const currentIdx = sorted.indexOf(currentDateFile);
     if (currentIdx <= 0) return true;
 
     const startIdx = Math.max(0, currentIdx - (VOLUME_WINDOW - 1));
-    const perDate = (_stockFieldIndex && _stockFieldIndex[stockName]) || {};
+    const perDate = (_stockFieldIndex && _stockFieldIndex[resolveStockKey(stockIdentity)]) || {};
 
     let maxPrev = -Infinity;
     let current = null;
@@ -205,12 +168,12 @@ function isStockVolumeDecreased(stockName) {
 }
 
 /** 判断某股票当日成交额是否 > 前一日成交额 * RATIO_TURNOVER_LOW（防止缩量过快） */
-function isStockTurnoverNotTooLow(stockName) {
+function isStockTurnoverNotTooLow(stockIdentity) {
     const sorted = sortDateFileList();
     const currentIdx = sorted.indexOf(currentDateFile);
     if (currentIdx <= 0) return true;
 
-    const perDate = (_stockFieldIndex && _stockFieldIndex[stockName]) || {};
+    const perDate = (_stockFieldIndex && _stockFieldIndex[resolveStockKey(stockIdentity)]) || {};
     const prev = perDate[sorted[currentIdx - 1]]?.amount;
     const curr = perDate[sorted[currentIdx]]?.amount;
     if (curr == null || prev == null) return true;
@@ -219,12 +182,12 @@ function isStockTurnoverNotTooLow(stockName) {
 }
 
 /** 判断股票当日成交额是否 < 前一日成交额 * RATIO_TURNOVER_HIGH（防止放量过快） */
-function isStockAmountNotTooHigh(stockName) {
+function isStockAmountNotTooHigh(stockIdentity) {
     const sorted = sortDateFileList();
     const currentIdx = sorted.indexOf(currentDateFile);
     if (currentIdx <= 0) return true;
 
-    const perDate = (_stockFieldIndex && _stockFieldIndex[stockName]) || {};
+    const perDate = (_stockFieldIndex && _stockFieldIndex[resolveStockKey(stockIdentity)]) || {};
     const prev = perDate[sorted[currentIdx - 1]]?.amount;
     const curr = perDate[sorted[currentIdx]]?.amount;
     if (curr == null || prev == null) return true;
@@ -233,30 +196,30 @@ function isStockAmountNotTooHigh(stockName) {
 }
 
 /** 判断股票当日最高价是否大于前一日最高价 */
-function isStockHighHigherThanPrev(stockName) {
+function isStockHighHigherThanPrev(stockIdentity) {
     const sorted = sortDateFileList();
     const currentIdx = sorted.indexOf(currentDateFile);
     if (currentIdx <= 0) return true;
 
-    const perDate = (_stockFieldIndex && _stockFieldIndex[stockName]) || {};
+    const perDate = (_stockFieldIndex && _stockFieldIndex[resolveStockKey(stockIdentity)]) || {};
     const prev = perDate[sorted[currentIdx - 1]];
     const curr = perDate[sorted[currentIdx]];
     if (!curr || !prev) return true;
 
-    const currHigh = parseFloat(curr.high);
-    const prevHigh = parseFloat(prev.high);
-    if (isNaN(currHigh) || isNaN(prevHigh)) return true;
+    const currHigh = curr.high;
+    const prevHigh = prev.high;
+    if (!Number.isFinite(currHigh) || !Number.isFinite(prevHigh)) return true;
 
     return currHigh > prevHigh;
 }
 
 /** 判断股票：如果当日成交量 > 昨日成交量，则涨跌幅绝对值必须 < 5%（放量冲高或放量大跌均排除） */
-function isStockVolumeUpChangeLimited(stockName) {
+function isStockVolumeUpChangeLimited(stockIdentity) {
     const sorted = sortDateFileList();
     const currentIdx = sorted.indexOf(currentDateFile);
     if (currentIdx <= 0) return true;
 
-    const perDate = (_stockFieldIndex && _stockFieldIndex[stockName]) || {};
+    const perDate = (_stockFieldIndex && _stockFieldIndex[resolveStockKey(stockIdentity)]) || {};
     const curr = perDate[sorted[currentIdx]];
     const prev = perDate[sorted[currentIdx - 1]];
     if (!curr || !prev) return true;
@@ -269,8 +232,8 @@ function isStockVolumeUpChangeLimited(stockName) {
     if (currVol <= prevVol) return true;
 
     // 成交量放大 → 检查涨跌幅绝对值 < 5%
-    const changeNum = parseFloat(curr.change);
-    if (isNaN(changeNum)) return true;
+    const changeNum = curr.change;
+    if (!Number.isFinite(changeNum)) return true;
     return Math.abs(changeNum) < CHANGE_LIMIT_PCT;
 }
 
@@ -432,6 +395,11 @@ function buildSectorMap(sectorList) {
  * @returns {Array} 通过所有条件的板块项
  */
 function filterSectors(list, type) {
+    const cacheKey = type;
+    if (!_sectorFilterCache) _sectorFilterCache = new Map();
+    const cached = _sectorFilterCache.get(cacheKey);
+    if (cached && cached.dateFile === currentDateFile && cached.list === list) return cached.value;
+
     const currMap = buildSectorMap(list);
 
     // 提前构建前几日板块 Map 供条件函数 O(1) 查找
@@ -444,13 +412,15 @@ function filterSectors(list, type) {
     const prev3Data = currentIdx >= 3 ? allDataByDate[sorted[currentIdx - 3]]?.data : null;
     const prev3Map = prev3Data ? buildSectorMap(prev3Data[type] || []) : null;
 
-    return list.filter(s =>
+    const result = list.filter(s =>
         condNotPlaceholder(s) &&
         condNetPositive(s) &&
         condAmountNotTooHigh(s.板块, currMap, prevMap) &&
         condTurnoverTrend(s.板块, currMap, prevMap, prev2Map, prev3Map) &&
         condMinDays(s.板块, type)
     );
+    _sectorFilterCache.set(cacheKey, { dateFile: currentDateFile, list, value: result });
+    return result;
 }
 
 // ============================
@@ -474,10 +444,10 @@ function buildStockSectorsMap() {
         const isIndustry = industryList.includes(sector);
         const type = isIndustry ? '行业板块资金流向' : '概念板块资金流向';
         const sectorDays = calcConsecutiveInflow(sector.板块, type);
-        const stocks = sector._parsedStocks || parseStocks(sector.涉及股票);
+        const stocks = getSectorStocks(sector);
         for (const stock of stocks) {
-            if (!map.has(stock.name)) map.set(stock.name, []);
-            map.get(stock.name).push({
+            if (!map.has(stock.stockKey)) map.set(stock.stockKey, []);
+            map.get(stock.stockKey).push({
                 name: sector.板块,
                 type: isIndustry ? '行业' : '概念',
                 days: sectorDays
