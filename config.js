@@ -87,7 +87,7 @@ let _sortedDateFileList = null;
 // 计算缓存（随数据/选中日期变化而失效）
 let _consecutiveInflowCache = null;  // Map<"板块|type", days>
 let _stockDaysCache = null;          // Map<stockName, days>
-let _stockFieldIndex = null;         // { [stockName]: { [dateFile]: { volume, net, amount, change, code } } }
+let _stockFieldIndex = null;         // { [stockName]: { [dateFile]: { volume, net, amount(亿,数值), change, code, high, open, low, close } } }
 
 /**
  * 清空所有缓存（数据完全重置时调用）。

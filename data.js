@@ -98,7 +98,7 @@ function storeDataForDate(filename, data, opts) {
                 _stockFieldIndex[stock.name][key] = {
                     volume: isNaN(vol) ? null : vol,
                     net: isNaN(netNum) ? null : netNum,
-                    amount: stock.amount,
+                    amount: parseAmountToYi(stock.amount),
                     change: stock.change,
                     code: stock.code,
                     high: stock.high || '',
@@ -245,7 +245,7 @@ async function loadAllJsonFiles() {
     if (fileList.length > MAX_RECENT_FILES) {
         fileList = fileList
             .slice()
-            .sort((a, b) => toDateNum(extractDateLabel(a)) - toDateNum(extractDateLabel(b)))
+            .sort((a, b) => toDateNum(extractDateLabel(a), Date.now()) - toDateNum(extractDateLabel(b), Date.now()))
             .slice(-MAX_RECENT_FILES);
     }
 

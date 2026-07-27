@@ -16,7 +16,7 @@ function leaderCondTurnoverNotTooLow(stockName) {
     return isStockTurnoverNotTooLow(stockName);
 }
 
-/** 条件D：当日成交额 < 前一日成交额 * 1.5（防止放量过快） */
+/** 条件D：当日成交额 < 前一日成交额 * RATIO_TURNOVER_HIGH（防止放量过快） */
 function leaderCondAmountNotTooHigh(stockName) {
     return isStockAmountNotTooHigh(stockName);
 }
@@ -75,7 +75,7 @@ function leaderCondVolumeDecreased(stockName) {
     return isStockVolumeDecreased(stockName);
 }
 
-/** 条件I：当日成交量 > 昨日成交量时，涨跌幅必须 < 5% */
+/** 条件I：当日成交量 > 昨日成交量时，涨跌幅绝对值必须 < 5% */
 function leaderCondVolumeUpChangeLimited(stockName) {
     return isStockVolumeUpChangeLimited(stockName);
 }
@@ -92,19 +92,18 @@ function leaderCondHighHigher(stockName) {
  * @param {Object} sectorMaps - 预构建的板块 Maps（由 buildLeaderSectorMaps() 生成），避免每次条件判断重复构建
  */
 function passesLeaderConditions(stockName, stockDays, sectors, focusSectors, sectorMaps) {
-    if (!leaderCondMinDays(stockDays)) { if (stockName === '雅克科技') console.log('❌ 条件A失败: 天数', stockDays); return false; }
-    // 条件B：至少一个所属板块在关注板块中（直接复用 getFocusSectors 的板块集合）
-    const inFocus = sectors.some(s => focusSectors.has(s.name));
-    if (!inFocus) { if (stockName === '雅克科技') console.log('❌ 条件B失败: 无关注板块, sectors:', sectors.map(s => s.name+'('+s.days+'天)')); return false; }
+    if (!leaderCondMinDays(stockDays)) return false;
+    // 条件B：至少一个所属板块在关注板块中（直接复用 getFocusSectors 的板块集合，按「类型|板块名」精确匹配）
+    const inFocus = sectors.some(s => focusSectors.has(s.type + '|' + s.name));
+    if (!inFocus) return false;
     // if (!leaderCondTurnoverNotTooLow(stockName)) return false;           // 条件C：股票当日成交额 > 前一日成交额 * 0.9（防缩量）
-    if (!leaderCondAmountNotTooHigh(stockName)) { if (stockName === '雅克科技') console.log('❌ 条件D失败'); return false; }
+    if (!leaderCondAmountNotTooHigh(stockName)) return false;               // 条件D
     // if (!leaderCondAllSectorsDecreased(stockName, sectors, sectorMaps)) return false; // 条件E：板块成交额放量检查（已注释，该逻辑属于关注板块筛选，今日推荐不重复检查）
     // if (!leaderCondHighDaysSectorsAbove090(stockName, stockDays, sectors, sectorMaps)) return false; // 条件F：高天数板块成交额 > 板块前一日 * 0.9
-    if (!leaderCondDaysWithinGap(stockDays, sectors)) { if (stockName === '雅克科技') console.log('❌ 条件G失败: 天数', stockDays, '板块天数:', sectors.map(s => s.name+'='+s.days)); return false; }
+    if (!leaderCondDaysWithinGap(stockDays, sectors)) return false;         // 条件G
     // if (!leaderCondVolumeDecreased(stockName)) return false;             // 条件H：股票当日成交量 < 近5日内最大成交量
-    if (!leaderCondVolumeUpChangeLimited(stockName)) { if (stockName === '雅克科技') console.log('❌ 条件I失败'); return false; }
-    if (!leaderCondHighHigher(stockName)) { if (stockName === '雅克科技') console.log('❌ 条件J失败'); return false; }
-    if (stockName === '雅克科技') console.log('✅ 雅克科技通过所有条件！');
+    if (!leaderCondVolumeUpChangeLimited(stockName)) return false;          // 条件I
+    if (!leaderCondHighHigher(stockName)) return false;                     // 条件J
     return true;
 }
 
@@ -126,6 +125,16 @@ function calcLeaderStarSet(stocks, stockDaysMap) {
 }
 
 // ============================
+
+/** 判断当前日期数据是否包含价格字段（最高价等），用于提示条件J是否实际生效 */
+function currentDateHasPriceData() {
+    const perDate = _stockFieldIndex || {};
+    for (const stockName of Object.keys(perDate)) {
+        const entry = perDate[stockName][currentDateFile];
+        if (entry) return entry.high !== '' && entry.high != null;
+    }
+    return false;
+}
 
 /**
  * 计算今日推荐股票列表（首页今日推荐区与弹窗【今日推荐】页签共用，保证两处一致）
@@ -189,6 +198,13 @@ function calcTodayLeaders() {
 function updateLeaderArea(activeData) {
     const container = document.getElementById('leaderContent');
     if (!container) return;
+
+    // 条件J提示：开关开启但当前日期无价格数据时，标注该条件未生效（不影响筛选行为）
+    const condHint = document.getElementById('condHighHigherHint');
+    if (condHint) {
+        const showHint = LEADER_COND_HIGH_HIGHER && !currentDateHasPriceData();
+        condHint.textContent = showHint ? '（当前日期无价格数据，未生效）' : '';
+    }
 
     const industryList = activeData.行业板块资金流向 || [];
     const conceptList = activeData.概念板块资金流向 || [];

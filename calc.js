@@ -59,6 +59,14 @@ function parseStocks(stockStr) {
     }).filter(Boolean);
 }
 
+/** 解析带单位的金额字符串为「亿」为单位的数值，如 "60.17亿"→60.17，"9000.00万"→0.9；无法解析返回 null */
+function parseAmountToYi(str) {
+    const n = parseFloat(str);
+    if (isNaN(n)) return null;
+    if (String(str).includes('万')) return n / 10000;
+    return n; // 默认按亿（现有数据格式）
+}
+
 // 构建东方财富个股完整行情页 URL（区分市场：科创板走 /kcb/，其余走 sh/sz 前缀）
 function buildEastmoneyUrl(stockCode) {
     let path;
@@ -207,11 +215,7 @@ function isStockTurnoverNotTooLow(stockName) {
     const curr = perDate[sorted[currentIdx]]?.amount;
     if (curr == null || prev == null) return true;
 
-    const currNum = parseFloat(curr);
-    const prevNum = parseFloat(prev);
-    if (isNaN(currNum) || isNaN(prevNum)) return true;
-
-    return currNum > prevNum * RATIO_TURNOVER_LOW;
+    return curr > prev * RATIO_TURNOVER_LOW;
 }
 
 /** 判断股票当日成交额是否 < 前一日成交额 * RATIO_TURNOVER_HIGH（防止放量过快） */
@@ -225,11 +229,7 @@ function isStockAmountNotTooHigh(stockName) {
     const curr = perDate[sorted[currentIdx]]?.amount;
     if (curr == null || prev == null) return true;
 
-    const currNum = parseFloat(curr);
-    const prevNum = parseFloat(prev);
-    if (isNaN(currNum) || isNaN(prevNum)) return true;
-
-    return currNum < prevNum * RATIO_TURNOVER_HIGH;
+    return curr < prev * RATIO_TURNOVER_HIGH;
 }
 
 /** 判断股票当日最高价是否大于前一日最高价 */
@@ -250,7 +250,7 @@ function isStockHighHigherThanPrev(stockName) {
     return currHigh > prevHigh;
 }
 
-/** 判断股票：如果当日成交量 > 昨日成交量，则涨跌幅必须 < 5% */
+/** 判断股票：如果当日成交量 > 昨日成交量，则涨跌幅绝对值必须 < 5%（放量冲高或放量大跌均排除） */
 function isStockVolumeUpChangeLimited(stockName) {
     const sorted = sortDateFileList();
     const currentIdx = sorted.indexOf(currentDateFile);
@@ -268,10 +268,10 @@ function isStockVolumeUpChangeLimited(stockName) {
     // 成交量未放大 → 不限制
     if (currVol <= prevVol) return true;
 
-    // 成交量放大 → 检查涨跌幅 < 5%
+    // 成交量放大 → 检查涨跌幅绝对值 < 5%
     const changeNum = parseFloat(curr.change);
     if (isNaN(changeNum)) return true;
-    return changeNum < CHANGE_LIMIT_PCT;
+    return Math.abs(changeNum) < CHANGE_LIMIT_PCT;
 }
 
 /** 计算板块从当天往前连续主力净额>0的天数（带缓存） */
@@ -305,14 +305,15 @@ function calcConsecutiveInflow(sectorName, type) {
     return count;
 }
 
-/** 计算关注板块集合（净额>0 且 连续流入>=FOCUS_MIN_DAYS） */
+/** 计算关注板块集合（净额>0 且 连续流入>=FOCUS_MIN_DAYS）
+ *  Set 元素为 '行业|板块名' / '概念|板块名'，带类型前缀避免行业与概念同名板块（如「消费电子」）混淆 */
 function getFocusSectors(activeData) {
     const set = new Set();
     for (const sector of filterSectors(activeData.行业板块资金流向 || [], '行业板块资金流向')) {
-        set.add(sector.板块);
+        set.add('行业|' + sector.板块);
     }
     for (const sector of filterSectors(activeData.概念板块资金流向 || [], '概念板块资金流向')) {
-        set.add(sector.板块);
+        set.add('概念|' + sector.板块);
     }
     return set;
 }

@@ -258,19 +258,7 @@ function createChart(ctx, chartData, title, existingChart) {
     return chart;
 }
 
-function getPrevDayData() {
-    if (dateFileList.length < 2) return null;
-    if (!currentDateFile) return null;
-
-    const sorted = sortDateFileList();
-
-    const idx = sorted.indexOf(currentDateFile);
-    if (idx <= 0) return null;
-
-    const prevFilename = sorted[idx - 1];
-    const prevData = allDataByDate[prevFilename];
-    return prevData?.data || null;
-}
+// getPrevDayData 定义在 data.js（此处曾有重复定义，已移除）
 
 // 渲染防抖标志：防止 updateCharts 在异步操作中重入
 let _updatingCharts = false;

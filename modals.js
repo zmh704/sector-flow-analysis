@@ -749,7 +749,7 @@ function closeTrendModal(event) {
 function showStockLeader(stockName, sectors) {
     // 优先选在关注板块中的板块，再按天数排序
     const focusSectors = getFocusSectors(getActiveData());
-    const inFocus = sectors.filter(s => focusSectors.has(s.name));
+    const inFocus = sectors.filter(s => focusSectors.has(s.type + '|' + s.name));
     const candidates = inFocus.length > 0 ? inFocus : sectors;
     const best = [...candidates].sort((a, b) => b.days - a.days)[0];
     if (!best) return;
