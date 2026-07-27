@@ -4,7 +4,7 @@ const path = require('path');
 const XLSX = require('xlsx');
 const { buildAnalysisResult } = require('./analyze.js');
 
-const PORT = 3000;
+const PORT = 3001;
 const ROOT = __dirname;
 const DATA_DIR = path.join(ROOT, 'data');
 const MIME = {

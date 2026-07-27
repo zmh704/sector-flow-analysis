@@ -100,7 +100,11 @@ function storeDataForDate(filename, data, opts) {
                     net: isNaN(netNum) ? null : netNum,
                     amount: stock.amount,
                     change: stock.change,
-                    code: stock.code
+                    code: stock.code,
+                    high: stock.high || '',
+                    open: stock.open || '',
+                    low: stock.low || '',
+                    close: stock.close || ''
                 };
             }
         }

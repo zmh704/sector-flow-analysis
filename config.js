@@ -10,6 +10,7 @@ const VOLUME_WINDOW = 5;           // 成交量比较窗口（含当日，从选
 const RATIO_TURNOVER_LOW = 0.9;   // 成交额缩量阈值（当日 > 前一日 × 此值）
 const RATIO_TURNOVER_HIGH = 1.6;  // 成交额放量阈值（当日 < 前一日 × 此值）
 const CHANGE_LIMIT_PCT = 5;       // 放量时涨跌幅限制（%）
+let LEADER_COND_HIGH_HIGHER = true; // 今日推荐条件：当日最高价 > 前一日最高价（设为false可关闭此条件）
 const TREND_CHART_DAYS = 10;      // 趋势图显示天数
 const STOCK_CHART_SOURCE = 'sina_chart'; // 个股图表默认数据源：'sina_chart'（新浪图片） | 'tradingview'（TV嵌入）
 

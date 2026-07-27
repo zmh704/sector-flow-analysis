@@ -18,18 +18,44 @@ function parseStocks(stockStr) {
         if (m) {
             if (!m[1] || m[1] === '股票简称') return null;
             const parts = m[2].split('|');
-            return {
-                name: m[1],
-                code: parts[0] || '',
-                amount: parts[1] || '',
-                net: parts[2] || '',
-                change: parts[3] || '',
-                volume: parts[4] || ''
-            };
+            // 新格式：name(code|amount|net|change|volume|high|open|low|close) — 9个部分（有涨跌幅）
+            // 或 name(code|amount|net|volume|high|open|low|close) — 8个部分（无涨跌幅）
+            // 旧格式：name(code|amount|net|change|volume) — 5个部分（有涨跌幅）
+            // 或 name(code|amount|net|volume) — 4个部分（无涨跌幅）
+            const isNewFormat = parts.length >= 8;
+            if (isNewFormat) {
+                const hasChange = parts.length === 9;
+                return {
+                    name: m[1],
+                    code: parts[0] || '',
+                    amount: parts[1] || '',
+                    net: parts[2] || '',
+                    change: hasChange ? parts[3] || '' : '',
+                    volume: hasChange ? parts[4] || '' : parts[3] || '',
+                    high: hasChange ? parts[5] || '' : parts[4] || '',
+                    open: hasChange ? parts[6] || '' : parts[5] || '',
+                    low: hasChange ? parts[7] || '' : parts[6] || '',
+                    close: hasChange ? parts[8] || '' : parts[7] || ''
+                };
+            } else {
+                // 旧格式
+                return {
+                    name: m[1],
+                    code: parts[0] || '',
+                    amount: parts[1] || '',
+                    net: parts[2] || '',
+                    change: parts[3] || '',
+                    volume: parts[4] || '',
+                    high: '',
+                    open: '',
+                    low: '',
+                    close: ''
+                };
+            }
         }
         const nameOnly = s.trim().match(/^(.+?)\(/);
         if (nameOnly && nameOnly[1] === '股票简称') return null;
-        return nameOnly ? { name: nameOnly[1], code: '', amount: '', net: '', change: '', volume: '' } : null;
+        return nameOnly ? { name: nameOnly[1], code: '', amount: '', net: '', change: '', volume: '', high: '', open: '', low: '', close: '' } : null;
     }).filter(Boolean);
 }
 
@@ -204,6 +230,24 @@ function isStockAmountNotTooHigh(stockName) {
     if (isNaN(currNum) || isNaN(prevNum)) return true;
 
     return currNum < prevNum * RATIO_TURNOVER_HIGH;
+}
+
+/** 判断股票当日最高价是否大于前一日最高价 */
+function isStockHighHigherThanPrev(stockName) {
+    const sorted = sortDateFileList();
+    const currentIdx = sorted.indexOf(currentDateFile);
+    if (currentIdx <= 0) return true;
+
+    const perDate = (_stockFieldIndex && _stockFieldIndex[stockName]) || {};
+    const prev = perDate[sorted[currentIdx - 1]];
+    const curr = perDate[sorted[currentIdx]];
+    if (!curr || !prev) return true;
+
+    const currHigh = parseFloat(curr.high);
+    const prevHigh = parseFloat(prev.high);
+    if (isNaN(currHigh) || isNaN(prevHigh)) return true;
+
+    return currHigh > prevHigh;
 }
 
 /** 判断股票：如果当日成交量 > 昨日成交量，则涨跌幅必须 < 5% */

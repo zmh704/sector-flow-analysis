@@ -80,6 +80,12 @@ function leaderCondVolumeUpChangeLimited(stockName) {
     return isStockVolumeUpChangeLimited(stockName);
 }
 
+/** 条件J：当日最高价 > 前一日最高价（由 LEADER_COND_HIGH_HIGHER 控制开关） */
+function leaderCondHighHigher(stockName) {
+    if (!LEADER_COND_HIGH_HIGHER) return true;
+    return isStockHighHigherThanPrev(stockName);
+}
+
 /**
  * 今日推荐股票的完整筛选逻辑（加星逻辑也复用此函数，保持一致）
  * 修改下方任一条件的注释状态，今日推荐与加星会自动同步
@@ -97,6 +103,7 @@ function passesLeaderConditions(stockName, stockDays, sectors, focusSectors, sec
     if (!leaderCondDaysWithinGap(stockDays, sectors)) { if (stockName === '雅克科技') console.log('❌ 条件G失败: 天数', stockDays, '板块天数:', sectors.map(s => s.name+'='+s.days)); return false; }
     // if (!leaderCondVolumeDecreased(stockName)) return false;             // 条件H：股票当日成交量 < 近5日内最大成交量
     if (!leaderCondVolumeUpChangeLimited(stockName)) { if (stockName === '雅克科技') console.log('❌ 条件I失败'); return false; }
+    if (!leaderCondHighHigher(stockName)) { if (stockName === '雅克科技') console.log('❌ 条件J失败'); return false; }
     if (stockName === '雅克科技') console.log('✅ 雅克科技通过所有条件！');
     return true;
 }

@@ -33,7 +33,11 @@ function detectColumns(rows) {
         net: ['主力净额', '主力资金净额', '主力净买入', 'main_net'],
         turnover: ['成交额', '总成交额', '成交金额', '成交额(元)'],
         change: ['涨跌幅', '涨跌幅(%)', '涨跌幅度', 'change_pct'],
-        volume: ['成交量(手)', '成交量', '成交股数', 'vol']
+        volume: ['成交量(手)', '成交量', '成交股数', 'vol'],
+        high: ['最高价', '最高价.前复权', '最高'],
+        open: ['开盘价', '开盘价.前复权', '开盘'],
+        low: ['最低价', '最低价.前复权', '最低'],
+        close: ['收盘价', '收盘价.前复权', '收盘']
     };
     const cols = Object.keys(rows[0]);
     for (const [key, names] of Object.entries(candidates)) {
@@ -47,6 +51,7 @@ function detectColumns(rows) {
 /**
  * 分析资金流向，返回行业/概念板块统计行。
  * 同一板块内对涉及股票去重（按完整股票字符串），避免重复计入。
+ * 新格式支持：最高价.前复权、开盘价.前复权、最低价.前复权、收盘价.前复权
  */
 function analyzeFundFlow(workbook) {
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -66,6 +71,10 @@ function analyzeFundFlow(workbook) {
         return map[key];
     };
     const hasChange = !!colMap.change;
+    const hasHigh = !!colMap.high;
+    const hasOpen = !!colMap.open;
+    const hasLow = !!colMap.low;
+    const hasClose = !!colMap.close;
 
     for (const row of rows) {
         const name = String(row[colMap.name]).trim();
@@ -80,19 +89,47 @@ function analyzeFundFlow(workbook) {
         const netStr = (net >= 0 ? '+' : '') + formatCurrency(net);
         const changeStr = change !== null ? (change >= 0 ? '+' : '') + change.toFixed(2) + '%' : '';
         const volumeStr = volumeNum !== null ? `${(volumeNum / 1e4).toFixed(0)}万手` : '';
-        const stockStr = change !== null
-            ? `${name}(${code}|${volStr}|${netStr}|${changeStr}|${volumeStr})`
-            : `${name}(${code}|${volStr}|${netStr}|${volumeStr})`;
 
-        for (const ind of parseSectors(String(row[colMap.industry]))) {
-            const s = getOrInit(industryStats, ind);
-            s.totalNet += net; s.totalTurnover += turnover; s.count++;
-            if (!s.stockSet.has(stockStr)) { s.stockSet.add(stockStr); s.stocks.push(stockStr); }
-        }
-        for (const con of parseSectors(String(row[colMap.concept]))) {
-            const s = getOrInit(conceptStats, con);
-            s.totalNet += net; s.totalTurnover += turnover; s.count++;
-            if (!s.stockSet.has(stockStr)) { s.stockSet.add(stockStr); s.stocks.push(stockStr); }
+        // 最高价、开盘价、最低价、收盘价（前复权）
+        const highVal = hasHigh ? parseFloat(row[colMap.high]) || '' : '';
+        const openVal = hasOpen ? parseFloat(row[colMap.open]) || '' : '';
+        const lowVal = hasLow ? parseFloat(row[colMap.low]) || '' : '';
+        const closeVal = hasClose ? parseFloat(row[colMap.close]) || '' : '';
+
+        // 股票字符串格式：name(code|成交额|主力净额|涨跌幅|成交量|最高价|开盘价|最低价|收盘价)
+        // 向后兼容：旧数据无最高/开/低/收盘字段
+        if (highVal !== '' || openVal !== '' || lowVal !== '' || closeVal !== '') {
+            // 新格式：含价量数据
+            const stockStr = hasChange
+                ? `${name}(${code}|${volStr}|${netStr}|${changeStr}|${volumeStr}|${highVal}|${openVal}|${lowVal}|${closeVal})`
+                : `${name}(${code}|${volStr}|${netStr}|${volumeStr}|${highVal}|${openVal}|${lowVal}|${closeVal})`;
+
+            for (const ind of parseSectors(String(row[colMap.industry]))) {
+                const s = getOrInit(industryStats, ind);
+                s.totalNet += net; s.totalTurnover += turnover; s.count++;
+                if (!s.stockSet.has(stockStr)) { s.stockSet.add(stockStr); s.stocks.push(stockStr); }
+            }
+            for (const con of parseSectors(String(row[colMap.concept]))) {
+                const s = getOrInit(conceptStats, con);
+                s.totalNet += net; s.totalTurnover += turnover; s.count++;
+                if (!s.stockSet.has(stockStr)) { s.stockSet.add(stockStr); s.stocks.push(stockStr); }
+            }
+        } else {
+            // 旧格式：无最高/开/低/收盘价
+            const stockStr = hasChange
+                ? `${name}(${code}|${volStr}|${netStr}|${changeStr}|${volumeStr})`
+                : `${name}(${code}|${volStr}|${netStr}|${volumeStr})`;
+
+            for (const ind of parseSectors(String(row[colMap.industry]))) {
+                const s = getOrInit(industryStats, ind);
+                s.totalNet += net; s.totalTurnover += turnover; s.count++;
+                if (!s.stockSet.has(stockStr)) { s.stockSet.add(stockStr); s.stocks.push(stockStr); }
+            }
+            for (const con of parseSectors(String(row[colMap.concept]))) {
+                const s = getOrInit(conceptStats, con);
+                s.totalNet += net; s.totalTurnover += turnover; s.count++;
+                if (!s.stockSet.has(stockStr)) { s.stockSet.add(stockStr); s.stocks.push(stockStr); }
+            }
         }
     }
 
