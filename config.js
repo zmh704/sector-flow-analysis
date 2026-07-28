@@ -12,6 +12,8 @@ const RATIO_TURNOVER_HIGH = 1.6;  // 成交额放量阈值（当日 < 前一日 
 const CHANGE_LIMIT_PCT = 5;       // 放量时涨跌幅限制（%）
 let LEADER_COND_HIGH_HIGHER = true; // 今日推荐条件：当日最高价 > 前一日最高价（设为false可关闭此条件）
 const TREND_CHART_DAYS = 10;      // 趋势图显示天数
+const DATA_ANALYSIS_DAYS = 12;    // 当前日期计算窗口；保持与原先“最近12日”业务口径一致
+const MAX_LOADED_DATES = 20;      // 已加载日期 LRU 上限，控制长期浏览的内存增长
 const STOCK_CHART_SOURCE = 'sina_chart'; // 个股图表默认数据源：'sina_chart'（新浪图片） | 'tradingview'（TV嵌入）
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024; // Excel 上传上限（20 MiB，与服务端默认值一致）
 
@@ -36,9 +38,19 @@ function debounceRAF(fn) {
 }
 
 // ===== 加载状态管理 =====
+let _statusTimer = null;
+let _statusVersion = 0;
+
+function beginStatusUpdate() {
+    _statusVersion++;
+    if (_statusTimer) clearTimeout(_statusTimer);
+    _statusTimer = null;
+    return _statusVersion;
+}
 
 /** 显示加载状态文本（含 spinner 动画） */
 function showLoadingStatus(text) {
+    beginStatusUpdate();
     const el = document.getElementById('loadStatus');
     if (!el) return;
     el.innerHTML = `<span class="spinner"></span><span>${escapeHtml(text)}</span>`;
@@ -46,6 +58,7 @@ function showLoadingStatus(text) {
 
 /** 显示加载进度条 + 文本 */
 function showLoadingProgress(text, loaded, total) {
+    beginStatusUpdate();
     const el = document.getElementById('loadStatus');
     if (!el) return;
     const pct = total > 0 ? Math.min(100, Math.round(loaded / total * 100)) : 0;
@@ -54,14 +67,21 @@ function showLoadingProgress(text, loaded, total) {
 
 /** 显示成功状态（绿色勾，定时自动清除） */
 function showSuccessStatus(text, timeout) {
+    const version = beginStatusUpdate();
     const el = document.getElementById('loadStatus');
     if (!el) return;
     el.innerHTML = '✅ ' + escapeHtml(text);
-    if (timeout !== false) setTimeout(() => { if (el) el.textContent = ''; }, timeout || 4000);
+    if (timeout !== false) {
+        _statusTimer = setTimeout(() => {
+            if (el && version === _statusVersion) el.textContent = '';
+            _statusTimer = null;
+        }, timeout || 4000);
+    }
 }
 
 /** 显示警告/错误状态 */
 function showWarningStatus(text) {
+    beginStatusUpdate();
     const el = document.getElementById('loadStatus');
     if (!el) return;
     el.innerHTML = '⚠️ ' + escapeHtml(text);
@@ -91,10 +111,14 @@ let _stockDaysCache = null;          // Map<stockKey, days>
 let _stockFieldIndex = null;         // { [stockKey]: { [dateFile]: { volume, net, amount(亿,数值), change, code, high, open, low, close } } }
 let _stockNameKeyIndex = null;       // Map<股票名称, stockKey>，兼容旧名称型交互和 localStorage
 let _sectorFilterCache = null;       // Map<"日期|类型", Array>，当前日期板块筛选结果
+let _dailySectorMapCache = new Map(); // "日期|类型"→板块Map，趋势与筛选共享
 let _focusDataCache = null;          // { dateFile, data, value }，关注板块派生 view model
 let _todayLeadersCache = null;       // { dateFile, value }，今日推荐派生结果
 let _loadGeneration = 0;             // 数据加载代次，最后一次请求胜出
 let _loadAbortController = null;     // 取消上一轮数据 fetch
+let _dataManifest = [];              // 全量清单；日期按钮可展示尚未下载的历史日期
+let _manifestEntryByPath = new Map(); // path→manifest entry，供按需加载历史窗口
+let _dateAccessOrder = new Map();      // 已加载日期访问顺序，供 LRU 回收
 
 /**
  * 清空所有缓存（数据完全重置时调用）。
@@ -107,8 +131,12 @@ function invalidateAllCaches() {
     _stockFieldIndex = null;
     _stockNameKeyIndex = null;
     _sectorFilterCache = null;
+    _dailySectorMapCache = new Map();
     _focusDataCache = null;
     _todayLeadersCache = null;
+    _dataManifest = [];
+    _manifestEntryByPath = new Map();
+    _dateAccessOrder = new Map();
     // _stockSectorsMap 在 calc.js 中声明，控制流确保调用时已加载
     if (typeof _stockSectorsMap !== 'undefined') _stockSectorsMap = null;
 }
@@ -121,6 +149,7 @@ function invalidateDateCaches() {
     _consecutiveInflowCache = null;
     _stockDaysCache = null;
     _sectorFilterCache = null;
+    _dailySectorMapCache = new Map();
     _focusDataCache = null;
     _todayLeadersCache = null;
     if (typeof _stockSectorsMap !== 'undefined') _stockSectorsMap = null;

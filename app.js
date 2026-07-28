@@ -19,6 +19,8 @@ function initEventListeners() {
     document.getElementById('modalOverlay').addEventListener('click', function(e) {
         if (e.target === e.currentTarget) closeModal();
     });
+    document.querySelector('#modalOverlay .modal-content').addEventListener('click', e => e.stopPropagation());
+    document.getElementById('filterToggleTh').addEventListener('click', e => e.stopPropagation());
     document.getElementById('btnCloseModal').addEventListener('click', closeModal);
     document.getElementById('btnAllIndustry').addEventListener('click', function() {
         showAllData('行业板块资金流向');
@@ -59,6 +61,7 @@ function initEventListeners() {
     document.getElementById('trendModalOverlay').addEventListener('click', function(e) {
         if (e.target === e.currentTarget) closeTrendModal();
     });
+    document.querySelector('#trendModalOverlay .trend-modal-content').addEventListener('click', e => e.stopPropagation());
     document.getElementById('btnCloseTrendModal').addEventListener('click', closeTrendModal);
     document.getElementById('trendChartTabBtn').addEventListener('click', function() {
         switchTrendChartTab('chart');
@@ -99,15 +102,17 @@ function initEventListeners() {
     });
 
     // 日期按钮事件委托
-    document.getElementById('dateButtons').addEventListener('click', function(e) {
+    document.getElementById('dateButtons').addEventListener('click', async function(e) {
         const btn = e.target.closest('.date-btn');
-        if (!btn) return;
+        if (!btn || btn.disabled) return;
         const filename = btn.dataset.datefile;
         if (!filename) return;
-        setCurrentDateFile(filename);
-        document.querySelectorAll('.date-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        updateCharts();
+        btn.disabled = true;
+        try {
+            await selectDateFile(filename);
+        } finally {
+            btn.disabled = false;
+        }
     });
 
     // 最高价突破条件开关
@@ -305,15 +310,11 @@ function initKeyboardShortcuts() {
                 : Math.max(idx - 1, 0);
             if (newIdx === idx) return;
             const filename = sorted[newIdx];
-            setCurrentDateFile(filename);
-            // 更新日期按钮高亮
-            document.querySelectorAll('.date-btn').forEach(b => {
-                b.classList.toggle('active', b.dataset.datefile === filename);
+            selectDateFile(filename).then(selected => {
+                if (!selected) return;
+                const activeBtn = document.querySelector('.date-btn.active');
+                if (activeBtn) activeBtn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
             });
-            // 滚动到该按钮
-            const activeBtn = document.querySelector('.date-btn.active');
-            if (activeBtn) activeBtn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-            updateCharts();
             e.preventDefault();
         }
 
@@ -361,12 +362,25 @@ async function handleExcelFile(event) {
         });
 
         if (!response.ok) {
+            const contentType = response.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) {
+                const payload = await response.json();
+                const skipped = payload.diagnostics?.skippedRows;
+                throw new Error(payload.error + (skipped ? `（跳过 ${skipped} 行）` : ''));
+            }
             const errText = await response.text();
             throw new Error(errText || '服务器解析失败');
         }
 
         const result = await response.json();
-        showSuccessStatus(`解析完成：${result.industries} 个行业，${result.concepts} 个概念`);
+        const diagnostics = result.diagnostics;
+        const warning = diagnostics?.skippedRows > 0
+            ? `，跳过 ${diagnostics.skippedRows} 行（详见服务端日志）`
+            : '';
+        const elapsed = Number.isFinite(result.performance?.totalMs)
+            ? `，耗时 ${result.performance.totalMs.toFixed(0)}ms`
+            : '';
+        showSuccessStatus(`解析完成：${result.industries} 个行业，${result.concepts} 个概念${warning}${elapsed}`);
 
         // 刷新数据
         await loadAllJsonFiles();

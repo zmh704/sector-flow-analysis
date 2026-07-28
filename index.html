@@ -89,7 +89,7 @@
 
     <!-- 查看全部弹窗 -->
     <div class="modal-overlay" id="modalOverlay">
-        <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-content">
             <div class="modal-header">
                 <h2 id="modalTitle">全部板块</h2>
                 <button class="modal-close" id="btnCloseModal" title="关闭 (Esc)">✕</button>
@@ -106,8 +106,8 @@
                         <th data-sort="days" style="text-align:center;width:1%;white-space:nowrap">连续流入天数 <span class="sort-arrow" id="sortArrowDays"></span></th>
                         <th data-sort="count" style="text-align:right;width:1%;white-space:nowrap">股票数 <span class="sort-arrow" id="sortArrowCount"></span></th>
                         <th>涉及股票</th>
-                        <th id="filterToggleTh" style="text-align:right;cursor:default" onclick="event.stopPropagation()">
-                            <label style="font-weight:400;color:#666;font-size:12px;cursor:pointer" onclick="event.stopPropagation()">
+                        <th id="filterToggleTh" style="text-align:right;cursor:default">
+                            <label style="font-weight:400;color:#666;font-size:12px;cursor:pointer">
                                 <input type="checkbox" id="filterInvalid" checked> 过滤无效
                             </label>
                         </th>
@@ -120,7 +120,7 @@
 
     <!-- 趋势对比弹窗 -->
     <div class="modal-overlay" id="trendModalOverlay">
-        <div class="trend-modal-content" onclick="event.stopPropagation()">
+        <div class="trend-modal-content">
             <div class="modal-header">
                 <div class="trend-modal-header-row">
                     <h2 id="trendModalTitle">板块</h2>

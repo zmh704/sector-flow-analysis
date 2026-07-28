@@ -65,3 +65,13 @@ test('结构化股票明细优先于旧文本', () => {
     assert.equal(stocks[0].name, '结构化');
     assert.equal(stocks[0].stockKey, 'SZ:000001');
 });
+
+test('已水合的股票缓存优先于结构化字段和字典', () => {
+    const cached = [{ name: '缓存股票', stockKey: 'SZ:000001' }];
+    const stocks = getSectorStocks({
+        _parsedStocks: cached,
+        股票明细: [{ name: '结构化', code: '600000' }],
+        股票键: ['SH:600000']
+    }, { 'SH:600000': { name: '字典股票', code: '600000' } });
+    assert.equal(stocks, cached);
+});

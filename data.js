@@ -35,15 +35,23 @@ function toDateNum(label, genTime) {
     return year * 10000 + fileMonth * 100 + Number(m[2]);
 }
 
-/** 按日期标签排序 dateFileList，返回排序后的新数组（带缓存） */
+function getDateMeta(filename) {
+    const loaded = allDataByDate[filename];
+    const manifest = _manifestEntryByPath?.get(filename);
+    return {
+        label: loaded?.dateLabel || manifest?.tradingDate || extractDateLabel(filename),
+        genTime: loaded?.data?.生成时间
+    };
+}
+
+/** 按日期标签排序完整 manifest 路径，返回排序后的新数组（带缓存）。 */
 function sortDateFileList() {
     if (_sortedDateFileList) return _sortedDateFileList;
-    _sortedDateFileList = [...dateFileList].sort((a, b) => {
-        const entryA = allDataByDate[a];
-        const entryB = allDataByDate[b];
-        const labelA = entryA?.dateLabel || a;
-        const labelB = entryB?.dateLabel || b;
-        return toDateNum(labelA, entryA?.data?.生成时间) - toDateNum(labelB, entryB?.data?.生成时间);
+    const source = _dataManifest.length > 0 ? _dataManifest.map(entry => entry.path) : dateFileList;
+    _sortedDateFileList = [...source].sort((a, b) => {
+        const metaA = getDateMeta(a);
+        const metaB = getDateMeta(b);
+        return toDateNum(metaA.label, metaA.genTime) - toDateNum(metaB.label, metaB.genTime);
     });
     return _sortedDateFileList;
 }
@@ -80,8 +88,9 @@ function storeDataForDate(filename, data, opts, state) {
 
     const industryList = data.行业板块资金流向 || [];
     const conceptList = data.概念板块资金流向 || [];
+    const stockDictionary = data.股票字典 || null;
     for (const item of [...industryList, ...conceptList]) {
-        item._parsedStocks = getSectorStocks(item);
+        item._parsedStocks = getSectorStocks(item, stockDictionary);
     }
 
     for (const stockKey of Object.keys(target.stockFieldIndex)) {
@@ -123,7 +132,50 @@ function storeDataForDate(filename, data, opts, state) {
     return target;
 }
 
+function touchLoadedDate(filename) {
+    if (!filename || !allDataByDate[filename]) return;
+    _dateAccessOrder.delete(filename);
+    _dateAccessOrder.set(filename, Date.now());
+}
+
+function rebuildLoadedIndexes() {
+    const state = createLoadedState();
+    for (const filename of dateFileList) {
+        const entry = allDataByDate[filename];
+        if (!entry) continue;
+        storeDataForDate(filename, entry.data, {
+            skipInvalidate: true,
+            tradingDate: entry.dateLabel
+        }, state);
+    }
+    allDataByDate = state.allDataByDate;
+    dateFileList = state.dateFileList;
+    _stockFieldIndex = state.stockFieldIndex;
+    _stockNameKeyIndex = state.stockNameKeyIndex;
+}
+
+function evictLoadedDates(protectedPaths = new Set()) {
+    const loaded = dateFileList.filter(filename => allDataByDate[filename]);
+    if (loaded.length <= MAX_LOADED_DATES) return [];
+    const protectedSet = new Set(protectedPaths);
+    if (currentDateFile) protectedSet.add(currentDateFile);
+    const removable = loaded
+        .filter(filename => !protectedSet.has(filename))
+        .sort((a, b) => (_dateAccessOrder.get(a) || 0) - (_dateAccessOrder.get(b) || 0));
+    const removed = removable.slice(0, Math.max(0, loaded.length - MAX_LOADED_DATES));
+    if (removed.length === 0) return [];
+    for (const filename of removed) {
+        delete allDataByDate[filename];
+        _dateAccessOrder.delete(filename);
+    }
+    dateFileList = dateFileList.filter(filename => !removed.includes(filename));
+    rebuildLoadedIndexes();
+    invalidateDateCaches();
+    return removed;
+}
+
 function getCurrentData() {
+    if (currentDateFile) touchLoadedDate(currentDateFile);
     return currentDateFile ? allDataByDate[currentDateFile] : null;
 }
 
@@ -174,18 +226,17 @@ function renderDateButtons() {
     const container = document.getElementById('dateButtons');
     container.innerHTML = '';
 
-    if (dateFileList.length === 0) {
+    const sorted = sortDateFileList();
+    if (sorted.length === 0) {
         container.innerHTML = renderEmptyState('📅', '暂无数据', '请点击「加载数据」');
         return;
     }
-
-    const sorted = sortDateFileList();
 
     sorted.forEach(filename => {
         container.appendChild(createDateButton(filename));
     });
 
-    if (!currentDateFile && dateFileList.length > 0) {
+    if (!currentDateFile && sorted.length > 0) {
         setCurrentDateFile(sorted[sorted.length - 1]);
         const btns = container.querySelectorAll('.date-btn');
         if (btns.length > 0) {
@@ -197,13 +248,13 @@ function renderDateButtons() {
 /** 创建日期切换按钮（事件由 app.js 中的事件委托处理） */
 function createDateButton(filename) {
     const item = allDataByDate[filename];
+    const manifest = _manifestEntryByPath.get(filename);
     const btn = document.createElement('button');
     btn.className = 'date-btn';
-    btn.textContent = item?.dateLabel || filename;
+    btn.textContent = item?.dateLabel || manifest?.tradingDate || extractDateLabel(filename);
     btn.dataset.datefile = filename;
-    if (filename === currentDateFile) {
-        btn.classList.add('active');
-    }
+    btn.classList.toggle('date-not-loaded', !item);
+    if (filename === currentDateFile) btn.classList.add('active');
     return btn;
 }
 
@@ -229,6 +280,81 @@ function buildLoadedState(results) {
         }, state);
     }
     return state;
+}
+
+async function fetchManifestEntries(entries, signal, onProgress) {
+    const loadedResults = [];
+    const BATCH_SIZE = 4;
+    for (let index = 0; index < entries.length; index += BATCH_SIZE) {
+        const batch = entries.slice(index, index + BATCH_SIZE);
+        const results = await Promise.all(batch.map(async entry => {
+            try {
+                const response = await fetch(entry.path, { signal });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                return { entry, data: await response.json() };
+            } catch (error) {
+                if (error.name === 'AbortError') throw error;
+                console.error(`加载文件 ${entry.path} 失败:`, error);
+                return null;
+            }
+        }));
+        loadedResults.push(...results.filter(Boolean));
+        if (onProgress) onProgress(Math.min(index + BATCH_SIZE, entries.length), entries.length);
+    }
+    return loadedResults;
+}
+
+let _historyLoadPromise = null;
+
+async function ensureDateWindowLoaded(filename, days = TREND_CHART_DAYS) {
+    if (_historyLoadPromise) await _historyLoadPromise;
+    if (!_manifestEntryByPath.has(filename)) return false;
+    const sorted = sortDateFileList();
+    const index = sorted.indexOf(filename);
+    if (index < 0) return false;
+    const start = Math.max(0, index - days + 1);
+    const paths = sorted.slice(start, index + 1);
+    const entries = paths
+        .filter(path => !allDataByDate[path])
+        .map(path => _manifestEntryByPath.get(path))
+        .filter(Boolean);
+    if (entries.length === 0) return true;
+
+    showLoadingProgress(`正在补载历史数据 0/${entries.length}...`, 0, entries.length);
+    _historyLoadPromise = (async () => {
+        const results = await fetchManifestEntries(entries, undefined, (done, total) =>
+            showLoadingProgress(`正在补载历史数据 ${done}/${total}...`, done, total)
+        );
+        for (const result of results) {
+            storeDataForDate(result.entry.path, result.data, { tradingDate: result.entry.tradingDate, skipInvalidate: true });
+            touchLoadedDate(result.entry.path);
+        }
+        evictLoadedDates(new Set(paths));
+        invalidateDateCaches();
+        renderDateButtons();
+        showSuccessStatus(`已补载 ${results.length} 个历史文件`);
+        return results.length === entries.length;
+    })();
+    try {
+        return await _historyLoadPromise;
+    } finally {
+        _historyLoadPromise = null;
+    }
+}
+
+async function selectDateFile(filename) {
+    await ensureDateWindowLoaded(filename, DATA_ANALYSIS_DAYS);
+    if (!allDataByDate[filename]) {
+        showWarningStatus('该日期数据加载失败');
+        return false;
+    }
+    setCurrentDateFile(filename);
+    touchLoadedDate(filename);
+    document.querySelectorAll('.date-btn').forEach(button => {
+        button.classList.toggle('active', button.dataset.datefile === filename);
+    });
+    updateCharts();
+    return true;
 }
 
 async function loadAllJsonFiles() {
@@ -267,35 +393,22 @@ async function loadAllJsonFiles() {
         return;
     }
 
-    const MAX_RECENT_FILES = 12;
-    manifest = manifest.slice().sort((a, b) => {
+    _dataManifest = manifest.slice().sort((a, b) => {
         const aDate = a.tradingDate || extractDateLabel(a.path);
         const bDate = b.tradingDate || extractDateLabel(b.path);
         return toDateNum(aDate, Date.now()) - toDateNum(bDate, Date.now());
-    }).slice(-MAX_RECENT_FILES);
+    });
+    _manifestEntryByPath = new Map(_dataManifest.map(entry => [entry.path, entry]));
+    _sortedDateFileList = null;
 
-    const totalFiles = manifest.length;
-    const loadedResults = [];
-    const BATCH_SIZE = 6;
+    // 首屏载入最近 4 日以快速展示；随后后台补齐分析窗口，不阻塞首次渲染。
+    const initialManifest = _dataManifest.slice(-4);
+    const totalFiles = initialManifest.length;
     showLoadingProgress(`正在加载 0/${totalFiles}...`, 0, totalFiles);
-
-    for (let i = 0; i < totalFiles; i += BATCH_SIZE) {
-        const batch = manifest.slice(i, i + BATCH_SIZE);
-        const results = await Promise.all(batch.map(async entry => {
-            try {
-                const response = await fetch(entry.path, { signal: controller.signal });
-                if (!response.ok) return null;
-                return { entry, data: await response.json() };
-            } catch (error) {
-                if (error.name !== 'AbortError') console.error(`加载文件 ${entry.path} 失败:`, error);
-                return null;
-            }
-        }));
-        if (generation !== _loadGeneration || controller.signal.aborted) return;
-        loadedResults.push(...results.filter(Boolean));
-        const done = Math.min(i + BATCH_SIZE, totalFiles);
-        showLoadingProgress(`正在加载 ${done}/${totalFiles}...`, done, totalFiles);
-    }
+    const loadedResults = await fetchManifestEntries(initialManifest, controller.signal, (done, total) =>
+        showLoadingProgress(`正在加载 ${done}/${total}...`, done, total)
+    );
+    if (generation !== _loadGeneration || controller.signal.aborted) return;
 
     if (loadedResults.length === 0) {
         showWarningStatus(hadPreviousData ? '刷新失败，继续显示上次成功加载的数据' : '没有成功加载任何数据文件');
@@ -309,14 +422,28 @@ async function loadAllJsonFiles() {
     dateFileList = staged.dateFileList;
     _stockFieldIndex = staged.stockFieldIndex;
     _stockNameKeyIndex = staged.stockNameKeyIndex;
+    _dateAccessOrder = new Map(dateFileList.map(filename => [filename, Date.now()]));
     _sortedDateFileList = null;
-    currentDateFile = previousDate && allDataByDate[previousDate] ? previousDate : null;
+    currentDateFile = previousDate && _manifestEntryByPath.has(previousDate) && allDataByDate[previousDate]
+        ? previousDate : null;
     invalidateDateCaches();
     renderDateButtons();
 
     try {
         updateCharts();
-        showSuccessStatus(`已加载 ${loadedResults.length} 个文件`);
+        showSuccessStatus(`已加载 ${loadedResults.length} 个文件，正在后台补齐分析窗口...`, false);
+        const latestPath = _dataManifest.at(-1)?.path;
+        if (latestPath) {
+            ensureDateWindowLoaded(latestPath, DATA_ANALYSIS_DAYS).then(complete => {
+                if (!complete || currentDateFile !== latestPath) return;
+                invalidateDateCaches();
+                updateCharts();
+                showSuccessStatus(`分析窗口已就绪（${DATA_ANALYSIS_DAYS}日）`);
+            }).catch(error => {
+                console.error('后台补载分析窗口失败:', error);
+                showWarningStatus('当前数据已显示，但历史分析窗口未完整加载');
+            });
+        }
     } catch (error) {
         console.error('❌ 渲染图表失败:', error);
         showWarningStatus('数据加载成功，但渲染失败: ' + error.message);

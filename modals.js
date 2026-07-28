@@ -109,7 +109,7 @@ function renderModalTable() {
             <td style="text-align:right;white-space:nowrap">${turnover} 亿</td>
             <td style="text-align:center;${daysStyle}white-space:nowrap">${item._days}</td>
             <td style="text-align:right;white-space:nowrap">${item.股票数量}</td>
-            <td style="font-size:12px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(item.涉及股票 || '-')}</td>
+            <td style="font-size:12px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(item.涉及股票 || item._parsedStocks.map(stock => stock.name).join(', ') || '-')}</td>
         `;
         fragment.appendChild(tr);
     });
@@ -209,50 +209,26 @@ function closeModal(event) {
 
 // ===== 趋势对比弹窗 =====
 
-function getTrendData(sectorName, type, field) {
+function getTrendSeries(sectorName, type) {
     const sorted = sortDateFileList();
-
-    let available = sorted;
-    if (currentDateFile) {
-        const idx = sorted.indexOf(currentDateFile);
-        if (idx >= 0) {
-            available = sorted.slice(0, idx + 1);
-        }
-    }
-
+    const currentIndex = currentDateFile ? sorted.indexOf(currentDateFile) : -1;
+    const available = currentIndex >= 0 ? sorted.slice(0, currentIndex + 1) : sorted;
     const recent = available.slice(-TREND_CHART_DAYS);
-
     const dates = [];
-    const values = [];
+    const netValues = [];
+    const turnoverValues = [];
 
     for (const filename of recent) {
         const entry = allDataByDate[filename];
-        dates.push(entry?.dateLabel || filename);
-
-        const dayData = entry?.data;
-        if (!dayData) {
-            values.push(null);
-            continue;
-        }
-
-        const sectorList = dayData[type] || [];
-        const sectorMap = new Map();
-        for (const s of sectorList) {
-            sectorMap.set(s.板块, s);
-        }
-        const sector = sectorMap.get(sectorName);
-        if (sector) {
-            if (field === 'net') {
-                values.push(Number(sector.主力净额) / 100000000);
-            } else {
-                values.push(Number(sector.成交额) / 100000000);
-            }
-        } else {
-            values.push(null);
-        }
+        dates.push(entry?.dateLabel || _manifestEntryByPath.get(filename)?.tradingDate || filename);
+        const sector = getDailySectorMap(filename, type).get(sectorName);
+        netValues.push(sector ? Number(sector.主力净额) / 100000000 : null);
+        turnoverValues.push(sector ? Number(sector.成交额) / 100000000 : null);
     }
-
-    return { dates, values };
+    return {
+        net: { dates, values: netValues },
+        turnover: { dates, values: turnoverValues }
+    };
 }
 
 function updateTrendBarChart(existingChart, ctx, trendData, field) {
@@ -385,18 +361,16 @@ function renderStockTable(panelList, stocks, bgSet, starSet, stockDaysMap, sortS
             return (va - vb) * dir;
         });
     } else {
-        // 默认：加星股票始终在最上面，其次共同股票，其余在后，各自按主力净额降序
+        // 单次遍历完成分组，再各自按主力净额排序。
+        const groups = [[], [], []];
+        for (const stock of stocks) {
+            const stockKey = stock.stockKey || resolveStockKey(stock.name);
+            const groupIndex = ss.has(stockKey) ? 0 : (bs.has(stock.name) || bs.has(stockKey)) ? 1 : 2;
+            groups[groupIndex].push(stock);
+        }
         const byNetDesc = (a, b) => (b.netYi ?? -Infinity) - (a.netYi ?? -Infinity);
-        const starred = stocks.filter(s => ss.has(s.stockKey || resolveStockKey(s.name))).sort(byNetDesc);
-        const commonOnly = stocks.filter(s => {
-            const stockKey = s.stockKey || resolveStockKey(s.name);
-            return !ss.has(stockKey) && (bs.has(s.name) || bs.has(stockKey));
-        }).sort(byNetDesc);
-        const otherStocks = stocks.filter(s => {
-            const stockKey = s.stockKey || resolveStockKey(s.name);
-            return !ss.has(stockKey) && !bs.has(s.name) && !bs.has(stockKey);
-        }).sort(byNetDesc);
-        sortedStocks = [...starred, ...commonOnly, ...otherStocks];
+        for (const group of groups) group.sort(byNetDesc);
+        sortedStocks = groups.flat();
     }
 
     const netArrow = sortState && sortState.key === 'net' ? (sortState.asc ? ' ▲' : ' ▼') : '';
@@ -602,8 +576,9 @@ function switchTrendView(sectorName, type, commonStockNames) {
     switchStockPanelTab('stocks');
 
     // 更新图表（复用现有 Chart 实例，减少闪烁和资源分配）
-    const netTrend = getTrendData(sectorName, type, 'net');
-    const turnoverTrend = getTrendData(sectorName, type, 'turnover');
+    const trendSeries = getTrendSeries(sectorName, type);
+    const netTrend = trendSeries.net;
+    const turnoverTrend = trendSeries.turnover;
 
     const netCtx = document.getElementById('trendNetChart').getContext('2d');
     trendNetChart = updateTrendBarChart(trendNetChart, netCtx, netTrend, 'net');
@@ -733,8 +708,9 @@ function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, c
     }
 
     // 绘制趋势图（主力净额 + 成交额）
-    const netTrend = getTrendData(sectorName, type, 'net');
-    const turnoverTrend = getTrendData(sectorName, type, 'turnover');
+    const trendSeries = getTrendSeries(sectorName, type);
+    const netTrend = trendSeries.net;
+    const turnoverTrend = trendSeries.turnover;
     const netCtx = document.getElementById('trendNetChart').getContext('2d');
     trendNetChart = updateTrendBarChart(trendNetChart, netCtx, netTrend, 'net');
     const turnoverCtx = document.getElementById('trendTurnoverChart').getContext('2d');

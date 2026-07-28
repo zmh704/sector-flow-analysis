@@ -8,7 +8,8 @@ const {
     parseNumericValue,
     normalizeStockCode,
     buildStockKey,
-    extractTradeDate
+    extractTradeDate,
+    detectColumns
 } = require('../analyze.js');
 
 function workbookFromRows(rows) {
@@ -39,6 +40,28 @@ test('严格数值解析支持 number、千分位、元/万/亿和百分比', ()
     for (const invalid of ['1,23元', '12abc', '1.2万亿元', '', Infinity]) {
         assert.throws(() => parseNumericValue(invalid), /无效数值/);
     }
+});
+
+test('列识别不允许短列名反向匹配或同一物理列重复占用', () => {
+    const columns = detectColumns([{
+        '股票简称': '样例',
+        '行业': '银行',
+        '概念': '沪股通',
+        '额': 1
+    }]);
+    assert.equal(columns.net, undefined);
+    assert.equal(columns.turnover, undefined);
+});
+
+test('列识别在多个物理列同时匹配同一逻辑字段时明确报错', () => {
+    assert.throws(() => detectColumns([{
+        '股票简称': '样例',
+        '所属行业': '银行',
+        '所属概念': '沪股通',
+        '主力净额(元)': 1,
+        '主力净额(万元)': 2,
+        '成交额': 3
+    }]), /列识别存在歧义/);
 });
 
 test('股票代码规范化并按市场生成 stockKey，无效代码回退 legacy key', () => {
@@ -116,6 +139,46 @@ test('新模板产出 OHLC 明细和兼容涉及股票格式', () => {
     );
 });
 
+test('双层表头的第2行日期元数据被整体忽略，不作为错误数据行', () => {
+    const workbook = workbookFromRows([
+        {
+            '股票简称': '股票简称',
+            '股票代码': '股票代码',
+            '行业板块': '行业板块',
+            '概念板块': '概念板块',
+            '主力净额': '2026.07.28',
+            '成交额': '2026.07.28',
+            '成交量(手)': '2026.07.28',
+            '涨跌幅(%)': '涨跌幅(%)'
+        },
+        baseRow({ '成交量(手)': 12000, '涨跌幅(%)': 1.5 })
+    ]);
+
+    const originalError = console.error;
+    const errors = [];
+    console.error = (...args) => errors.push(args.join(' '));
+    try {
+        const { industryRows } = analyzeFundFlow(workbook);
+        assert.equal(industryRows.length, 1);
+        assert.equal(industryRows[0]['股票数量'], 1);
+        assert.deepEqual(errors, []);
+    } finally {
+        console.error = originalError;
+    }
+});
+
+test('真实数据行即使名称碰巧等于列名，非法日期数值仍会报错并跳过', () => {
+    const workbook = workbookFromRows([{
+        '股票简称': '股票简称',
+        '股票代码': '600000',
+        '行业板块': '银行',
+        '概念板块': '沪股通',
+        '主力净额': '2026.07.28',
+        '成交额': '2亿元'
+    }]);
+    assert.equal(analyzeFundFlow(workbook).industryRows.length, 0);
+});
+
 test('同一板块完全重复行仅合并一次，聚合金额、数量和列表一致', () => {
     const row = baseRow({ '行业板块': '银行, 银行', '概念板块': '沪股通' });
     const { industryRows, conceptRows } = analyzeFundFlow(workbookFromRows([row, { ...row }]));
@@ -129,17 +192,41 @@ test('同一板块完全重复行仅合并一次，聚合金额、数量和列�
     }
 });
 
-test('同一 stockKey 字段冲突时跳过冲突行，保留第一条数据', () => {
+test('同一 stockKey 字段冲突时记录诊断，保留第一条数据', () => {
     const workbook = workbookFromRows([
         baseRow(),
         baseRow({ '主力净额': '2亿元' })
     ]);
 
-    const { industryRows } = analyzeFundFlow(workbook);
-    // 第一条成功，第二条冲突被跳过，结果中只有 1 条
+    const { industryRows, diagnostics } = analyzeFundFlow(workbook, { silent: true });
     assert.equal(industryRows.length, 1);
     assert.equal(industryRows[0]['主力净额'], 100000000);
     assert.equal(industryRows[0]['股票数量'], 1);
+    assert.equal(diagnostics.acceptedRows, 1);
+    assert.equal(diagnostics.skippedRows, 1);
+    assert.equal(diagnostics.conflictRows, 1);
+    assert.equal(diagnostics.errors[0].code, 'STOCK_CONFLICT');
+});
+
+test('buildAnalysisResult 遇到冲突行或没有有效行时阻止生成结果', () => {
+    assert.throws(() => buildAnalysisResult(workbookFromRows([
+        baseRow(),
+        baseRow({ '主力净额': '2亿元' })
+    ]), '2026-07-28.xlsx', { silent: true }), error => {
+        assert.equal(error.code, 'CONFLICT_ROWS');
+        assert.equal(error.diagnostics.conflictRows, 1);
+        return true;
+    });
+
+    assert.throws(() => buildAnalysisResult(
+        workbookFromRows([baseRow({ '主力净额': '不是数字' })]),
+        '2026-07-28.xlsx',
+        { silent: true }
+    ), error => {
+        assert.equal(error.code, 'NO_VALID_ROWS');
+        assert.equal(error.diagnostics.acceptedRows, 0);
+        return true;
+    });
 });
 
 test('单行数值非法时跳过该行，返回空结果', () => {
@@ -148,12 +235,21 @@ test('单行数值非法时跳过该行，返回空结果', () => {
     assert.equal(analyzeFundFlow(workbookFromRows([baseRow({ '成交额': '2026.07.28' })])).industryRows.length, 0);
 });
 
-test('buildAnalysisResult 增加 schemaVersion 和来源交易日期并保持旧调用兼容', () => {
+test('buildAnalysisResult 增加 schemaVersion、来源日期和解析诊断并保持旧调用兼容', () => {
     const workbook = workbookFromRows([baseRow()]);
     const isoResult = buildAnalysisResult(workbook, '资金流向_2026-07-26.xlsx');
     assert.equal(isoResult.schemaVersion, 2);
     assert.equal(isoResult['交易日期'], '2026-07-26');
     assert.equal(isoResult['数据来源'], '资金流向_2026-07-26.xlsx');
+    assert.deepEqual(isoResult['解析诊断'], {
+        totalRows: 1,
+        acceptedRows: 1,
+        skippedRows: 0,
+        duplicateRows: 0,
+        conflictRows: 0,
+        metadataRows: 0,
+        errors: []
+    });
 
     assert.equal(extractTradeDate('资金流向_2025年2月3日.xlsx'), '2025-02-03');
     assert.equal(extractTradeDate('2月3日_资金流向.xlsx', { referenceYear: 2024 }), '2024-02-03');

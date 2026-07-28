@@ -3,10 +3,14 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
+const crypto = require('crypto');
 const XLSX = require('xlsx');
 const { buildAnalysisResult: defaultBuildAnalysisResult } = require('./analyze.js');
 const { createManifest, parseTradingDate } = require('./lib/manifest.js');
 const { writeJsonAtomic } = require('./lib/file-utils.js');
+const { toSchemaV3 } = require('./lib/schema-v3.js');
+const { performance } = require('node:perf_hooks');
 
 const DEFAULT_PORT = 3001;
 const DEFAULT_HOST = '127.0.0.1';
@@ -109,15 +113,57 @@ function parseMultipart(buffer, contentType) {
     throw new Error('未找到上传文件');
 }
 
-function send(res, statusCode, body, contentType = 'text/plain; charset=utf-8') {
+function send(res, statusCode, body, contentType = 'text/plain; charset=utf-8', headers = {}) {
     if (res.writableEnded || res.destroyed) return false;
-    res.writeHead(statusCode, { 'Content-Type': contentType });
+    res.writeHead(statusCode, { 'Content-Type': contentType, ...headers });
     res.end(body);
     return true;
 }
 
-function sendJson(res, statusCode, value) {
-    return send(res, statusCode, JSON.stringify(value), 'application/json; charset=utf-8');
+function sendJson(res, statusCode, value, headers = {}) {
+    return send(res, statusCode, JSON.stringify(value), 'application/json; charset=utf-8', headers);
+}
+
+function createEtag(data) {
+    const buffer = Buffer.isBuffer(data) ? data : Buffer.from(String(data));
+    return `"${crypto.createHash('sha1').update(buffer).digest('base64url')}"`;
+}
+
+function acceptsEncoding(header, encoding) {
+    return String(header || '').split(',').some(token => {
+        const [name, ...params] = token.trim().toLowerCase().split(';');
+        if (name !== encoding && name !== '*') return false;
+        const quality = params.find(param => param.trim().startsWith('q='));
+        return !quality || Number(quality.trim().slice(2)) > 0;
+    });
+}
+
+function sendCacheable(req, res, statusCode, body, contentType, options = {}) {
+    const source = Buffer.isBuffer(body) ? body : Buffer.from(String(body));
+    const etag = options.etag || createEtag(source);
+    const headers = {
+        'Cache-Control': options.cacheControl || 'no-cache',
+        'ETag': etag,
+        'Vary': 'Accept-Encoding',
+        ...options.headers,
+    };
+    if (req.headers['if-none-match'] === etag) {
+        res.writeHead(304, headers);
+        res.end();
+        return true;
+    }
+    if (req.method === 'HEAD') return send(res, statusCode, '', contentType, headers);
+
+    const compressible = options.compress !== false && source.length >= 1024;
+    if (compressible && acceptsEncoding(req.headers['accept-encoding'], 'br')) {
+        headers['Content-Encoding'] = 'br';
+        return send(res, statusCode, zlib.brotliCompressSync(source), contentType, headers);
+    }
+    if (compressible && acceptsEncoding(req.headers['accept-encoding'], 'gzip')) {
+        headers['Content-Encoding'] = 'gzip';
+        return send(res, statusCode, zlib.gzipSync(source), contentType, headers);
+    }
+    return send(res, statusCode, source, contentType, headers);
 }
 
 function readRequestBody(req, res, maxRequestBytes, onComplete) {
@@ -194,12 +240,51 @@ function resolveUploadTradingDate(result, now) {
     return parseTradingDate(result && result['交易日期'], { now }) || formatDateUtc(now);
 }
 
+function getDirectoryFingerprint(dataDir) {
+    try {
+        return fs.readdirSync(dataDir)
+            .filter(name => /板块资金流向.*\.json$/i.test(name) && !name.includes('.bak_'))
+            .sort((a, b) => a.localeCompare(b, 'zh-CN'))
+            .map(name => {
+                const stat = fs.statSync(path.join(dataDir, name));
+                return `${name}:${stat.size}:${stat.mtimeMs}`;
+            })
+            .join('|');
+    } catch (error) {
+        if (error.code === 'ENOENT') return '';
+        throw error;
+    }
+}
+
+function createManifestCache({ rootDir, dataDir, nowProvider }) {
+    let fingerprint = null;
+    let manifest = null;
+    let builds = 0;
+    return {
+        get() {
+            const nextFingerprint = getDirectoryFingerprint(dataDir);
+            if (!manifest || nextFingerprint !== fingerprint) {
+                manifest = createManifest({ rootDir, dataDir, now: nowProvider() });
+                fingerprint = nextFingerprint;
+                builds++;
+            }
+            return manifest;
+        },
+        invalidate() {
+            fingerprint = null;
+            manifest = null;
+        },
+        getBuildCount() { return builds; }
+    };
+}
+
 function createServer(options = {}) {
     const rootDir = path.resolve(options.rootDir || ROOT);
     const dataDir = path.resolve(options.dataDir || path.join(rootDir, 'data'));
     const maxRequestBytes = options.maxRequestBytes ?? DEFAULT_MAX_REQUEST_BYTES;
     const buildAnalysisResult = options.buildAnalysisResult || defaultBuildAnalysisResult;
     const nowProvider = options.now || (() => new Date());
+    const manifestCache = options.manifestCache || createManifestCache({ rootDir, dataDir, nowProvider });
 
     if (!Number.isSafeInteger(maxRequestBytes) || maxRequestBytes < 0) {
         throw new TypeError('maxRequestBytes 必须是非负安全整数');
@@ -220,9 +305,10 @@ function createServer(options = {}) {
                 send(res, 405, 'Method Not Allowed');
                 return;
             }
-            const manifest = createManifest({ rootDir, dataDir, now: nowProvider() });
-            if (req.method === 'HEAD') send(res, 200, '', 'application/json; charset=utf-8');
-            else sendJson(res, 200, manifest);
+            const manifest = manifestCache.get();
+            sendCacheable(req, res, 200, JSON.stringify(manifest), 'application/json; charset=utf-8', {
+                cacheControl: 'no-cache'
+            });
             return;
         }
 
@@ -241,23 +327,49 @@ function createServer(options = {}) {
                         send(res, 415, '仅支持 .xlsx 或 .xls 文件');
                         return;
                     }
+                    const startedAt = performance.now();
+                    const readStartedAt = performance.now();
                     const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
+                    const readMs = performance.now() - readStartedAt;
+                    const analyzeStartedAt = performance.now();
                     const result = buildAnalysisResult(workbook, filename);
+                    const analyzeMs = performance.now() - analyzeStartedAt;
                     const tradingDate = resolveUploadTradingDate(result, nowProvider());
-                    const jsonFilename = `${tradingDate}_板块资金流向.json`;
-                    writeJsonAtomic(path.join(dataDir, jsonFilename), result);
+                    const jsonFilename = `${tradingDate}_板块资金流向.v3.json`;
+                    const writeStartedAt = performance.now();
+                    const storedResult = toSchemaV3(result);
+                    writeJsonAtomic(path.join(dataDir, jsonFilename), storedResult);
+                    const writeMs = performance.now() - writeStartedAt;
+                    manifestCache.invalidate();
+                    const performanceMetrics = {
+                        fileBytes: fileBuffer.length,
+                        rows: result['解析诊断']?.totalRows ?? null,
+                        readMs: Number(readMs.toFixed(2)),
+                        analyzeMs: Number(analyzeMs.toFixed(2)),
+                        writeMs: Number(writeMs.toFixed(2)),
+                        totalMs: Number((performance.now() - startedAt).toFixed(2))
+                    };
+                    console.log('[解析性能]', JSON.stringify({ filename, ...performanceMetrics }));
 
                     const industryRows = result['行业板块资金流向'] || [];
                     const conceptRows = result['概念板块资金流向'] || [];
-                    sendJson(res, 200, {
+                    const responsePayload = {
                         success: true,
                         industries: industryRows.length,
                         concepts: conceptRows.length,
                         file: jsonFilename,
-                    });
+                        performance: performanceMetrics,
+                    };
+                    if (result['解析诊断']) responsePayload.diagnostics = result['解析诊断'];
+                    sendJson(res, 200, responsePayload);
                 } catch (error) {
                     console.error('[解析错误]', error.message);
-                    send(res, 400, error.message);
+                    sendJson(res, 400, {
+                        success: false,
+                        error: error.message,
+                        code: error.code || 'PARSE_ERROR',
+                        diagnostics: error.diagnostics || null,
+                    });
                 }
             });
             return;
@@ -286,8 +398,15 @@ function createServer(options = {}) {
                 send(res, error.code === 'EACCES' ? 403 : 404, '404 Not Found: ' + pathname);
                 return;
             }
-            if (req.method === 'HEAD') send(res, 200, '', MIME[path.extname(filePath).toLowerCase()] || 'application/octet-stream');
-            else send(res, 200, data, MIME[path.extname(filePath).toLowerCase()] || 'application/octet-stream');
+            const extension = path.extname(filePath).toLowerCase();
+            const immutable = /\.[0-9a-f]{8,}\./i.test(path.basename(filePath));
+            const cacheControl = extension === '.json'
+                ? 'public, max-age=300, must-revalidate'
+                : immutable ? 'public, max-age=31536000, immutable' : 'public, max-age=3600';
+            sendCacheable(req, res, 200, data, MIME[extension] || 'application/octet-stream', {
+                cacheControl,
+                compress: ['.html', '.js', '.json', '.css'].includes(extension)
+            });
         });
     });
 }
@@ -316,6 +435,11 @@ module.exports = {
     scanDataFiles,
     readRequestBody,
     resolveUploadTradingDate,
+    createEtag,
+    acceptsEncoding,
+    sendCacheable,
+    getDirectoryFingerprint,
+    createManifestCache,
     writeJsonAtomic,
     DEFAULT_MAX_REQUEST_BYTES,
     DEFAULT_PORT,

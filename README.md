@@ -18,10 +18,11 @@
 - **股票预选**：可将股票标记为预选，状态持久化到 `localStorage`
 
 ### 数据管理
-- **多日期数据**：自动扫描 `data/` 目录下所有 `*板块资金流向*.json` 文件，按修改时间排序生成日期切换按钮
-- **Excel 上传解析**：上传 `.xlsx` 源数据，服务端实时解析生成 JSON 并入库
-- **批量重处理**：`reprocess.js` 批量重解析 `data/源数据/` 下的 Excel，覆盖生成 JSON
-- **静态列表回退**：本地服务器不可用时回退到 `list.json`（适用于 GitHub Pages 部署）
+- **多日期数据**：按 JSON 中的交易日期排序，同一交易日优先选择 schema 更新、含价格数据的文件
+- **按需加载**：首屏只加载最近 4 日，后台补齐 12 日分析窗口；历史日期点击时按需加载，内存最多保留 20 日
+- **Excel 上传解析**：上传 `.xlsx` / `.xls` 后执行严格校验，直接生成 schema v3 JSON，并返回解析诊断和耗时
+- **安全迁移**：`reprocess.js` 默认 dry-run，显式 `--apply` 后迁移历史数据；`convert-schema-v3.js` 负责 v3 去重转换
+- **静态列表回退**：本地服务器不可用时回退到 `list.json`（适用于静态部署）
 
 ### 交互
 - **键盘快捷键**：`←/→` 切换日期，`1-9` 快速选择日期，`Esc` 关闭弹窗
@@ -58,19 +59,32 @@
 
 ### 从 Excel 生成数据
 
-**方式 A — 页面上传**：点击页面右上角「📊 解析数据」，选择 `.xlsx` 或 `.xls` 文件。默认最大 20 MiB，前后端都会校验；服务端解析后以 ISO 交易日期写入 `data/`。
+**方式 A — 页面上传**：点击页面右上角「📊 解析数据」，选择 `.xlsx` 或 `.xls` 文件。默认最大 20 MiB；服务端解析后写入 `YYYY-MM-DD_板块资金流向.v3.json`，冲突数据或无有效行时不会落盘。
 
-**方式 B — 批量重处理**：将 Excel 放入 `data/源数据/`，文件名需含日期（如 `6月24日.xlsx`），执行：
+**方式 B — 历史安全迁移**：旧 JSON 的 `数据来源` 必须能对应到 `data/源数据/` 中的 Excel：
 ```bash
-node reprocess.js
+node reprocess.js          # dry-run，只生成校验报告
+node reprocess.js --apply  # 校验通过后生成 schema v2 ISO 文件
+npm run convert:v3         # dry-run，评估 v3 体积与一致性
+npm run convert:v3:apply   # 生成 schema v3 文件并更新 list.json
 ```
 
 ### JSON 数据格式
 
 ```json
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "交易日期": "2026-06-24",
+  "股票字典": {
+    "SZ:300059": {
+      "stockKey": "SZ:300059",
+      "name": "东方财富",
+      "code": "300059",
+      "amountYi": 50.41,
+      "netYi": 21.98,
+      "changePct": 2.5
+    }
+  },
   "生成时间": "2026-06-24 12:22:22",
   "数据来源": "6月24日.xlsx",
   "行业板块资金流向": [
@@ -79,7 +93,7 @@ node reprocess.js
       "成交额": 50415261184.0,
       "主力净额": 7188188800.0,
       "股票数量": 5,
-      "涉及股票": "东方财富(300059|50.41亿|+21.98亿|+2.50%|1234万手), 中信证券(600030|146.93亿|+14.69亿|+1.20%|5678万手)"
+      "股票键": ["SZ:300059", "SH:600030"]
     }
   ],
   "概念板块资金流向": [
@@ -88,7 +102,7 @@ node reprocess.js
       "成交额": 95083172864.0,
       "主力净额": 7400176512.0,
       "股票数量": 13,
-      "涉及股票": "洛阳钼业(603993|145.63亿|+5.00亿|+1.10%|4321万手), ..."
+      "股票键": ["SH:603993"]
     }
   ],
   "分析总结": {
@@ -100,7 +114,7 @@ node reprocess.js
 }
 ```
 
-**股票数据兼容格式**：schema v2 在每个板块中新增结构化 `股票明细`，业务计算优先读取其中的标准数值和 `stockKey`；`涉及股票` 继续保留用于兼容旧页面与历史 JSON。旧文本支持 4/5/8/9 段格式，金额可为元、万或亿。
+**股票数据格式**：schema v3 将每天每只股票只保存在顶层 `股票字典` 中，板块通过 `股票键` 引用，可显著减少行业/概念之间的重复数据。页面和查询脚本仍兼容 schema v1 的 `涉及股票` 文本及 schema v2 的 `股票明细`。
 
 ## 使用说明
 
@@ -148,7 +162,9 @@ gp_analyze/
 ├── analyze.js              # Excel 解析公共模块（server/reprocess 共用）
 ├── server.js               # Node HTTP 服务器（/api/list、/api/parse、静态）
 ├── generate-list.js        # 生成 list.json（静态部署回退用）
-├── reprocess.js            # 批量重处理 Excel
+├── reprocess.js            # 历史 schema v2 安全迁移（默认 dry-run）
+├── convert-schema-v3.js    # schema v3 去重转换与体积报告
+├── lib/schema-v3.js        # v3 转换和校验
 ├── start.cmd               # Windows 一键启动
 ├── list.json               # 数据文件列表（静态部署）
 ├── package.json
@@ -161,10 +177,10 @@ gp_analyze/
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/list` | 返回 v2 manifest，按 `tradingDate` 排序并对同交易日择优去重 |
-| POST | `/api/parse` | 接收单个 Excel；默认上限 20 MiB，解析后原子写入 `data/`，返回 `{ success, industries, concepts, file }` |
+| GET | `/api/list` | 返回 manifest，按 `tradingDate` 排序并对同交易日择优去重；目录未变化时复用缓存 |
+| POST | `/api/parse` | 接收单个 Excel；生成 schema v3，返回板块数、解析诊断与性能指标 |
 
-其余路径按静态文件服务（已做路径遍历防护）。
+静态文本和 JSON 支持 Brotli/gzip、ETag、304 与 Cache-Control，并保留路径遍历防护。
 
 ## 技术栈
 
@@ -190,6 +206,8 @@ gp_analyze/
 | `RATIO_TURNOVER_HIGH` | 1.6 | 成交额放量阈值 |
 | `CHANGE_LIMIT_PCT` | 5 | 放量时涨跌幅限制（%） |
 | `TREND_CHART_DAYS` | 10 | 趋势图显示天数 |
+| `DATA_ANALYSIS_DAYS` | 12 | 当前日期的历史分析窗口 |
+| `MAX_LOADED_DATES` | 20 | 浏览器内存中最多保留的日期数 |
 | `STOCK_CHART_SOURCE` | `sina_chart` | 个股图表默认数据源（`sina_chart` / `tradingview`） |
 
 今日推荐的筛选条件在 `leaders.js` 的 `passesLeaderConditions()` 中，各条件独立成方法，可通过注释开关。
@@ -214,6 +232,9 @@ A: 检查 Excel 是否包含必要列（股票简称、行业板块、概念板�
 
 **Q: 多日期数据不合并**
 A: 本系统不合并多日期数据，而是按日期分别加载、切换查看。文件名需匹配 `*板块资金流向*.json`。
+
+**Q: `data.db` 是否为当前数据库？**
+A: 不是。当前运行链路以 JSON/manifest 为准，`data.db` 是未接入现有代码的历史实验文件，不参与解析、查询或展示。
 
 ## 更新日志
 

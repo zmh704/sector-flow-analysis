@@ -239,7 +239,7 @@ function isStockVolumeUpChangeLimited(stockIdentity) {
 
 /** 计算板块从当天往前连续主力净额>0的天数（带缓存） */
 function calcConsecutiveInflow(sectorName, type) {
-    if (dateFileList.length < 2) return 0;
+    if (sortDateFileList().length < 2) return 0;
     if (!currentDateFile) return 0;
 
     if (!_consecutiveInflowCache) _consecutiveInflowCache = new Map();
@@ -386,6 +386,15 @@ function buildSectorMap(sectorList) {
     return map;
 }
 
+function getDailySectorMap(filename, type) {
+    if (!filename) return new Map();
+    const key = filename + '|' + type;
+    if (_dailySectorMapCache.has(key)) return _dailySectorMapCache.get(key);
+    const map = buildSectorMap(allDataByDate[filename]?.data?.[type] || []);
+    _dailySectorMapCache.set(key, map);
+    return map;
+}
+
 /**
  * 通用板块筛选：对板块列表应用关注板块的全部条件（①~⑤）。
  * 与 getFocusSectors()、updateFocusArea() 共享，保证条件一致。
@@ -400,17 +409,14 @@ function filterSectors(list, type) {
     const cached = _sectorFilterCache.get(cacheKey);
     if (cached && cached.dateFile === currentDateFile && cached.list === list) return cached.value;
 
-    const currMap = buildSectorMap(list);
+    const currMap = getDailySectorMap(currentDateFile, type);
 
     // 提前构建前几日板块 Map 供条件函数 O(1) 查找
     const sorted = sortDateFileList();
     const currentIdx = sorted.indexOf(currentDateFile);
-    const prevData = currentIdx > 0 ? allDataByDate[sorted[currentIdx - 1]]?.data : null;
-    const prevMap = prevData ? buildSectorMap(prevData[type] || []) : new Map();
-    const prev2Data = currentIdx >= 2 ? allDataByDate[sorted[currentIdx - 2]]?.data : null;
-    const prev2Map = prev2Data ? buildSectorMap(prev2Data[type] || []) : null;
-    const prev3Data = currentIdx >= 3 ? allDataByDate[sorted[currentIdx - 3]]?.data : null;
-    const prev3Map = prev3Data ? buildSectorMap(prev3Data[type] || []) : null;
+    const prevMap = currentIdx > 0 ? getDailySectorMap(sorted[currentIdx - 1], type) : new Map();
+    const prev2Map = currentIdx >= 2 ? getDailySectorMap(sorted[currentIdx - 2], type) : null;
+    const prev3Map = currentIdx >= 3 ? getDailySectorMap(sorted[currentIdx - 3], type) : null;
 
     const result = list.filter(s =>
         condNotPlaceholder(s) &&

@@ -4,9 +4,11 @@
   "scripts": {
     "start": "node server.js",
     "test": "node --test",
-    "check": "node --check server.js && node --check analyze.js && node --check reprocess.js && node --check generate-list.js && node --check stock-utils.js && node --check config.js && node --check calc.js && node --check data.js && node --check charts.js && node --check leaders.js && node --check modals.js && node --check app.js",
+    "check": "node --check server.js && node --check analyze.js && node --check reprocess.js && node --check generate-list.js && node --check convert-schema-v3.js && node --check stock-utils.js && node --check config.js && node --check calc.js && node --check data.js && node --check charts.js && node --check leaders.js && node --check modals.js && node --check app.js",
     "generate:list": "node generate-list.js",
-    "reprocess": "node reprocess.js"
+    "reprocess": "node reprocess.js",
+    "convert:v3": "node convert-schema-v3.js",
+    "convert:v3:apply": "node convert-schema-v3.js --apply"
   },
   "engines": {
     "node": ">=18"

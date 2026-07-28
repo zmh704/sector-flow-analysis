@@ -123,7 +123,7 @@ function buildStockKey(codeValue, nameValue) {
     return getStockKey(codeValue, nameValue);
 }
 
-/** 自动识别 Excel 列名。 */
+/** 自动识别 Excel 列名。同一物理列只能映射到一个逻辑字段。 */
 function detectColumns(rows) {
     if (!Array.isArray(rows) || rows.length === 0) return {};
     const colMap = {};
@@ -142,16 +142,60 @@ function detectColumns(rows) {
         close: ['收盘价', '收盘价.前复权', '收盘']
     };
     const cols = Object.keys(rows[0]);
+    const normalized = new Map(cols.map(col => [col, String(col).normalize('NFKC').trim().toLowerCase()]));
+    const usedColumns = new Set();
+
     for (const [key, names] of Object.entries(candidates)) {
-        let found = cols.find(c => names.includes(String(c).trim()));
-        if (!found) found = cols.find(c => names.some(n => String(c).includes(n) || n.includes(String(c))));
-        if (found) colMap[key] = found;
+        const aliases = names.map(name => String(name).normalize('NFKC').trim().toLowerCase());
+        let matches = cols.filter(col => !usedColumns.has(col) && aliases.includes(normalized.get(col)));
+        if (matches.length === 0) {
+            // 仅允许实际列名包含完整候选名，不做“短列名反向包含”，避免“额”等列误配。
+            matches = cols.filter(col => !usedColumns.has(col) && aliases.some(alias =>
+                alias.length >= 2 && normalized.get(col).includes(alias)
+            ));
+        }
+        if (matches.length > 1) {
+            const error = new Error(`Excel 列识别存在歧义：逻辑字段“${key}”同时匹配 ${matches.join(', ')}`);
+            error.code = 'AMBIGUOUS_COLUMNS';
+            throw error;
+        }
+        if (matches.length === 1) {
+            colMap[key] = matches[0];
+            usedColumns.add(matches[0]);
+        }
     }
     return colMap;
 }
 
 function getExcelRowNumber(row, index) {
     return Number.isInteger(row && row.__rowNum__) ? row.__rowNum__ + 1 : index + 2;
+}
+
+/**
+ * 部分行情导出表使用两层表头：第 1 行是字段名，第 2 行是字段对应日期。
+ * sheet_to_json 会把第 2 行当成数据对象；该行必须整体忽略，而不是逐数值列报错。
+ */
+function isMetadataHeaderRow(row, colMap) {
+    if (!row || !colMap) return false;
+    const name = normalizeStockName(row[colMap.name]);
+    const industry = normalizeStockName(row[colMap.industry]);
+    const concept = normalizeStockName(row[colMap.concept]);
+    const repeatsLabels = name === normalizeStockName(colMap.name)
+        && industry === normalizeStockName(colMap.industry)
+        && concept === normalizeStockName(colMap.concept);
+    if (!repeatsLabels) return false;
+
+    const requiredNumericValues = ['net', 'turnover']
+        .filter(key => colMap[key])
+        .map(key => row[colMap[key]]);
+    if (requiredNumericValues.length < 2 || !requiredNumericValues.every(isDateMetadataValue)) return false;
+
+    const optionalNumericKeys = ['change', 'volume', 'high', 'open', 'low', 'close'];
+    return optionalNumericKeys.every(key => {
+        if (!colMap[key] || isEmptyValue(row[colMap[key]])) return true;
+        const value = String(row[colMap[key]]).trim();
+        return isDateMetadataValue(value) || value === String(colMap[key]).trim();
+    });
 }
 
 function formatSignedCurrency(value) {
@@ -184,6 +228,24 @@ function differingDetailFields(left, right) {
     return Object.keys(left).filter(key => !Object.is(left[key], right[key]));
 }
 
+function inspectStockInSector(stats, sectorName, stock, rowNumber) {
+    const sector = stats[sectorName];
+    const existing = sector?.stockByKey.get(stock.detail.stockKey);
+    if (!existing) return 'add';
+
+    const conflictFields = differingDetailFields(existing.detail, stock.detail);
+    if (conflictFields.length === 0) return 'duplicate';
+    const stockLabel = stock.detail.code
+        ? `${stock.detail.name}(${stock.detail.code})`
+        : stock.detail.name;
+    const error = new Error(
+        `板块“${sectorName}”内股票“${stockLabel}”数据冲突：原行号 ${existing.rowNumber}，` +
+        `冲突行号 ${rowNumber}；冲突字段: ${conflictFields.join(', ')}`
+    );
+    error.code = 'STOCK_CONFLICT';
+    throw error;
+}
+
 function addStockToSector(stats, sectorName, stock, rowNumber, turnover, net) {
     let sector = stats[sectorName];
     if (!sector) {
@@ -195,32 +257,42 @@ function addStockToSector(stats, sectorName, stock, rowNumber, turnover, net) {
             stockByKey: new Map()
         };
     }
-
-    const existing = sector.stockByKey.get(stock.detail.stockKey);
-    if (existing) {
-        const conflictFields = differingDetailFields(existing.detail, stock.detail);
-        if (conflictFields.length === 0) return;
-        const stockLabel = stock.detail.code
-            ? `${stock.detail.name}(${stock.detail.code})`
-            : stock.detail.name;
-        throw new Error(
-            `板块“${sectorName}”内股票“${stockLabel}”数据冲突：原行号 ${existing.rowNumber}，` +
-            `冲突行号 ${rowNumber}；冲突字段: ${conflictFields.join(', ')}`
-        );
-    }
+    if (sector.stockByKey.has(stock.detail.stockKey)) return false;
 
     sector.stockByKey.set(stock.detail.stockKey, { detail: stock.detail, rowNumber });
     sector.totalNet += net;
     sector.totalTurnover += turnover;
     sector.stocks.push(stock.legacyText);
     sector.details.push(stock.detail);
+    return true;
+}
+
+function createDiagnostics() {
+    return {
+        totalRows: 0,
+        acceptedRows: 0,
+        skippedRows: 0,
+        duplicateRows: 0,
+        conflictRows: 0,
+        metadataRows: 0,
+        errors: []
+    };
+}
+
+function recordDiagnosticError(diagnostics, rowNumber, error, maxErrors) {
+    if (diagnostics.errors.length >= maxErrors) return;
+    diagnostics.errors.push({
+        rowNumber,
+        code: error?.code || 'INVALID_ROW',
+        message: error?.message || String(error)
+    });
 }
 
 /**
  * 分析资金流向，返回行业/概念板块统计行。
  * 同一板块按 stockKey 去重；重复数据仅聚合一次，冲突数据明确报错。
  */
-function analyzeFundFlow(workbook) {
+function analyzeFundFlow(workbook, options = {}) {
     if (!workbook || !Array.isArray(workbook.SheetNames) || workbook.SheetNames.length === 0) {
         throw new Error('Excel 文件为空');
     }
@@ -235,14 +307,22 @@ function analyzeFundFlow(workbook) {
         throw new Error('无法找到必要列: ' + missing.join(', ') + '。可用列: ' + Object.keys(rows[0]).join(', '));
     }
 
+    const diagnostics = createDiagnostics();
+    const maxDiagnosticErrors = Number.isSafeInteger(options.maxDiagnosticErrors)
+        ? Math.max(0, options.maxDiagnosticErrors) : 20;
     const industryStats = Object.create(null);
     const conceptStats = Object.create(null);
     const hasChange = !!colMap.change;
     const hasPrices = ['high', 'open', 'low', 'close'].some(key => !!colMap[key]);
 
     rows.forEach((row, index) => {
+        if (isMetadataHeaderRow(row, colMap)) {
+            diagnostics.metadataRows++;
+            return;
+        }
         const name = normalizeStockName(row[colMap.name]);
         if (!name) return;
+        diagnostics.totalRows++;
         const rowNumber = getExcelRowNumber(row, index);
         try {
             const code = colMap.code ? normalizeStockCode(row[colMap.code]) : '';
@@ -289,14 +369,27 @@ function analyzeFundFlow(workbook) {
                 legacyText: makeStockString(detail, hasChange, hasPrices)
             };
 
-            for (const industry of new Set(parseSectors(row[colMap.industry]))) {
+            const industries = [...new Set(parseSectors(row[colMap.industry]))];
+            const concepts = [...new Set(parseSectors(row[colMap.concept]))];
+            const statuses = [
+                ...industries.map(sectorName => inspectStockInSector(industryStats, sectorName, stock, rowNumber)),
+                ...concepts.map(sectorName => inspectStockInSector(conceptStats, sectorName, stock, rowNumber))
+            ];
+            const isDuplicateRow = statuses.length > 0 && statuses.every(status => status === 'duplicate');
+
+            for (const industry of industries) {
                 addStockToSector(industryStats, industry, stock, rowNumber, turnover, net);
             }
-            for (const concept of new Set(parseSectors(row[colMap.concept]))) {
+            for (const concept of concepts) {
                 addStockToSector(conceptStats, concept, stock, rowNumber, turnover, net);
             }
+            if (isDuplicateRow) diagnostics.duplicateRows++;
+            else diagnostics.acceptedRows++;
         } catch (parseError) {
-            console.error(`[跳过第 ${rowNumber} 行] ${parseError.message}`);
+            diagnostics.skippedRows++;
+            if (parseError?.code === 'STOCK_CONFLICT') diagnostics.conflictRows++;
+            recordDiagnosticError(diagnostics, rowNumber, parseError, maxDiagnosticErrors);
+            if (!options.silent) console.error(`[跳过第 ${rowNumber} 行] ${parseError.message}`);
         }
     });
 
@@ -309,7 +402,18 @@ function analyzeFundFlow(workbook) {
         '股票明细': data.details
     })).sort((a, b) => b['主力净额'] - a['主力净额']);
 
-    return { industryRows: makeRows(industryStats), conceptRows: makeRows(conceptStats) };
+    return { industryRows: makeRows(industryStats), conceptRows: makeRows(conceptStats), diagnostics };
+}
+
+/** 第二层表头允许单日日期或日期区间（例如 2026.06.17-2026.07.01）。 */
+function isDateMetadataValue(value) {
+    if (isDateLikeString(value)) return true;
+    if (typeof value !== 'string') return false;
+    const text = value.trim();
+    const dottedRange = text.match(/^(\d{4}[./]\d{1,2}[./]\d{1,2})\s*-\s*(\d{4}[./]\d{1,2}[./]\d{1,2})$/);
+    if (dottedRange) return isDateLikeString(dottedRange[1]) && isDateLikeString(dottedRange[2]);
+    const range = text.match(/^(.+?)\s*(?:~|至|—|–|－)\s*(.+)$/);
+    return !!range && isDateLikeString(range[1]) && isDateLikeString(range[2]);
 }
 
 /**
@@ -338,12 +442,25 @@ function extractTradeDate(sourceName, options = {}) {
 
 /** 构建完整结果对象。第三个 options 参数为新增参数，旧的两参数调用保持兼容。 */
 function buildAnalysisResult(workbook, sourceName, options = {}) {
-    const { industryRows, conceptRows } = analyzeFundFlow(workbook);
+    const { industryRows, conceptRows, diagnostics } = analyzeFundFlow(workbook, options);
+    if (diagnostics.acceptedRows === 0) {
+        const error = new Error('Excel 没有可用的数据行，未生成结果文件');
+        error.code = 'NO_VALID_ROWS';
+        error.diagnostics = diagnostics;
+        throw error;
+    }
+    if (diagnostics.conflictRows > 0) {
+        const error = new Error(`Excel 存在 ${diagnostics.conflictRows} 行股票数据冲突，未生成结果文件`);
+        error.code = 'CONFLICT_ROWS';
+        error.diagnostics = diagnostics;
+        throw error;
+    }
     return {
         schemaVersion: 2,
         '交易日期': extractTradeDate(sourceName, options),
         '生成时间': new Date().toLocaleString('zh-CN', { hour12: false }),
         '数据来源': sourceName,
+        '解析诊断': diagnostics,
         '行业板块资金流向': industryRows,
         '概念板块资金流向': conceptRows,
         '分析总结': {
@@ -368,5 +485,6 @@ module.exports = {
     normalizeStockCode,
     getStockMarket,
     buildStockKey,
-    extractTradeDate
+    extractTradeDate,
+    isMetadataHeaderRow
 };

@@ -1,0 +1,12 @@
+{
+  "files": [
+    "data/7月24日_板块资金流向.json",
+    "data/7月27日_板块资金流向.json"
+  ],
+  "combine": "intersection",
+  "conditions": [
+    { "date": "7月24日", "field": "netYi", "operator": ">", "value": 0 },
+    { "date": "7月27日", "field": "netYi", "operator": ">", "value": 0 },
+    { "date": "7月27日", "field": "high", "operator": ">", "refDate": "7月24日", "refField": "high" }
+  ]
+}

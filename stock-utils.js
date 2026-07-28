@@ -146,10 +146,17 @@
         }).filter(Boolean);
     }
 
-    function getSectorStocks(sector) {
+    function getSectorStocks(sector, stockDictionary) {
         if (!sector) return [];
-        if (Array.isArray(sector.股票明细)) return sector.股票明细.map(normalizeStock).filter(stock => stock.name);
         if (Array.isArray(sector._parsedStocks)) return sector._parsedStocks;
+        if (Array.isArray(sector.股票明细)) return sector.股票明细.map(normalizeStock).filter(stock => stock.name);
+        if (Array.isArray(sector.股票键) && stockDictionary && typeof stockDictionary === 'object') {
+            return sector.股票键
+                .map(stockKey => stockDictionary[stockKey])
+                .filter(Boolean)
+                .map(normalizeStock)
+                .filter(stock => stock.name);
+        }
         return parseStocks(sector.涉及股票);
     }
 
