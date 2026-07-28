@@ -129,33 +129,23 @@ test('同一板块完全重复行仅合并一次，聚合金额、数量和列�
     }
 });
 
-test('同一 stockKey 字段冲突时报出板块、股票和两个 Excel 行号', () => {
+test('同一 stockKey 字段冲突时跳过冲突行，保留第一条数据', () => {
     const workbook = workbookFromRows([
         baseRow(),
         baseRow({ '主力净额': '2亿元' })
     ]);
 
-    assert.throws(
-        () => analyzeFundFlow(workbook),
-        error => {
-            assert.match(error.message, /板块“银行”/);
-            assert.match(error.message, /浦发银行\(600000\)/);
-            assert.match(error.message, /原行号 2/);
-            assert.match(error.message, /冲突行号 3/);
-            return true;
-        }
-    );
+    const { industryRows } = analyzeFundFlow(workbook);
+    // 第一条成功，第二条冲突被跳过，结果中只有 1 条
+    assert.equal(industryRows.length, 1);
+    assert.equal(industryRows[0]['主力净额'], 100000000);
+    assert.equal(industryRows[0]['股票数量'], 1);
 });
 
-test('必需 net/turnover 非法时包含 Excel 行号和实际列名', () => {
-    assert.throws(
-        () => analyzeFundFlow(workbookFromRows([baseRow({ '主力净额': '不是数字' })])),
-        /Excel 第 2 行「主力净额」列数值无效/
-    );
-    assert.throws(
-        () => analyzeFundFlow(workbookFromRows([baseRow({ '成交额': '' })])),
-        /Excel 第 2 行「成交额」列数值无效/
-    );
+test('单行数值非法时跳过该行，返回空结果', () => {
+    assert.equal(analyzeFundFlow(workbookFromRows([baseRow({ '主力净额': '不是数字' })])).industryRows.length, 0);
+    assert.equal(analyzeFundFlow(workbookFromRows([baseRow({ '成交额': '' })])).industryRows.length, 0);
+    assert.equal(analyzeFundFlow(workbookFromRows([baseRow({ '成交额': '2026.07.28' })])).industryRows.length, 0);
 });
 
 test('buildAnalysisResult 增加 schemaVersion 和来源交易日期并保持旧调用兼容', () => {

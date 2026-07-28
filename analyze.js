@@ -99,6 +99,11 @@ function parseCellNumber(value, { rowNumber, columnName, kind, required }) {
         return null;
     }
 
+    // 提前检测类似日期的值，给出更明确的错误提示
+    if (typeof value === 'string' && isDateLikeString(value)) {
+        throw numericError(rowNumber, columnName, value, '数值看起来是日期格式而非数字，请确保单元格内容为数字（如 12345678）而不是日期');
+    }
+
     try {
         const token = parseNumericToken(value);
         const allowedUnits = kind === 'amount' ? AMOUNT_UNITS
@@ -239,55 +244,59 @@ function analyzeFundFlow(workbook) {
         const name = normalizeStockName(row[colMap.name]);
         if (!name) return;
         const rowNumber = getExcelRowNumber(row, index);
-        const code = colMap.code ? normalizeStockCode(row[colMap.code]) : '';
-        const stockKey = buildStockKey(colMap.code ? row[colMap.code] : '', name);
-        const turnover = parseCellNumber(row[colMap.turnover], {
-            rowNumber, columnName: colMap.turnover, kind: 'amount', required: true
-        });
-        const net = parseCellNumber(row[colMap.net], {
-            rowNumber, columnName: colMap.net, kind: 'amount', required: true
-        });
-        const change = colMap.change ? parseCellNumber(row[colMap.change], {
-            rowNumber, columnName: colMap.change, kind: 'change', required: false
-        }) : null;
-        const volume = colMap.volume ? parseCellNumber(row[colMap.volume], {
-            rowNumber, columnName: colMap.volume, kind: 'volume', required: false
-        }) : null;
-        const readPrice = key => colMap[key] ? parseCellNumber(row[colMap[key]], {
-            rowNumber, columnName: colMap[key], kind: 'price', required: false
-        }) : null;
-        const high = readPrice('high');
-        const open = readPrice('open');
-        const low = readPrice('low');
-        const close = readPrice('close');
+        try {
+            const code = colMap.code ? normalizeStockCode(row[colMap.code]) : '';
+            const stockKey = buildStockKey(colMap.code ? row[colMap.code] : '', name);
+            const turnover = parseCellNumber(row[colMap.turnover], {
+                rowNumber, columnName: colMap.turnover, kind: 'amount', required: true
+            });
+            const net = parseCellNumber(row[colMap.net], {
+                rowNumber, columnName: colMap.net, kind: 'amount', required: true
+            });
+            const change = colMap.change ? parseCellNumber(row[colMap.change], {
+                rowNumber, columnName: colMap.change, kind: 'change', required: false
+            }) : null;
+            const volume = colMap.volume ? parseCellNumber(row[colMap.volume], {
+                rowNumber, columnName: colMap.volume, kind: 'volume', required: false
+            }) : null;
+            const readPrice = key => colMap[key] ? parseCellNumber(row[colMap[key]], {
+                rowNumber, columnName: colMap[key], kind: 'price', required: false
+            }) : null;
+            const high = readPrice('high');
+            const open = readPrice('open');
+            const low = readPrice('low');
+            const close = readPrice('close');
 
-        const detail = {
-            stockKey,
-            name,
-            code,
-            amountText: formatCurrency(turnover),
-            netText: formatSignedCurrency(net),
-            changeText: formatChange(change),
-            volumeText: formatVolume(volume),
-            amountYi: turnover / 1e8,
-            netYi: net / 1e8,
-            changePct: change,
-            volumeWanShou: volume == null ? null : volume / 1e4,
-            high,
-            open,
-            low,
-            close
-        };
-        const stock = {
-            detail,
-            legacyText: makeStockString(detail, hasChange, hasPrices)
-        };
+            const detail = {
+                stockKey,
+                name,
+                code,
+                amountText: formatCurrency(turnover),
+                netText: formatSignedCurrency(net),
+                changeText: formatChange(change),
+                volumeText: formatVolume(volume),
+                amountYi: turnover / 1e8,
+                netYi: net / 1e8,
+                changePct: change,
+                volumeWanShou: volume == null ? null : volume / 1e4,
+                high,
+                open,
+                low,
+                close
+            };
+            const stock = {
+                detail,
+                legacyText: makeStockString(detail, hasChange, hasPrices)
+            };
 
-        for (const industry of new Set(parseSectors(row[colMap.industry]))) {
-            addStockToSector(industryStats, industry, stock, rowNumber, turnover, net);
-        }
-        for (const concept of new Set(parseSectors(row[colMap.concept]))) {
-            addStockToSector(conceptStats, concept, stock, rowNumber, turnover, net);
+            for (const industry of new Set(parseSectors(row[colMap.industry]))) {
+                addStockToSector(industryStats, industry, stock, rowNumber, turnover, net);
+            }
+            for (const concept of new Set(parseSectors(row[colMap.concept]))) {
+                addStockToSector(conceptStats, concept, stock, rowNumber, turnover, net);
+            }
+        } catch (parseError) {
+            console.error(`[跳过第 ${rowNumber} 行] ${parseError.message}`);
         }
     });
 
@@ -301,6 +310,23 @@ function analyzeFundFlow(workbook) {
     })).sort((a, b) => b['主力净额'] - a['主力净额']);
 
     return { industryRows: makeRows(industryStats), conceptRows: makeRows(conceptStats) };
+}
+
+/**
+ * 检测字符串是否为常见的日期格式（如 2026.07.28、2026-07-28、07/28/2026 等）
+ * 用于给出更友好的错误提示
+ */
+function isDateLikeString(value) {
+    if (typeof value !== 'string') return false;
+    const text = value.trim();
+    // 匹配日期格式：数字之间用 . - / 分隔，且数字范围合理
+    const datePatterns = [
+        /^\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2}$/,     // 2026.07.28 / 2026-07-28
+        /^\d{1,2}[.\-/]\d{1,2}[.\-/]\d{4}$/,     // 07/28/2026
+        /^\d{4}年\d{1,2}月\d{1,2}日?$/,          // 2026年7月28日
+        /^\d{1,2}月\d{1,2}日$/                    // 7月28日
+    ];
+    return datePatterns.some(p => p.test(text));
 }
 
 /** 从来源名称提取 ISO 交易日期。 */
