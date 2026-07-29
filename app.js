@@ -29,7 +29,9 @@ function initFloatingNote() {
         saved = {};
     }
 
-    textarea.value = typeof saved.text === 'string' ? saved.text : '';
+    const hasLocalText = typeof saved.text === 'string';
+    let noteEdited = false;
+    textarea.value = hasLocalText ? saved.text : '';
     note.classList.toggle('collapsed', saved.collapsed === true);
     toggle.textContent = saved.collapsed === true ? '+' : '−';
     toggle.title = saved.collapsed === true ? '展开便签' : '折叠便签';
@@ -48,6 +50,21 @@ function initFloatingNote() {
         return { left: rect.left, top: rect.top };
     }
 
+    let noteSaveQueue = Promise.resolve();
+
+    function syncNoteToServer(text) {
+        noteSaveQueue = noteSaveQueue
+            .catch(() => {})
+            .then(() => fetch('/api/note', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text })
+            }).then(response => {
+                if (!response.ok) throw new Error(`便签同步失败: HTTP ${response.status}`);
+            }));
+        return noteSaveQueue;
+    }
+
     function persistNote(message) {
         const position = readPosition();
         try {
@@ -57,6 +74,8 @@ function initFloatingNote() {
                 top: Math.round(position.top),
                 collapsed: note.classList.contains('collapsed')
             }));
+            // 同步保存到项目 note.txt；串行队列确保旧请求不会覆盖新内容
+            syncNoteToServer(textarea.value).catch(() => {});
             if (message) {
                 status.textContent = message;
                 window.setTimeout(() => {
@@ -68,8 +87,26 @@ function initFloatingNote() {
         }
     }
 
+    if (!hasLocalText) {
+        fetch('/api/note')
+            .then(response => response.ok ? response.json() : null)
+            .then(payload => {
+                if (!noteEdited && payload && typeof payload.text === 'string') {
+                    textarea.value = payload.text;
+                    localStorage.setItem(FLOATING_NOTE_STORAGE_KEY, JSON.stringify({
+                        text: payload.text,
+                        left: Math.round(readPosition().left),
+                        top: Math.round(readPosition().top),
+                        collapsed: note.classList.contains('collapsed')
+                    }));
+                }
+            })
+            .catch(() => {});
+    }
+
     let saveTimer = null;
     textarea.addEventListener('input', function() {
+        noteEdited = true;
         status.textContent = '正在保存...';
         if (saveTimer) window.clearTimeout(saveTimer);
         saveTimer = window.setTimeout(() => {

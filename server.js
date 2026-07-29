@@ -285,6 +285,8 @@ function createServer(options = {}) {
     const buildAnalysisResult = options.buildAnalysisResult || defaultBuildAnalysisResult;
     const nowProvider = options.now || (() => new Date());
     const manifestCache = options.manifestCache || createManifestCache({ rootDir, dataDir, nowProvider });
+    const notePath = path.join(rootDir, 'note.txt');
+    let noteWriteQueue = Promise.resolve();
 
     if (!Number.isSafeInteger(maxRequestBytes) || maxRequestBytes < 0) {
         throw new TypeError('maxRequestBytes 必须是非负安全整数');
@@ -371,6 +373,51 @@ function createServer(options = {}) {
                         diagnostics: error.diagnostics || null,
                     });
                 }
+            });
+            return;
+        }
+
+        if (pathname === '/api/note' && req.method === 'GET') {
+            fs.readFile(notePath, 'utf8', (error, text) => {
+                if (error && error.code !== 'ENOENT') {
+                    console.error('[便签读取失败]', error.message);
+                    sendJson(res, 500, { success: false, error: '便签读取失败' });
+                    return;
+                }
+                sendJson(res, 200, { success: true, text: error ? '' : text });
+            });
+            return;
+        }
+
+        if (pathname === '/api/note' && req.method === 'POST') {
+            const contentType = req.headers['content-type'] || '';
+            if (!/^application\/json(?:\s*;|$)/i.test(contentType)) {
+                sendJson(res, 415, { success: false, error: '需要 application/json 格式' });
+                req.resume();
+                return;
+            }
+            readRequestBody(req, res, 1024 * 1024, body => {
+                let payload;
+                try {
+                    payload = JSON.parse(body.toString('utf8'));
+                } catch (_error) {
+                    sendJson(res, 400, { success: false, error: 'JSON 格式无效' });
+                    return;
+                }
+                if (!payload || typeof payload.text !== 'string') {
+                    sendJson(res, 400, { success: false, error: 'text 必须是字符串' });
+                    return;
+                }
+                const text = payload.text;
+                noteWriteQueue = noteWriteQueue
+                    .catch(() => {})
+                    .then(() => fs.promises.writeFile(notePath, text, 'utf8'));
+                noteWriteQueue.then(() => {
+                    sendJson(res, 200, { success: true });
+                }).catch(error => {
+                    console.error('[便签保存失败]', error.message);
+                    sendJson(res, 500, { success: false, error: '便签保存失败' });
+                });
             });
             return;
         }
