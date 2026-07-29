@@ -25,6 +25,7 @@ function loadDataContext() {
         currentDateFile: null,
         _sortedDateFileList: null,
         _stockFieldIndex: {},
+        _stockKeysByDate: {},
         _stockNameKeyIndex: new Map(),
         _dataManifest: [],
         _manifestEntryByPath: new Map(),
@@ -72,6 +73,32 @@ test('LRU 超过上限时回收最久未访问日期并保护当前窗口', () =
     assert.ok(context.allDataByDate.d3);
     assert.ok(context.allDataByDate.d4);
     assert.equal(context.dateFileList.length, 3);
+});
+
+test('覆盖已加载日期时只清理该日期关联的股票索引', () => {
+    const context = loadDataContext();
+    const sector = stocks => ({ _parsedStocks: stocks });
+    const stock = (name, code, netYi) => ({ name, code, stockKey: `SZ:${code}`, netYi });
+
+    context.storeDataForDate('d1', {
+        行业板块资金流向: [sector([stock('甲', '000001', 1), stock('乙', '000002', 2)])],
+        概念板块资金流向: []
+    }, { skipInvalidate: true, tradingDate: 'd1' });
+    context.storeDataForDate('d2', {
+        行业板块资金流向: [sector([stock('甲', '000001', 3)])],
+        概念板块资金流向: []
+    }, { skipInvalidate: true, tradingDate: 'd2' });
+
+    context.storeDataForDate('d1', {
+        行业板块资金流向: [sector([stock('丙', '000003', 4)])],
+        概念板块资金流向: []
+    }, { skipInvalidate: true, tradingDate: 'd1' });
+
+    assert.equal(context._stockFieldIndex['SZ:000001'].d1, undefined);
+    assert.equal(context._stockFieldIndex['SZ:000001'].d2.net, 3);
+    assert.equal(context._stockFieldIndex['SZ:000002'], undefined);
+    assert.equal(context._stockFieldIndex['SZ:000003'].d1.net, 4);
+    assert.deepEqual(Array.from(context._stockKeysByDate.d1), ['SZ:000003']);
 });
 
 test('日期选择器只渲染最近10个交易日并默认选中最新日期', () => {

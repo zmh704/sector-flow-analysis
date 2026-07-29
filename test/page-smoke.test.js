@@ -29,6 +29,15 @@ test('页面关键 DOM 和脚本加载顺序完整', () => {
     }
 });
 
+test('TradingView 行情脚本按需加载，不阻塞主页面', () => {
+    const html = read('index.html');
+    const modals = read('modals.js');
+    assert.doesNotMatch(html, /s3\.tradingview\.com\/tv\.js/);
+    assert.match(modals, /function ensureTradingViewLoaded\(\)/);
+    assert.match(modals, /script\.async = true/);
+    assert.match(modals, /ensureTradingViewLoaded\(\)\.then/);
+});
+
 test('页面不再包含内联事件处理器', () => {
     const html = read('index.html');
     assert.doesNotMatch(html, /\son[a-z]+\s*=/i);

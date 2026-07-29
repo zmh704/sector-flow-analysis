@@ -475,7 +475,7 @@ if (require.main === module) {
         server.listen(port, host, () => {
             const address = server.address();
             const actualPort = typeof address === 'object' && address ? address.port : port;
-            console.log(`A股板块资金流向分析已启动: http://${host}:${actualPort}`);
+            console.log(`GP分析系统已启动: http://${host}:${actualPort}`);
         });
     }
 }

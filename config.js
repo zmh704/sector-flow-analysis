@@ -7,8 +7,8 @@ const MODAL_DAYS_HIGHLIGHT = 3;    // 「查看全部」弹窗连续天数红色
 const LEADER_STOCK_MIN_DAYS = 1;   // 今日推荐：股票连续流入最低天数
 const LEADER_GAP = 1;              // 今日推荐：股票天数 vs 所属板块最大天数 容差
 const VOLUME_WINDOW = 5;           // 成交量比较窗口（含当日，从选中日期往前）
-const RATIO_TURNOVER_LOW = 0.9;   // 成交额缩量阈值（当日 > 前一日 × 此值）
-const RATIO_TURNOVER_HIGH = 1.6;  // 成交额放量阈值（当日 < 前一日 × 此值）
+const RATIO_TURNOVER_LOW = 0.9;   // 防止缩量过快：当日成交额必须 > 前一日 × 此值
+const RATIO_TURNOVER_HIGH = 1.6;  // 防止放量过快：当日成交额必须 < 前一日 × 此值
 const CHANGE_LIMIT_PCT = 5;       // 放量时涨跌幅限制（%）
 let LEADER_COND_HIGH_HIGHER = true; // 今日推荐条件：当日最高价 > 前一日最高价（设为false可关闭此条件）
 const TREND_CHART_DAYS = 10;      // 趋势图显示天数
@@ -110,6 +110,7 @@ let _sortedDateFileList = null;
 let _consecutiveInflowCache = null;  // Map<"板块|type", days>
 let _stockDaysCache = null;          // Map<stockKey, days>
 let _stockFieldIndex = null;         // { [stockKey]: { [dateFile]: { volume, net, amount(亿,数值), change, code, high, open, low, close } } }
+let _stockKeysByDate = {};            // { [dateFile]: stockKey[] }，用于增量覆盖单个日期时精准清理旧索引
 let _stockNameKeyIndex = null;       // Map<股票名称, stockKey>，兼容旧名称型交互和 localStorage
 let _sectorFilterCache = null;       // Map<"日期|类型", Array>，当前日期板块筛选结果
 let _dailySectorMapCache = new Map(); // "日期|类型"→板块Map，趋势与筛选共享
@@ -130,6 +131,7 @@ function invalidateAllCaches() {
     _consecutiveInflowCache = null;
     _stockDaysCache = null;
     _stockFieldIndex = null;
+    _stockKeysByDate = {};
     _stockNameKeyIndex = null;
     _sectorFilterCache = null;
     _dailySectorMapCache = new Map();
@@ -223,14 +225,15 @@ Chart.register({
         const ticks = yScale.ticks;
         for (let i = 0; i < ticks.length; i++) {
             if (i % 2 === 0) continue;
+            const previousY = ticks[i - 1]?.y;
+            const currentY = ticks[i]?.y;
+            const nextY = ticks[i + 1]?.y;
+            if (!Number.isFinite(currentY)
+                || (i > 0 && !Number.isFinite(previousY))
+                || (i < ticks.length - 1 && !Number.isFinite(nextY))) continue;
 
-            const topY = i === 0
-                ? chartArea.top
-                : (ticks[i - 1].y + ticks[i].y) / 2;
-            const bottomY = i === ticks.length - 1
-                ? chartArea.bottom
-                : (ticks[i].y + ticks[i + 1].y) / 2;
-
+            const topY = i === 0 ? chartArea.top : (previousY + currentY) / 2;
+            const bottomY = i === ticks.length - 1 ? chartArea.bottom : (currentY + nextY) / 2;
             ctx.fillStyle = 'rgba(0, 0, 0, 0.03)';
             ctx.fillRect(chartArea.left, topY, chartArea.right - chartArea.left, bottomY - topY);
         }

@@ -62,6 +62,7 @@ function createLoadedState() {
         allDataByDate: {},
         dateFileList: [],
         stockFieldIndex: {},
+        stockKeysByDate: {},
         stockNameKeyIndex: new Map()
     };
 }
@@ -75,9 +76,17 @@ function storeDataForDate(filename, data, opts, state) {
         allDataByDate,
         dateFileList,
         stockFieldIndex: _stockFieldIndex || {},
+        stockKeysByDate: _stockKeysByDate || {},
         stockNameKeyIndex: _stockNameKeyIndex || new Map()
     };
     const key = filename;
+    for (const stockKey of target.stockKeysByDate[key] || []) {
+        const perDate = target.stockFieldIndex[stockKey];
+        if (!perDate) continue;
+        delete perDate[key];
+        if (Object.keys(perDate).length === 0) delete target.stockFieldIndex[stockKey];
+    }
+    target.stockKeysByDate[key] = [];
     target.allDataByDate[key] = {
         filename,
         dateLabel: opts?.tradingDate || data.交易日期 || extractDateLabel(filename),
@@ -93,11 +102,7 @@ function storeDataForDate(filename, data, opts, state) {
         item._parsedStocks = getSectorStocks(item, stockDictionary);
     }
 
-    for (const stockKey of Object.keys(target.stockFieldIndex)) {
-        if (key in target.stockFieldIndex[stockKey]) delete target.stockFieldIndex[stockKey][key];
-        if (Object.keys(target.stockFieldIndex[stockKey]).length === 0) delete target.stockFieldIndex[stockKey];
-    }
-
+    const stockKeys = new Set();
     for (const item of [...industryList, ...conceptList]) {
         for (const stock of item._parsedStocks) {
             const stockKey = stock.stockKey || getStockKey(stock.code, stock.name);
@@ -118,13 +123,16 @@ function storeDataForDate(filename, data, opts, state) {
                     close: stock.close
                 };
             }
+            stockKeys.add(stockKey);
         }
     }
+    target.stockKeysByDate[key] = [...stockKeys];
 
     if (!state) {
         allDataByDate = target.allDataByDate;
         dateFileList = target.dateFileList;
         _stockFieldIndex = target.stockFieldIndex;
+        _stockKeysByDate = target.stockKeysByDate;
         _stockNameKeyIndex = target.stockNameKeyIndex;
         _sortedDateFileList = null;
         if (!opts || !opts.skipInvalidate) invalidateDateCaches();
@@ -151,6 +159,7 @@ function rebuildLoadedIndexes() {
     allDataByDate = state.allDataByDate;
     dateFileList = state.dateFileList;
     _stockFieldIndex = state.stockFieldIndex;
+    _stockKeysByDate = state.stockKeysByDate;
     _stockNameKeyIndex = state.stockNameKeyIndex;
 }
 
@@ -333,8 +342,10 @@ async function ensureDateWindowLoaded(filename, days = TREND_CHART_DAYS) {
         evictLoadedDates(new Set(paths));
         invalidateDateCaches();
         renderDateButtons();
-        showSuccessStatus(`已补载 ${results.length} 个历史文件`);
-        return results.length === entries.length;
+        const complete = results.length === entries.length;
+        if (complete) showSuccessStatus(`已补载 ${results.length} 个历史文件`);
+        else showWarningStatus(`历史数据仅补载 ${results.length}/${entries.length} 个，相关分析按已加载数据计算`);
+        return complete;
     })();
     try {
         return await _historyLoadPromise;
@@ -422,6 +433,7 @@ async function loadAllJsonFiles() {
     allDataByDate = staged.allDataByDate;
     dateFileList = staged.dateFileList;
     _stockFieldIndex = staged.stockFieldIndex;
+    _stockKeysByDate = staged.stockKeysByDate;
     _stockNameKeyIndex = staged.stockNameKeyIndex;
     _dateAccessOrder = new Map(dateFileList.map(filename => [filename, Date.now()]));
     _sortedDateFileList = null;

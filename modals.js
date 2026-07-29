@@ -800,6 +800,28 @@ let _currentStockName = '';
 let _currentStockCode = '';
 let _tradingViewWidget = null;
 let _stockChartGeneration = 0;
+let _tradingViewScriptPromise = null;
+
+/** 按需加载 TradingView 脚本，避免第三方 CDN 阻塞主页面首屏渲染。 */
+function ensureTradingViewLoaded() {
+    if (window.TradingView?.widget) return Promise.resolve(window.TradingView);
+    if (_tradingViewScriptPromise) return _tradingViewScriptPromise;
+
+    _tradingViewScriptPromise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://s3.tradingview.com/tv.js';
+        script.async = true;
+        script.onload = () => window.TradingView?.widget
+            ? resolve(window.TradingView)
+            : reject(new Error('TradingView 脚本已加载，但组件不可用'));
+        script.onerror = () => reject(new Error('TradingView 脚本加载失败，请检查网络后重试'));
+        document.head.appendChild(script);
+    }).catch(error => {
+        _tradingViewScriptPromise = null;
+        throw error;
+    });
+    return _tradingViewScriptPromise;
+}
 
 function disposeTradingViewWidget() {
     if (_tradingViewWidget && typeof _tradingViewWidget.remove === 'function') {
@@ -873,39 +895,54 @@ function loadTrendStock(stockName, stockCode) {
             switchTrendChartTab('stock');
             return;
         }
-        const up = '#e53935';   // 涨=红
-        const down = '#43a047'; // 跌=绿
-        // 用内部子容器承载 widget，避免销毁固定 id 的外层容器（切换股票时可反复重建）
-        const inner = document.createElement('div');
-        inner.id = 'tvChartInner';
-        inner.style.cssText = 'width:100%;height:100%;';
-        container.appendChild(inner);
-        if (generation !== _stockChartGeneration) return;
-        _tradingViewWidget = new TradingView.widget({
-            container_id: 'tvChartInner',
-            symbol: symbol,
-            interval: 'D',
-            timezone: 'Asia/Shanghai',
-            theme: 'light',
-            style: '1',
-            locale: 'zh_CN',
-            toolbar_bg: '#f1f3f6',
-            enable_publishing: false,
-            hide_side_toolbar: false,
-            allow_symbol_change: true,
-            autosize: true,
-            overrides: {
-                'mainSeriesProperties.candleStyle.upColor': up,
-                'mainSeriesProperties.candleStyle.downColor': down,
-                'mainSeriesProperties.candleStyle.borderUpColor': up,
-                'mainSeriesProperties.candleStyle.borderDownColor': down,
-                'mainSeriesProperties.candleStyle.wickUpColor': up,
-                'mainSeriesProperties.candleStyle.wickDownColor': down
-            },
-            studies_overrides: {
-                'volume.volume.color.0': up,   // 涨=红
-                'volume.volume.color.1': down  // 跌=绿
-            }
+        const loading = document.createElement('div');
+        loading.style.cssText = 'display:flex;height:100%;align-items:center;justify-content:center;color:#666;text-align:center;padding:24px;box-sizing:border-box;';
+        loading.textContent = '正在加载 TradingView 行情组件...';
+        container.appendChild(loading);
+
+        ensureTradingViewLoaded().then(TradingView => {
+            if (generation !== _stockChartGeneration || !container.isConnected) return;
+            container.innerHTML = '';
+            const up = '#e53935';   // 涨=红
+            const down = '#43a047'; // 跌=绿
+            // 用内部子容器承载 widget，避免销毁固定 id 的外层容器（切换股票时可反复重建）
+            const inner = document.createElement('div');
+            inner.id = 'tvChartInner';
+            inner.style.cssText = 'width:100%;height:100%;';
+            container.appendChild(inner);
+            _tradingViewWidget = new TradingView.widget({
+                container_id: 'tvChartInner',
+                symbol: symbol,
+                interval: 'D',
+                timezone: 'Asia/Shanghai',
+                theme: 'light',
+                style: '1',
+                locale: 'zh_CN',
+                toolbar_bg: '#f1f3f6',
+                enable_publishing: false,
+                hide_side_toolbar: false,
+                allow_symbol_change: true,
+                autosize: true,
+                overrides: {
+                    'mainSeriesProperties.candleStyle.upColor': up,
+                    'mainSeriesProperties.candleStyle.downColor': down,
+                    'mainSeriesProperties.candleStyle.borderUpColor': up,
+                    'mainSeriesProperties.candleStyle.borderDownColor': down,
+                    'mainSeriesProperties.candleStyle.wickUpColor': up,
+                    'mainSeriesProperties.candleStyle.wickDownColor': down
+                },
+                studies_overrides: {
+                    'volume.volume.color.0': up,   // 涨=红
+                    'volume.volume.color.1': down  // 跌=绿
+                }
+            });
+        }).catch(error => {
+            if (generation !== _stockChartGeneration || !container.isConnected) return;
+            container.innerHTML = '';
+            const message = document.createElement('div');
+            message.style.cssText = 'display:flex;height:100%;align-items:center;justify-content:center;color:#666;text-align:center;padding:24px;box-sizing:border-box;';
+            message.textContent = error.message + '，请切换至新浪图表查看。';
+            container.appendChild(message);
         });
     }
     switchTrendChartTab('stock');
