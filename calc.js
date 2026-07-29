@@ -291,7 +291,8 @@ function getFocusSectors(activeData) {
 function isSectorTurnoverDecreased(sectorName, currMap, prevMap) {
     const curr = currMap.get(sectorName);
     const prev = prevMap.get(sectorName);
-    if (!curr || !prev) return true;
+    // 关注板块需要可验证的跨日数据；缺失任一日期时默认不通过。
+    if (!curr || !prev) return false;
     return Number(curr.成交额) < Number(prev.成交额) * RATIO_TURNOVER_HIGH;
 }
 
@@ -316,37 +317,31 @@ function isSectorAbove090(sectorName, currMap, prevMap) {
 function isSectorTurnoverNotTooLow(sectorName, currMap, prevMap, prev2Map, prev3Map) {
     const curr = currMap.get(sectorName);
     const prev = prevMap.get(sectorName);
-    if (!curr || !prev) return true;
+    // 仅缺少昨日对应数据时不通过；更早数据不足则降级为昨日比较。
+    if (!curr || !prev) return false;
 
     const currVal = Number(curr.成交额);
     const prevVal = Number(prev.成交额);
+    const prev2 = prev2Map?.get(sectorName);
+    const prev3 = prev3Map?.get(sectorName);
+    if (!prev2 || !prev3) return currVal > prevVal * RATIO_TURNOVER_LOW;
 
-    // 有足够数据时，按趋势模式判断
-    if (prev2Map && prev3Map) {
-        const prev2 = prev2Map.get(sectorName);
-        const prev3 = prev3Map.get(sectorName);
-        if (prev2 && prev3) {
-            const prev2Val = Number(prev2.成交额);
-            const prev3Val = Number(prev3.成交额);
-            // 条件A：前两日连续变小（昨日<前日<前前日）→ 当日 > 昨日 × RATIO_TURNOVER_LOW
-            if (prevVal < prev2Val && prev2Val < prev3Val) {
-                return currVal > prevVal * RATIO_TURNOVER_LOW;
-            }
-            // 条件B：前一日变大（昨日>前日）→ 当日也变大（当日>昨日）
-            if (prevVal > prev2Val) {
-                return currVal > prevVal;
-            }
-            // 条件C：昨日小于前日 且 今日大于前日（反弹）
-            if (prevVal < prev2Val && currVal > prev2Val) {
-                return true;
-            }
-            // 既不满足A、B也不满足C → 严格按条件4不通过
-            return false;
-        }
+    const prev2Val = Number(prev2.成交额);
+    const prev3Val = Number(prev3.成交额);
+    // 条件A：前两日连续变小（昨日<前日<前前日）→ 当日 > 昨日 × RATIO_TURNOVER_LOW
+    if (prevVal < prev2Val && prev2Val < prev3Val) {
+        return currVal > prevVal * RATIO_TURNOVER_LOW;
     }
-
-    // 数据不足4日时，无法完整判断趋势，用保守阈值通过
-    return currVal > prevVal * RATIO_TURNOVER_LOW;
+    // 条件B：前一日变大（昨日>前日）→ 当日也变大（当日>昨日）
+    if (prevVal > prev2Val) {
+        return currVal > prevVal;
+    }
+    // 条件C：昨日小于前日 且 今日大于前日（反弹）
+    if (prevVal < prev2Val && currVal > prev2Val) {
+        return true;
+    }
+    // 既不满足A、B也不满足C → 严格按条件4不通过
+    return false;
 }
 
 // ============================

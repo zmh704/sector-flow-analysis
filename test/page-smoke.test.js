@@ -29,6 +29,16 @@ test('页面关键 DOM 和脚本加载顺序完整', () => {
     }
 });
 
+test('主图柱条点击打开对应板块详情', () => {
+    const charts = read('charts.js');
+    assert.match(charts, /onClick: function\(event, elements, chart\)/);
+    assert.match(charts, /elements\.find\(item => item\.datasetIndex === 0\)/);
+    assert.match(charts, /function getSectorRowIndex\(event, chart\)/);
+    assert.match(charts, /getSectorRowIndex\(event, chart\)/);
+    assert.match(charts, /openFocusSector\(item\.板块, dataType\)/);
+    assert.match(charts, /\$sectorDataType = dataType/);
+});
+
 test('TradingView 行情脚本按需加载，不阻塞主页面', () => {
     const html = read('index.html');
     const modals = read('modals.js');
@@ -75,6 +85,7 @@ test('原页面包含可编辑、可拖动并持久化的悬浮便签', () => {
     for (const id of ['floatingNote', 'floatingNoteHandle', 'floatingNoteText', 'floatingNoteToggle', 'floatingNoteStatus']) {
         assert.match(html, new RegExp(`id=["']${id}["']`));
     }
+    assert.doesNotMatch(html, /floatingNoteFontSize|floatingNoteColor/);
     assert.match(html, /style\.css\?v=20260729-0930/);
     assert.match(html, /app\.js\?v=20260729-0930/);
     assert.match(app, /const FLOATING_NOTE_STORAGE_KEY = 'floatingNoteV1'/);
@@ -85,8 +96,11 @@ test('原页面包含可编辑、可拖动并持久化的悬浮便签', () => {
     assert.match(app, /handle\.addEventListener\('pointermove'/);
     assert.match(app, /handle\.addEventListener\('pointerup'/);
     assert.match(app, /textarea\.addEventListener\('input'/);
+    assert.doesNotMatch(app, /fontSize|color\.value/);
     assert.match(app, /initFloatingNote\(\);/);
     assert.match(css, /\.floating-note\s*\{[\s\S]*?position:\s*fixed/);
+    assert.match(css, /color:\s*#c62828/);
+    assert.match(css, /font:\s*700 14px\/1\.55/);
     assert.match(css, /\.floating-note\.collapsed/);
     assert.match(css, /touch-action:\s*none/);
 });

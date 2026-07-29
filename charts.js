@@ -80,10 +80,11 @@ function buildChartDatasets(chartData) {
     return datasets;
 }
 
-function createChart(ctx, chartData, title, existingChart) {
+function createChart(ctx, chartData, dataType, existingChart) {
     // 已有图表实例 → 增量更新（避免 destroy+重建的开销和闪烁）
     if (existingChart) {
         existingChart.$chartData = chartData;
+        existingChart.$sectorDataType = dataType;
         existingChart.data.labels = chartData.labels;
         existingChart.data.datasets = buildChartDatasets(chartData);
         existingChart.update();
@@ -95,6 +96,34 @@ function createChart(ctx, chartData, title, existingChart) {
     // 回调统一从 chart.$chartData 读取（增量更新后仍指向最新数据）；
     // 首次渲染时 $chartData 尚未挂载，回退到闭包中的初始 chartData
     const getCD = (chart) => (chart && chart.$chartData) || chartData;
+
+    function getSectorRowIndex(event, chart) {
+        const yScale = chart.scales.y;
+        const nativeEvent = event?.native || event;
+        const point = typeof Chart.helpers?.getRelativePosition === 'function'
+            ? Chart.helpers.getRelativePosition(nativeEvent, chart)
+            : { y: nativeEvent?.offsetY };
+        if (!yScale || !Number.isFinite(point?.y) || point.y < yScale.top || point.y > yScale.bottom) return -1;
+        const ticks = yScale.ticks || [];
+        let nearestIndex = -1;
+        let nearestDistance = Infinity;
+        for (let index = 0; index < ticks.length; index++) {
+            const pixel = yScale.getPixelForTick(index);
+            const distance = Math.abs(point.y - pixel);
+            if (distance < nearestDistance) {
+                nearestIndex = index;
+                nearestDistance = distance;
+            }
+        }
+        return nearestIndex;
+    }
+
+    function openSectorDetail(chart, index) {
+        const item = getCD(chart).items[index];
+        const dataType = chart.$sectorDataType;
+        if (!item || !dataType || typeof openFocusSector !== 'function') return;
+        openFocusSector(item.板块, dataType);
+    }
 
     const chart = new Chart(ctx, {
         type: 'bar',
@@ -112,6 +141,16 @@ function createChart(ctx, chartData, title, existingChart) {
             },
             barPercentage: 0.8,
             categoryPercentage: 0.9,
+            onClick: function(event, elements, chart) {
+                const element = elements.find(item => item.datasetIndex === 0);
+                const rowIndex = element ? element.index : getSectorRowIndex(event, chart);
+                if (rowIndex >= 0) openSectorDetail(chart, rowIndex);
+            },
+            onHover: function(event, elements, chart) {
+                const element = elements.find(item => item.datasetIndex === 0);
+                const rowIndex = element ? element.index : getSectorRowIndex(event, chart);
+                chart.canvas.style.cursor = rowIndex >= 0 ? 'pointer' : 'default';
+            },
             plugins: {
                 legend: {
                     display: true,
@@ -255,6 +294,7 @@ function createChart(ctx, chartData, title, existingChart) {
     });
 
     chart.$chartData = chartData;
+    chart.$sectorDataType = dataType;
     return chart;
 }
 

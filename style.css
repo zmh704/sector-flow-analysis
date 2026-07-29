@@ -1608,8 +1608,8 @@ footer {
     border: 0;
     outline: none;
     background: transparent;
-    color: #453810;
-    font: 13px/1.55 'Segoe UI', 'Microsoft YaHei', sans-serif;
+    color: #c62828;
+    font: 700 14px/1.55 'Segoe UI', 'Microsoft YaHei', sans-serif;
 }
 
 .floating-note textarea::placeholder {
