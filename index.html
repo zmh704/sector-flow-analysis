@@ -6,7 +6,7 @@
     <title>A股板块资金流向分析</title>
     <script src="chart.umd.min.js"></script>
     <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-    <link rel="stylesheet" href="style.css?v=20260728-2216">
+    <link rel="stylesheet" href="style.css?v=20260729-0930">
 </head>
 <body>
     <div class="container">
@@ -186,6 +186,16 @@
         </div>
     </div>
 
+    <!-- 可编辑、可拖动的悬浮便签 -->
+    <aside class="floating-note" id="floatingNote" aria-label="悬浮便签">
+        <div class="floating-note-header" id="floatingNoteHandle" title="拖动便签">
+            <span>便签</span>
+            <button type="button" class="floating-note-toggle" id="floatingNoteToggle" title="折叠便签" aria-label="折叠便签">−</button>
+        </div>
+        <textarea id="floatingNoteText" placeholder="在这里写入任意文字信息..." aria-label="便签内容"></textarea>
+        <div class="floating-note-status" id="floatingNoteStatus">内容自动保存</div>
+    </aside>
+
     <script src="config.js"></script>
     <script src="stock-utils.js"></script>
     <script src="calc.js"></script>
@@ -193,6 +203,6 @@
     <script src="charts.js"></script>
     <script src="leaders.js"></script>
     <script src="modals.js"></script>
-    <script src="app.js?v=20260728-2216"></script>
+    <script src="app.js?v=20260729-0930"></script>
 </body>
 </html>

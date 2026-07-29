@@ -1542,6 +1542,110 @@ footer {
     }
 }
 
+/* ===== 悬浮便签 ===== */
+.floating-note {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    z-index: 1500;
+    width: min(300px, calc(100vw - 24px));
+    min-width: 220px;
+    overflow: hidden;
+    border: 1px solid #e2c263;
+    border-radius: 10px;
+    background: #fff9c9;
+    box-shadow: 0 10px 28px rgba(79, 62, 16, 0.2);
+    color: #4b3d16;
+}
+
+.floating-note.dragging {
+    cursor: grabbing;
+    user-select: none;
+    box-shadow: 0 14px 36px rgba(79, 62, 16, 0.28);
+}
+
+.floating-note-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 10px;
+    border-bottom: 1px solid rgba(153, 119, 25, 0.22);
+    background: #f7df7a;
+    cursor: grab;
+    font-size: 13px;
+    font-weight: 700;
+    touch-action: none;
+}
+
+.floating-note.dragging .floating-note-header {
+    cursor: grabbing;
+}
+
+.floating-note-toggle {
+    width: 24px;
+    height: 24px;
+    border: 0;
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.55);
+    color: #5e4a10;
+    font-size: 18px;
+    line-height: 22px;
+}
+
+.floating-note-toggle:hover {
+    background: rgba(255, 255, 255, 0.85);
+}
+
+.floating-note textarea {
+    display: block;
+    width: 100%;
+    height: 170px;
+    min-height: 90px;
+    max-height: 45vh;
+    padding: 11px 12px;
+    resize: vertical;
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: #453810;
+    font: 13px/1.55 'Segoe UI', 'Microsoft YaHei', sans-serif;
+}
+
+.floating-note textarea::placeholder {
+    color: #9a8749;
+}
+
+.floating-note-status {
+    padding: 5px 10px 7px;
+    color: #8c773d;
+    font-size: 10px;
+    text-align: right;
+}
+
+.floating-note.collapsed {
+    width: 128px;
+    min-width: 128px;
+}
+
+.floating-note.collapsed .floating-note-header {
+    border-bottom: 0;
+}
+
+.floating-note.collapsed textarea,
+.floating-note.collapsed .floating-note-status {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .floating-note {
+        right: 12px;
+        bottom: 12px;
+        width: min(280px, calc(100vw - 24px));
+        min-width: 200px;
+    }
+}
+
 /* 打印样式 */
 @media print {
     body {
@@ -1556,6 +1660,7 @@ footer {
     }
     .controls,
     .date-buttons,
+    .floating-note,
     .modal-overlay,
     .leader-item,
     .pair.clickable,

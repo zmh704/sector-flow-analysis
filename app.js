@@ -1,5 +1,150 @@
 // ===== 入口：Excel 上传与初始化 =====
 
+const FLOATING_NOTE_STORAGE_KEY = 'floatingNoteV1';
+
+/** 将悬浮便签限制在当前视口内，避免拖动或缩放窗口后丢失 */
+function clampFloatingNotePosition(note, left, top) {
+    const margin = 8;
+    const maxLeft = Math.max(margin, window.innerWidth - note.offsetWidth - margin);
+    const maxTop = Math.max(margin, window.innerHeight - note.offsetHeight - margin);
+    return {
+        left: Math.min(Math.max(margin, left), maxLeft),
+        top: Math.min(Math.max(margin, top), maxTop)
+    };
+}
+
+/** 初始化可编辑、可拖动并自动保存的悬浮便签 */
+function initFloatingNote() {
+    const note = document.getElementById('floatingNote');
+    const handle = document.getElementById('floatingNoteHandle');
+    const textarea = document.getElementById('floatingNoteText');
+    const toggle = document.getElementById('floatingNoteToggle');
+    const status = document.getElementById('floatingNoteStatus');
+    if (!note || !handle || !textarea || !toggle || !status) return;
+
+    let saved = {};
+    try {
+        saved = JSON.parse(localStorage.getItem(FLOATING_NOTE_STORAGE_KEY) || '{}');
+    } catch (_error) {
+        saved = {};
+    }
+
+    textarea.value = typeof saved.text === 'string' ? saved.text : '';
+    note.classList.toggle('collapsed', saved.collapsed === true);
+    toggle.textContent = saved.collapsed === true ? '+' : '−';
+    toggle.title = saved.collapsed === true ? '展开便签' : '折叠便签';
+    toggle.setAttribute('aria-label', toggle.title);
+
+    if (Number.isFinite(saved.left) && Number.isFinite(saved.top)) {
+        const position = clampFloatingNotePosition(note, saved.left, saved.top);
+        note.style.left = position.left + 'px';
+        note.style.top = position.top + 'px';
+        note.style.right = 'auto';
+        note.style.bottom = 'auto';
+    }
+
+    function readPosition() {
+        const rect = note.getBoundingClientRect();
+        return { left: rect.left, top: rect.top };
+    }
+
+    function persistNote(message) {
+        const position = readPosition();
+        try {
+            localStorage.setItem(FLOATING_NOTE_STORAGE_KEY, JSON.stringify({
+                text: textarea.value,
+                left: Math.round(position.left),
+                top: Math.round(position.top),
+                collapsed: note.classList.contains('collapsed')
+            }));
+            if (message) {
+                status.textContent = message;
+                window.setTimeout(() => {
+                    if (status.textContent === message) status.textContent = '内容自动保存';
+                }, 1200);
+            }
+        } catch (_error) {
+            status.textContent = '当前浏览器无法保存';
+        }
+    }
+
+    let saveTimer = null;
+    textarea.addEventListener('input', function() {
+        status.textContent = '正在保存...';
+        if (saveTimer) window.clearTimeout(saveTimer);
+        saveTimer = window.setTimeout(() => {
+            saveTimer = null;
+            persistNote('已保存');
+        }, 250);
+    });
+
+    toggle.addEventListener('click', function(event) {
+        event.stopPropagation();
+        const collapsed = !note.classList.contains('collapsed');
+        note.classList.toggle('collapsed', collapsed);
+        toggle.textContent = collapsed ? '+' : '−';
+        toggle.title = collapsed ? '展开便签' : '折叠便签';
+        toggle.setAttribute('aria-label', toggle.title);
+        const current = readPosition();
+        const position = clampFloatingNotePosition(note, current.left, current.top);
+        note.style.left = position.left + 'px';
+        note.style.top = position.top + 'px';
+        note.style.right = 'auto';
+        note.style.bottom = 'auto';
+        persistNote();
+    });
+
+    let dragState = null;
+    handle.addEventListener('pointerdown', function(event) {
+        if (event.button !== 0 || event.target.closest('button')) return;
+        const rect = note.getBoundingClientRect();
+        dragState = {
+            pointerId: event.pointerId,
+            offsetX: event.clientX - rect.left,
+            offsetY: event.clientY - rect.top
+        };
+        note.style.left = rect.left + 'px';
+        note.style.top = rect.top + 'px';
+        note.style.right = 'auto';
+        note.style.bottom = 'auto';
+        note.classList.add('dragging');
+        handle.setPointerCapture(event.pointerId);
+        event.preventDefault();
+    });
+
+    handle.addEventListener('pointermove', function(event) {
+        if (!dragState || event.pointerId !== dragState.pointerId) return;
+        const position = clampFloatingNotePosition(
+            note,
+            event.clientX - dragState.offsetX,
+            event.clientY - dragState.offsetY
+        );
+        note.style.left = position.left + 'px';
+        note.style.top = position.top + 'px';
+    });
+
+    function finishDrag(event) {
+        if (!dragState || event.pointerId !== dragState.pointerId) return;
+        dragState = null;
+        note.classList.remove('dragging');
+        if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId);
+        persistNote('位置已保存');
+    }
+
+    handle.addEventListener('pointerup', finishDrag);
+    handle.addEventListener('pointercancel', finishDrag);
+
+    window.addEventListener('resize', debounce(function() {
+        const current = readPosition();
+        const position = clampFloatingNotePosition(note, current.left, current.top);
+        note.style.left = position.left + 'px';
+        note.style.top = position.top + 'px';
+        note.style.right = 'auto';
+        note.style.bottom = 'auto';
+        persistNote();
+    }, 100));
+}
+
 /** 集中绑定所有事件监听（替代 HTML 内联 onclick/onchange） */
 function initEventListeners() {
     // 控件按钮
@@ -279,6 +424,7 @@ window.onload = function() {
     document.getElementById('sinaPeriodTabs').style.display = STOCK_CHART_SOURCE === 'sina_chart' ? '' : 'none';
     initEventListeners();
     initKeyboardShortcuts();
+    initFloatingNote();
     loadAllJsonFiles();
 };
 

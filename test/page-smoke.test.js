@@ -40,8 +40,8 @@ test('原页面日期选择仅展示最近10日并彻底隐藏滚动条', () => 
     const data = read('data.js');
     const css = read('style.css');
     const app = read('app.js');
-    assert.match(html, /style\.css\?v=20260728-2216/);
-    assert.match(html, /app\.js\?v=20260728-2216/);
+    assert.match(html, /style\.css\?v=20260729-0930/);
+    assert.match(html, /app\.js\?v=20260729-0930/);
     assert.match(html, /id="dateButtons" style="overflow:hidden;scrollbar-width:none;"/);
     assert.match(config, /const DATE_BUTTON_LIMIT = 10;/);
     assert.match(data, /sorted\.slice\(-DATE_BUTTON_LIMIT\)/);
@@ -56,6 +56,30 @@ test('原页面日期选择仅展示最近10日并彻底隐藏滚动条', () => 
     assert.match(app, /dateButtons\.style\.scrollbarWidth = 'none'/);
     assert.match(legacyButtonsRule, /overflow:\s*visible/);
     assert.doesNotMatch(legacyButtonsRule, /overflow-x:\s*auto|scrollbar-width/);
+});
+
+test('原页面包含可编辑、可拖动并持久化的悬浮便签', () => {
+    const html = read('index.html');
+    const app = read('app.js');
+    const css = read('style.css');
+
+    for (const id of ['floatingNote', 'floatingNoteHandle', 'floatingNoteText', 'floatingNoteToggle', 'floatingNoteStatus']) {
+        assert.match(html, new RegExp(`id=["']${id}["']`));
+    }
+    assert.match(html, /style\.css\?v=20260729-0930/);
+    assert.match(html, /app\.js\?v=20260729-0930/);
+    assert.match(app, /const FLOATING_NOTE_STORAGE_KEY = 'floatingNoteV1'/);
+    assert.match(app, /function initFloatingNote\(\)/);
+    assert.match(app, /localStorage\.getItem\(FLOATING_NOTE_STORAGE_KEY\)/);
+    assert.match(app, /localStorage\.setItem\(FLOATING_NOTE_STORAGE_KEY/);
+    assert.match(app, /handle\.addEventListener\('pointerdown'/);
+    assert.match(app, /handle\.addEventListener\('pointermove'/);
+    assert.match(app, /handle\.addEventListener\('pointerup'/);
+    assert.match(app, /textarea\.addEventListener\('input'/);
+    assert.match(app, /initFloatingNote\(\);/);
+    assert.match(css, /\.floating-note\s*\{[\s\S]*?position:\s*fixed/);
+    assert.match(css, /\.floating-note\.collapsed/);
+    assert.match(css, /touch-action:\s*none/);
 });
 
 test('list.json 全部指向可读取且结构有效的 schema v3 数据', () => {
