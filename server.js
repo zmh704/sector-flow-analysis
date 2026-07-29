@@ -400,9 +400,15 @@ function createServer(options = {}) {
             }
             const extension = path.extname(filePath).toLowerCase();
             const immutable = /\.[0-9a-f]{8,}\./i.test(path.basename(filePath));
-            const cacheControl = extension === '.json'
-                ? 'public, max-age=300, must-revalidate'
-                : immutable ? 'public, max-age=31536000, immutable' : 'public, max-age=3600';
+            let cacheControl;
+            if (extension === '.json') {
+                cacheControl = 'public, max-age=300, must-revalidate';
+            } else if (extension === '.html' || extension === '.js' || extension === '.css') {
+                // HTML/JS/CSS 改为 no-cache：每次向服务器校验 ETag，修改后无需手动清缓存
+                cacheControl = 'no-cache';
+            } else {
+                cacheControl = immutable ? 'public, max-age=31536000, immutable' : 'public, max-age=3600';
+            }
             sendCacheable(req, res, 200, data, MIME[extension] || 'application/octet-stream', {
                 cacheControl,
                 compress: ['.html', '.js', '.json', '.css'].includes(extension)

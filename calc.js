@@ -167,73 +167,77 @@ function isStockVolumeDecreased(stockIdentity) {
     return current < maxPrev;
 }
 
-/** 判断某股票当日成交额是否 > 前一日成交额 * RATIO_TURNOVER_LOW（防止缩量过快） */
+/** 判断某股票当日成交额是否 > 前一日成交额 * RATIO_TURNOVER_LOW（防止缩量过快）
+ *  无前一天数据时返回 false，避免新进入股票绕过限制 */
 function isStockTurnoverNotTooLow(stockIdentity) {
     const sorted = sortDateFileList();
     const currentIdx = sorted.indexOf(currentDateFile);
-    if (currentIdx <= 0) return true;
+    if (currentIdx <= 0) return false;
 
     const perDate = (_stockFieldIndex && _stockFieldIndex[resolveStockKey(stockIdentity)]) || {};
     const prev = perDate[sorted[currentIdx - 1]]?.amount;
     const curr = perDate[sorted[currentIdx]]?.amount;
-    if (curr == null || prev == null) return true;
+    if (curr == null || prev == null) return false;
 
     return curr > prev * RATIO_TURNOVER_LOW;
 }
 
-/** 判断股票当日成交额是否 < 前一日成交额 * RATIO_TURNOVER_HIGH（防止放量过快） */
+/** 判断股票当日成交额是否 < 前一日成交额 * RATIO_TURNOVER_HIGH（防止放量过快）
+ *  无前一天数据时返回 false，避免新进入股票绕过限制 */
 function isStockAmountNotTooHigh(stockIdentity) {
     const sorted = sortDateFileList();
     const currentIdx = sorted.indexOf(currentDateFile);
-    if (currentIdx <= 0) return true;
+    if (currentIdx <= 0) return false;
 
     const perDate = (_stockFieldIndex && _stockFieldIndex[resolveStockKey(stockIdentity)]) || {};
     const prev = perDate[sorted[currentIdx - 1]]?.amount;
     const curr = perDate[sorted[currentIdx]]?.amount;
-    if (curr == null || prev == null) return true;
+    if (curr == null || prev == null) return false;
 
     return curr < prev * RATIO_TURNOVER_HIGH;
 }
 
-/** 判断股票当日最高价是否大于前一日最高价 */
+/** 判断股票当日最高价是否大于前一日最高价
+ *  无前一天数据或价格缺失时返回 false，避免新进入股票绕过限制 */
 function isStockHighHigherThanPrev(stockIdentity) {
     const sorted = sortDateFileList();
     const currentIdx = sorted.indexOf(currentDateFile);
-    if (currentIdx <= 0) return true;
+    if (currentIdx <= 0) return false;
 
     const perDate = (_stockFieldIndex && _stockFieldIndex[resolveStockKey(stockIdentity)]) || {};
     const prev = perDate[sorted[currentIdx - 1]];
     const curr = perDate[sorted[currentIdx]];
-    if (!curr || !prev) return true;
+    if (!curr || !prev) return false;
 
     const currHigh = curr.high;
     const prevHigh = prev.high;
-    if (!Number.isFinite(currHigh) || !Number.isFinite(prevHigh)) return true;
+    if (!Number.isFinite(currHigh) || !Number.isFinite(prevHigh)) return false;
 
     return currHigh > prevHigh;
 }
 
-/** 判断股票：如果当日成交量 > 昨日成交量，则涨跌幅绝对值必须 < 5%（放量冲高或放量大跌均排除） */
+/** 判断股票：如果当日成交量 > 昨日成交量，则涨跌幅绝对值必须 < 5%（放量冲高或放量大跌均排除）
+ *  无前一天数据或关键字段缺失时返回 false，避免新进入股票绕过限制 */
 function isStockVolumeUpChangeLimited(stockIdentity) {
     const sorted = sortDateFileList();
     const currentIdx = sorted.indexOf(currentDateFile);
-    if (currentIdx <= 0) return true;
+    if (currentIdx <= 0) return false;
 
     const perDate = (_stockFieldIndex && _stockFieldIndex[resolveStockKey(stockIdentity)]) || {};
     const curr = perDate[sorted[currentIdx]];
     const prev = perDate[sorted[currentIdx - 1]];
-    if (!curr || !prev) return true;
+    if (!curr || !prev) return false;
 
     const currVol = curr.volume;
     const prevVol = prev.volume;
-    if (currVol == null || prevVol == null) return true;
+    if (currVol == null || prevVol == null) return false;
 
     // 成交量未放大 → 不限制
     if (currVol <= prevVol) return true;
 
     // 成交量放大 → 检查涨跌幅绝对值 < 5%
     const changeNum = curr.change;
-    if (!Number.isFinite(changeNum)) return true;
+    if (!Number.isFinite(changeNum)) return false;
     return Math.abs(changeNum) < CHANGE_LIMIT_PCT;
 }
 
