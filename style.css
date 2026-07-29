@@ -177,20 +177,23 @@ h1 {
     background: var(--color-bg-light);
     border-radius: var(--radius-md);
     gap: 12px;
-    flex-wrap: nowrap; /* 桌面端不换行，靠滚动处理溢出 */
+    flex-wrap: nowrap;
 }
 
-/* 日期选择器容器（横向滚动） */
+/* 日期选择器：桌面端最近10日单行等宽展示，不产生滚动容器 */
 .date-selector {
-    display: flex;
-    flex-wrap: nowrap;
-    gap: 8px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
+    display: grid;
+    grid-template-columns: repeat(10, minmax(0, 1fr));
+    gap: 6px;
+    overflow: hidden;
     align-items: center;
-    flex: 1 1 auto; /* 自适应宽度 */
-    min-width: 0; /* 允许flex子项收缩 */
+    flex: 1 1 auto;
+    min-width: 0;
+    scrollbar-width: none;
+}
+
+.date-selector::-webkit-scrollbar {
+    display: none;
 }
 
 /* 右侧操作区域 */
@@ -319,21 +322,21 @@ button.btn-secondary:hover {
 
 .date-buttons {
     display: flex;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     gap: 8px;
     margin-bottom: 10px;
     padding: 8px 15px;
     background: var(--color-bg-light);
     border-radius: var(--radius-md);
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
+    overflow: visible;
     justify-content: flex-start;
     align-items: center;
 }
 
 .date-btn {
-    padding: 8px 20px;
+    width: 100%;
+    min-width: 0;
+    padding: 8px 6px;
     border: 2px solid #ddd;
     border-radius: 20px;
     background: white;
@@ -1476,8 +1479,9 @@ footer {
     }
 
     .date-selector {
-        order: -1; /* 日期选择器放到上方 */
-        flex: 1 1 100%; /* 占满整行 */
+        order: -1;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        flex: 1 1 100%;
         margin-bottom: 8px;
     }
 
@@ -1488,7 +1492,7 @@ footer {
     }
 
     .date-btn {
-        padding: 10px 24px;
+        padding: 10px 12px;
     }
 
     .btn-primary {

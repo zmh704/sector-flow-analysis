@@ -232,12 +232,13 @@ function renderDateButtons() {
         return;
     }
 
-    sorted.forEach(filename => {
+    const visibleDates = sorted.slice(-DATE_BUTTON_LIMIT);
+    visibleDates.forEach(filename => {
         container.appendChild(createDateButton(filename));
     });
 
-    if (!currentDateFile && sorted.length > 0) {
-        setCurrentDateFile(sorted[sorted.length - 1]);
+    if (!currentDateFile) {
+        setCurrentDateFile(visibleDates[visibleDates.length - 1]);
         const btns = container.querySelectorAll('.date-btn');
         if (btns.length > 0) {
             btns[btns.length - 1].classList.add('active');

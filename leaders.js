@@ -150,7 +150,9 @@ function getCurrentPriceDataStats() {
  * 返回 [{ name, code, net, change, stockDays, sectors, _allSectors }]，按连续天数降序
  */
 function calcTodayLeaders() {
-    if (_todayLeadersCache && _todayLeadersCache.dateFile === currentDateFile) {
+    if (_todayLeadersCache
+        && _todayLeadersCache.dateFile === currentDateFile
+        && _todayLeadersCache.highHigher === LEADER_COND_HIGH_HIGHER) {
         return _todayLeadersCache.value;
     }
     const activeData = getActiveData();
@@ -206,7 +208,11 @@ function calcTodayLeaders() {
 
     // 按股票连续天数降序排列
     leaders.sort((a, b) => b.stockDays - a.stockDays || a.name.localeCompare(b.name));
-    _todayLeadersCache = { dateFile: currentDateFile, value: leaders };
+    _todayLeadersCache = {
+        dateFile: currentDateFile,
+        highHigher: LEADER_COND_HIGH_HIGHER,
+        value: leaders
+    };
     return leaders;
 }
 

@@ -101,8 +101,11 @@ function initEventListeners() {
         });
     });
 
-    // 日期按钮事件委托
-    document.getElementById('dateButtons').addEventListener('click', async function(e) {
+    // 日期按钮事件委托；内联兜底确保旧CSS缓存下也不会出现日期滚动条
+    const dateButtons = document.getElementById('dateButtons');
+    dateButtons.style.overflow = 'hidden';
+    dateButtons.style.scrollbarWidth = 'none';
+    dateButtons.addEventListener('click', async function(e) {
         const btn = e.target.closest('.date-btn');
         if (!btn || btn.disabled) return;
         const filename = btn.dataset.datefile;
@@ -118,6 +121,7 @@ function initEventListeners() {
     // 最高价突破条件开关
     document.getElementById('toggleCondHighHigher').addEventListener('change', function(e) {
         LEADER_COND_HIGH_HIGHER = e.target.checked;
+        _todayLeadersCache = null;
         updateCharts();
     });
 

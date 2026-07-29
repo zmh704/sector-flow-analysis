@@ -19,7 +19,7 @@ test('页面关键 DOM 和脚本加载顺序完整', () => {
     ];
     for (const id of requiredIds) assert.match(html, new RegExp(`id=["']${id}["']`));
 
-    const scripts = [...html.matchAll(/<script[^>]+src=["']([^"']+)["']/g)].map(match => match[1]);
+    const scripts = [...html.matchAll(/<script[^>]+src=["']([^"']+)["']/g)].map(match => match[1].split('?')[0]);
     const expected = ['chart.umd.min.js', 'config.js', 'stock-utils.js', 'calc.js', 'data.js', 'charts.js', 'leaders.js', 'modals.js', 'app.js'];
     let previous = -1;
     for (const script of expected) {
@@ -32,6 +32,30 @@ test('页面关键 DOM 和脚本加载顺序完整', () => {
 test('页面不再包含内联事件处理器', () => {
     const html = read('index.html');
     assert.doesNotMatch(html, /\son[a-z]+\s*=/i);
+});
+
+test('原页面日期选择仅展示最近10日并彻底隐藏滚动条', () => {
+    const html = read('index.html');
+    const config = read('config.js');
+    const data = read('data.js');
+    const css = read('style.css');
+    const app = read('app.js');
+    assert.match(html, /style\.css\?v=20260728-2216/);
+    assert.match(html, /app\.js\?v=20260728-2216/);
+    assert.match(html, /id="dateButtons" style="overflow:hidden;scrollbar-width:none;"/);
+    assert.match(config, /const DATE_BUTTON_LIMIT = 10;/);
+    assert.match(data, /sorted\.slice\(-DATE_BUTTON_LIMIT\)/);
+    const selectorRule = css.match(/\.date-selector\s*\{([\s\S]*?)\}/)?.[1] || '';
+    const legacyButtonsRule = css.match(/\.date-buttons\s*\{([\s\S]*?)\}/)?.[1] || '';
+    assert.match(selectorRule, /display:\s*grid/);
+    assert.match(selectorRule, /grid-template-columns:\s*repeat\(10, minmax\(0, 1fr\)\)/);
+    assert.match(selectorRule, /overflow:\s*hidden/);
+    assert.match(selectorRule, /scrollbar-width:\s*none/);
+    assert.match(css, /\.date-selector::-webkit-scrollbar\s*\{\s*display:\s*none/);
+    assert.match(app, /dateButtons\.style\.overflow = 'hidden'/);
+    assert.match(app, /dateButtons\.style\.scrollbarWidth = 'none'/);
+    assert.match(legacyButtonsRule, /overflow:\s*visible/);
+    assert.doesNotMatch(legacyButtonsRule, /overflow-x:\s*auto|scrollbar-width/);
 });
 
 test('list.json 全部指向可读取且结构有效的 schema v3 数据', () => {
