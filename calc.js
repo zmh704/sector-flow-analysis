@@ -243,6 +243,19 @@ function isStockAvg5GeAvg10(stockIdentity) {
     return avg5 >= avg10;
 }
 
+/** 判断股票当日收盘价 > 5日均价，缺失数据时返回 false */
+function isStockCloseAboveAvg5(stockIdentity) {
+    const perDate = (_stockFieldIndex && _stockFieldIndex[resolveStockKey(stockIdentity)]) || {};
+    const curr = perDate[currentDateFile];
+    if (!curr) return false;
+
+    const closeVal = curr.close;
+    const avg5 = curr.avg5;
+    if (!Number.isFinite(closeVal) || !Number.isFinite(avg5)) return false;
+
+    return closeVal > avg5;
+}
+
 /** 判断股票：如果当日成交量 > 昨日成交量，则涨跌幅绝对值必须 < 5%（放量冲高或放量大跌均排除）
  *  无前一天数据或关键字段缺失时返回 false，避免新进入股票绕过限制 */
 function isStockVolumeUpChangeLimited(stockIdentity) {
