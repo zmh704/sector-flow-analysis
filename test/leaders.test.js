@@ -15,8 +15,7 @@ function loadLeadersContext() {
         code: '000001',
         net: '1亿',
         change: '+1.00%',
-        changePct: 1,
-        netYi: 1
+        changePct: 1
     };
     const sectors = [{ name: '测试行业', type: '行业', days: 1 }];
     const context = {
@@ -31,7 +30,6 @@ function loadLeadersContext() {
         LEADER_COND_FOCUS_REQUIRED: true,
         LEADER_COND_CLOSE_OPEN_RATIO: true,
         LEADER_COND_AVG5_GE_AVG10: true,
-        LEADER_FILTER_INFLOW_ONLY: false,
         currentDateFile: 'd2',
         _todayLeadersCache: null,
         getActiveData: () => ({
@@ -134,24 +132,4 @@ test('5日均价>=10日均价开关切换后重新计算推荐结果', () => {
     context.LEADER_COND_AVG5_GE_AVG10 = true;
     assert.equal(context.calcTodayLeaders().length, 0, '重新开启均价条件时应排除不满足条件的股票');
     assert.equal(context._todayLeadersCache.avg5GeAvg10, true);
-});
-
-test('只看流入开关切换后过滤主力净流出股票', () => {
-    const context = loadLeadersContext();
-    context.LEADER_COND_HIGH_HIGHER = false; // 关闭其他限制条件
-
-    // 默认关闭只看流入，stockDays=0 也能通过条件A，应显示
-    context.calcStockConsecutiveDays = () => new Map([[context.stockKey || 'SZ:000001', 0]]);
-    assert.equal(context.calcTodayLeaders().length, 1, '关闭只看流入时 stockDays=0 的股票也应显示');
-    assert.equal(context._todayLeadersCache.inflowOnly, false);
-
-    // 开启只看流入，stockDays=0 不满足 >=1 天，应排除
-    context.LEADER_FILTER_INFLOW_ONLY = true;
-    assert.equal(context.calcTodayLeaders().length, 0, '开启只看流入时 stockDays=0 的股票应被排除');
-    assert.equal(context._todayLeadersCache.inflowOnly, true);
-
-    // 恢复 stockDays=1 且关只看流入
-    context.calcStockConsecutiveDays = () => new Map([['SZ:000001', 1]]);
-    context.LEADER_FILTER_INFLOW_ONLY = false;
-    assert.equal(context.calcTodayLeaders().length, 1, '关闭只看流入时应恢复显示所有');
 });

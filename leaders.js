@@ -4,9 +4,8 @@
 // 今日推荐股票筛选条件（各条件独立方法，可注释/取消注释来开关）
 // ============================
 
-/** 条件A：股票连续流入天数 >= LEADER_STOCK_MIN_DAYS。取消"只看流入"时放宽为允许 0 天 */
+/** 条件A：股票连续流入天数 >= LEADER_STOCK_MIN_DAYS */
 function leaderCondMinDays(stockDays) {
-    if (!LEADER_FILTER_INFLOW_ONLY) return true;
     return stockDays >= LEADER_STOCK_MIN_DAYS;
 }
 
@@ -172,8 +171,7 @@ function calcTodayLeaders() {
         && _todayLeadersCache.highHigher === LEADER_COND_HIGH_HIGHER
         && _todayLeadersCache.focusRequired === LEADER_COND_FOCUS_REQUIRED
         && _todayLeadersCache.closeOpenRatio === LEADER_COND_CLOSE_OPEN_RATIO
-        && _todayLeadersCache.avg5GeAvg10 === LEADER_COND_AVG5_GE_AVG10
-        && _todayLeadersCache.inflowOnly === LEADER_FILTER_INFLOW_ONLY) {
+        && _todayLeadersCache.avg5GeAvg10 === LEADER_COND_AVG5_GE_AVG10) {
         return _todayLeadersCache.value;
     }
     const activeData = getActiveData();
@@ -221,7 +219,6 @@ function calcTodayLeaders() {
             net: info.net || '',
             change: info.change || '',
             changePct: info.changePct,
-            netYi: info.netYi,
             stockDays: stockDays,
             sectors: sectorNames,
             _allSectors: sectors
@@ -230,22 +227,15 @@ function calcTodayLeaders() {
 
     // 按股票连续天数降序排列
     leaders.sort((a, b) => b.stockDays - a.stockDays || a.name.localeCompare(b.name));
-
-    // 只看流入过滤
-    const filtered = LEADER_FILTER_INFLOW_ONLY
-        ? leaders.filter(l => l.netYi != null && l.netYi > 0)
-        : leaders;
-
     _todayLeadersCache = {
         dateFile: currentDateFile,
         highHigher: LEADER_COND_HIGH_HIGHER,
         focusRequired: LEADER_COND_FOCUS_REQUIRED,
         closeOpenRatio: LEADER_COND_CLOSE_OPEN_RATIO,
         avg5GeAvg10: LEADER_COND_AVG5_GE_AVG10,
-        inflowOnly: LEADER_FILTER_INFLOW_ONLY,
-        value: filtered
+        value: leaders
     };
-    return filtered;
+    return leaders;
 }
 
 function updateLeaderArea(activeData) {

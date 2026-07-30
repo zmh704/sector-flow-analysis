@@ -335,15 +335,6 @@ function initEventListeners() {
         if (leaderPanel?.classList.contains('active')) renderLeaderPanel();
     });
 
-    // 只看流入开关
-    document.getElementById('toggleFilterInflowOnly').addEventListener('change', function(e) {
-        LEADER_FILTER_INFLOW_ONLY = e.target.checked;
-        _todayLeadersCache = null;
-        updateCharts();
-        const leaderPanel = document.getElementById('stockPanelLeaderContent');
-        if (leaderPanel?.classList.contains('active')) renderLeaderPanel();
-    });
-
     // 最高价突破条件开关
     document.getElementById('toggleCondHighHigher').addEventListener('change', function(e) {
         LEADER_COND_HIGH_HIGHER = e.target.checked;

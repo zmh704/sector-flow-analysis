@@ -21,7 +21,6 @@ const STOCK_CHART_SOURCE = 'sina_chart'; // 个股图表默认数据源：'sina_
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024; // Excel 上传上限（20 MiB，与服务端默认值一致）
 const CLOSE_OPEN_RATIO_MAX = 1.03; // 今日推荐条件：收盘价/开盘价上限（防尾盘拉高出货或大幅高开低走）
 let LEADER_COND_AVG5_GE_AVG10 = true; // 今日推荐条件：5日均价 >= 10日均价（设为false可关闭此条件）
-let LEADER_FILTER_INFLOW_ONLY = false; // 今日推荐过滤：仅显示主力净流入>0的股票（默认不勾选）
 
 // ===== 通用工具函数 =====
 
