@@ -105,6 +105,36 @@ test('原页面包含可编辑、可拖动并持久化的悬浮便签', () => {
     assert.match(css, /touch-action:\s*none/);
 });
 
+test('今日推荐关联关注板块开关可切换并刷新推荐结果', () => {
+    const html = read('index.html');
+    const app = read('app.js');
+    const config = read('config.js');
+    const leaders = read('leaders.js');
+    assert.match(html, /id=["']toggleCondFocusRequired["']/);
+    assert.match(config, /let LEADER_COND_FOCUS_REQUIRED = true; \/\/ 今日推荐条件：至少一个所属板块进入关注板块/);
+    assert.match(leaders, /if \(LEADER_COND_FOCUS_REQUIRED\)/);
+    assert.match(leaders, /focusRequired === LEADER_COND_FOCUS_REQUIRED/);
+    assert.match(leaders, /focusRequired: LEADER_COND_FOCUS_REQUIRED/);
+    assert.match(app, /toggleCondFocusRequired.*addEventListener\('change'/);
+    assert.match(app, /LEADER_COND_FOCUS_REQUIRED = e\.target\.checked;/);
+    assert.match(app, /_todayLeadersCache = null;/);
+});
+
+test('今日推荐收盘/开盘比开关可切换并刷新推荐结果', () => {
+    const html = read('index.html');
+    const app = read('app.js');
+    const config = read('config.js');
+    const leaders = read('leaders.js');
+    assert.match(html, /id=["']toggleCondCloseOpenRatio["']/);
+    assert.match(config, /const CLOSE_OPEN_RATIO_MAX = 1\.03;/);
+    assert.match(config, /let LEADER_COND_CLOSE_OPEN_RATIO = true; \/\/ 今日推荐条件：收盘价\/开盘价/);
+    assert.match(leaders, /leaderCondCloseOpenRatio/);
+    assert.match(leaders, /closeOpenRatio === LEADER_COND_CLOSE_OPEN_RATIO/);
+    assert.match(leaders, /closeOpenRatio: LEADER_COND_CLOSE_OPEN_RATIO/);
+    assert.match(app, /toggleCondCloseOpenRatio.*addEventListener\('change'/);
+    assert.match(app, /LEADER_COND_CLOSE_OPEN_RATIO = e\.target\.checked;/);
+});
+
 test('list.json 全部指向可读取且结构有效的 schema v3 数据', () => {
     const manifest = JSON.parse(read('list.json'));
     assert.ok(Array.isArray(manifest.files) && manifest.files.length > 0);

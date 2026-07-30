@@ -300,11 +300,31 @@ function initEventListeners() {
         }
     });
 
+    // 关联关注板块条件开关
+    document.getElementById('toggleCondFocusRequired').addEventListener('change', function(e) {
+        LEADER_COND_FOCUS_REQUIRED = e.target.checked;
+        _todayLeadersCache = null;
+        updateCharts();
+        const leaderPanel = document.getElementById('stockPanelLeaderContent');
+        if (leaderPanel?.classList.contains('active')) renderLeaderPanel();
+    });
+
+    // 收盘/开盘比条件开关
+    document.getElementById('toggleCondCloseOpenRatio').addEventListener('change', function(e) {
+        LEADER_COND_CLOSE_OPEN_RATIO = e.target.checked;
+        _todayLeadersCache = null;
+        updateCharts();
+        const leaderPanel = document.getElementById('stockPanelLeaderContent');
+        if (leaderPanel?.classList.contains('active')) renderLeaderPanel();
+    });
+
     // 最高价突破条件开关
     document.getElementById('toggleCondHighHigher').addEventListener('change', function(e) {
         LEADER_COND_HIGH_HIGHER = e.target.checked;
         _todayLeadersCache = null;
         updateCharts();
+        const leaderPanel = document.getElementById('stockPanelLeaderContent');
+        if (leaderPanel?.classList.contains('active')) renderLeaderPanel();
     });
 
     // 龙头标签事件委托

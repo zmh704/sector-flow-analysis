@@ -86,6 +86,12 @@ function leaderCondHighHigher(stockName) {
     return isStockHighHigherThanPrev(stockName);
 }
 
+/** 条件K：收盘价/开盘价 < CLOSE_OPEN_RATIO_MAX（由 LEADER_COND_CLOSE_OPEN_RATIO 控制开关） */
+function leaderCondCloseOpenRatio(stockName) {
+    if (!LEADER_COND_CLOSE_OPEN_RATIO) return true;
+    return isStockCloseOpenRatioOk(stockName);
+}
+
 /**
  * 今日推荐股票的完整筛选逻辑（加星逻辑也复用此函数，保持一致）
  * 修改下方任一条件的注释状态，今日推荐与加星会自动同步
@@ -93,9 +99,11 @@ function leaderCondHighHigher(stockName) {
  */
 function passesLeaderConditions(stockName, stockDays, sectors, focusSectors, sectorMaps) {
     if (!leaderCondMinDays(stockDays)) return false;
-    // 条件B：至少一个所属板块在关注板块中（直接复用 getFocusSectors 的板块集合，按「类型|板块名」精确匹配）
-    const inFocus = sectors.some(s => focusSectors.has(s.type + '|' + s.name));
-    if (!inFocus) return false;
+    // 条件B：至少一个所属板块在关注板块中（可由 LEADER_COND_FOCUS_REQUIRED 开关关闭）
+    if (LEADER_COND_FOCUS_REQUIRED) {
+        const inFocus = sectors.some(s => focusSectors.has(s.type + '|' + s.name));
+        if (!inFocus) return false;
+    }
     // if (!leaderCondTurnoverNotTooLow(stockName)) return false;           // 条件C：股票当日成交额 > 前一日成交额 * 0.9（防缩量）
     if (!leaderCondAmountNotTooHigh(stockName)) return false;               // 条件D
     // if (!leaderCondAllSectorsDecreased(stockName, sectors, sectorMaps)) return false; // 条件E：板块成交额放量检查（已注释，该逻辑属于关注板块筛选，今日推荐不重复检查）
@@ -104,6 +112,7 @@ function passesLeaderConditions(stockName, stockDays, sectors, focusSectors, sec
     // if (!leaderCondVolumeDecreased(stockName)) return false;             // 条件H：股票当日成交量 < 近5日内最大成交量
     if (!leaderCondVolumeUpChangeLimited(stockName)) return false;          // 条件I
     if (!leaderCondHighHigher(stockName)) return false;                     // 条件J
+    if (!leaderCondCloseOpenRatio(stockName)) return false;                  // 条件K
     return true;
 }
 
@@ -152,7 +161,9 @@ function getCurrentPriceDataStats() {
 function calcTodayLeaders() {
     if (_todayLeadersCache
         && _todayLeadersCache.dateFile === currentDateFile
-        && _todayLeadersCache.highHigher === LEADER_COND_HIGH_HIGHER) {
+        && _todayLeadersCache.highHigher === LEADER_COND_HIGH_HIGHER
+        && _todayLeadersCache.focusRequired === LEADER_COND_FOCUS_REQUIRED
+        && _todayLeadersCache.closeOpenRatio === LEADER_COND_CLOSE_OPEN_RATIO) {
         return _todayLeadersCache.value;
     }
     const activeData = getActiveData();
@@ -211,6 +222,8 @@ function calcTodayLeaders() {
     _todayLeadersCache = {
         dateFile: currentDateFile,
         highHigher: LEADER_COND_HIGH_HIGHER,
+        focusRequired: LEADER_COND_FOCUS_REQUIRED,
+        closeOpenRatio: LEADER_COND_CLOSE_OPEN_RATIO,
         value: leaders
     };
     return leaders;

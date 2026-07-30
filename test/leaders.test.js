@@ -27,6 +27,8 @@ function loadLeadersContext() {
         LEADER_STOCK_MIN_DAYS: 1,
         LEADER_GAP: 1,
         LEADER_COND_HIGH_HIGHER: true,
+        LEADER_COND_FOCUS_REQUIRED: true,
+        LEADER_COND_CLOSE_OPEN_RATIO: true,
         currentDateFile: 'd2',
         _todayLeadersCache: null,
         getActiveData: () => ({
@@ -44,6 +46,7 @@ function loadLeadersContext() {
         isStockAmountNotTooHigh: () => true,
         isStockVolumeUpChangeLimited: () => true,
         isStockHighHigherThanPrev: () => false,
+        isStockCloseOpenRatioOk: () => true,
         resolveStockKey: value => value,
         document: { getElementById: () => null },
         renderEmptyState: () => '',
@@ -67,4 +70,43 @@ test('原项目最高价突破开关切换后重新计算推荐结果', () => {
 
     context.LEADER_COND_HIGH_HIGHER = true;
     assert.equal(context.calcTodayLeaders().length, 0, '重新开启条件时应再次执行最高价比较');
+});
+
+test('关联关注板块开关切换后重新计算推荐结果', () => {
+    const context = loadLeadersContext();
+    // 默认开启，股票在关注板块中，应能通过
+    context.LEADER_COND_HIGH_HIGHER = false; // 关闭最高价突破，避免被该条件排除
+    assert.equal(context.calcTodayLeaders().length, 1, '开启关联关注板块时应保留该股票');
+
+    // 关闭该条件，股票即使不在关注板块也应通过
+    context.LEADER_COND_FOCUS_REQUIRED = false;
+    context.getFocusSectors = () => new Set(); // 空集合，模拟股票板块不在关注板块
+    assert.equal(context.calcTodayLeaders().length, 1, '关闭关联关注板块时不应因板块不在关注集合而排除');
+    assert.equal(context._todayLeadersCache.focusRequired, false);
+
+    // 重新开启，应排除
+    context.LEADER_COND_FOCUS_REQUIRED = true;
+    assert.equal(context.calcTodayLeaders().length, 0, '重新开启关联关注板块时应排除不在关注集合的股票');
+    assert.equal(context._todayLeadersCache.focusRequired, true);
+});
+
+test('收盘/开盘比开关切换后重新计算推荐结果', () => {
+    const context = loadLeadersContext();
+    context.LEADER_COND_HIGH_HIGHER = false; // 关闭其他限制条件
+
+    // 默认开启，模拟通过
+    context.isStockCloseOpenRatioOk = () => true;
+    assert.equal(context.calcTodayLeaders().length, 1, '开启收盘/开盘比时应保留符合条件股票');
+    assert.equal(context._todayLeadersCache.closeOpenRatio, true);
+
+    // 关闭条件，即使不符合也应通过
+    context.LEADER_COND_CLOSE_OPEN_RATIO = false;
+    context.isStockCloseOpenRatioOk = () => false;
+    assert.equal(context.calcTodayLeaders().length, 1, '关闭收盘/开盘比时不应因该条件排除');
+    assert.equal(context._todayLeadersCache.closeOpenRatio, false);
+
+    // 重新开启，应排除
+    context.LEADER_COND_CLOSE_OPEN_RATIO = true;
+    assert.equal(context.calcTodayLeaders().length, 0, '重新开启收盘/开盘比时应排除不满足条件的股票');
+    assert.equal(context._todayLeadersCache.closeOpenRatio, true);
 });

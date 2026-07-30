@@ -11,12 +11,15 @@ const RATIO_TURNOVER_LOW = 0.9;   // 防止缩量过快：当日成交额必须 
 const RATIO_TURNOVER_HIGH = 1.6;  // 防止放量过快：当日成交额必须 < 前一日 × 此值
 const CHANGE_LIMIT_PCT = 5;       // 放量时涨跌幅限制（%）
 let LEADER_COND_HIGH_HIGHER = true; // 今日推荐条件：当日最高价 > 前一日最高价（设为false可关闭此条件）
+let LEADER_COND_FOCUS_REQUIRED = true; // 今日推荐条件：至少一个所属板块进入关注板块（设为false可关闭此条件）
+let LEADER_COND_CLOSE_OPEN_RATIO = true; // 今日推荐条件：收盘价/开盘价 < CLOSE_OPEN_RATIO_MAX（设为false可关闭此条件）
 const TREND_CHART_DAYS = 10;      // 趋势图显示天数
 const DATA_ANALYSIS_DAYS = 12;    // 当前日期计算窗口；保持与原先“最近12日”业务口径一致
 const MAX_LOADED_DATES = 20;      // 已加载日期 LRU 上限，控制长期浏览的内存增长
 const DATE_BUTTON_LIMIT = 10;      // 日期选择器默认只展示最近10个交易日
 const STOCK_CHART_SOURCE = 'sina_chart'; // 个股图表默认数据源：'sina_chart'（新浪图片） | 'tradingview'（TV嵌入）
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024; // Excel 上传上限（20 MiB，与服务端默认值一致）
+const CLOSE_OPEN_RATIO_MAX = 1.03; // 今日推荐条件：收盘价/开盘价上限（防尾盘拉高出货或大幅高开低走）
 
 // ===== 通用工具函数 =====
 
@@ -115,7 +118,7 @@ let _stockNameKeyIndex = null;       // Map<股票名称, stockKey>，兼容旧�
 let _sectorFilterCache = null;       // Map<"日期|类型", Array>，当前日期板块筛选结果
 let _dailySectorMapCache = new Map(); // "日期|类型"→板块Map，趋势与筛选共享
 let _focusDataCache = null;          // { dateFile, data, value }，关注板块派生 view model
-let _todayLeadersCache = null;       // { dateFile, highHigher, value }，今日推荐派生结果（含筛选开关状态）
+let _todayLeadersCache = null;       // { dateFile, highHigher, focusRequired, closeOpenRatio, value }，今日推荐派生结果（含筛选开关状态）
 let _loadGeneration = 0;             // 数据加载代次，最后一次请求胜出
 let _loadAbortController = null;     // 取消上一轮数据 fetch
 let _dataManifest = [];              // 全量清单；日期按钮可展示尚未下载的历史日期
