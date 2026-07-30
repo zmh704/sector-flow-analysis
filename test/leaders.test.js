@@ -140,16 +140,18 @@ test('只看流入开关切换后过滤主力净流出股票', () => {
     const context = loadLeadersContext();
     context.LEADER_COND_HIGH_HIGHER = false; // 关闭其他限制条件
 
-    // 默认关闭只看流入，应显示所有（测试股票 netYi=1 > 0，能显示）
-    assert.equal(context.calcTodayLeaders().length, 1, '关闭只看流入时应显示所有股票');
+    // 默认关闭只看流入，stockDays=0 也能通过条件A，应显示
+    context.calcStockConsecutiveDays = () => new Map([[context.stockKey || 'SZ:000001', 0]]);
+    assert.equal(context.calcTodayLeaders().length, 1, '关闭只看流入时 stockDays=0 的股票也应显示');
     assert.equal(context._todayLeadersCache.inflowOnly, false);
 
-    // 开启只看流入，测试股票 netYi > 0，仍应显示
+    // 开启只看流入，stockDays=0 不满足 >=1 天，应排除
     context.LEADER_FILTER_INFLOW_ONLY = true;
-    assert.equal(context.calcTodayLeaders().length, 1, '开启只看流入时主力净流入股票应显示');
+    assert.equal(context.calcTodayLeaders().length, 0, '开启只看流入时 stockDays=0 的股票应被排除');
     assert.equal(context._todayLeadersCache.inflowOnly, true);
 
-    // 关闭只看流入，恢复
+    // 恢复 stockDays=1 且关只看流入
+    context.calcStockConsecutiveDays = () => new Map([['SZ:000001', 1]]);
     context.LEADER_FILTER_INFLOW_ONLY = false;
     assert.equal(context.calcTodayLeaders().length, 1, '关闭只看流入时应恢复显示所有');
 });

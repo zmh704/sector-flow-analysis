@@ -4,8 +4,9 @@
 // 今日推荐股票筛选条件（各条件独立方法，可注释/取消注释来开关）
 // ============================
 
-/** 条件A：股票连续流入天数 >= LEADER_STOCK_MIN_DAYS */
+/** 条件A：股票连续流入天数 >= LEADER_STOCK_MIN_DAYS。取消"只看流入"时放宽为允许 0 天 */
 function leaderCondMinDays(stockDays) {
+    if (!LEADER_FILTER_INFLOW_ONLY) return true;
     return stockDays >= LEADER_STOCK_MIN_DAYS;
 }
 
