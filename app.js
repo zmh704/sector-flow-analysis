@@ -429,12 +429,20 @@ function initEventListeners() {
         const btn = e.target.closest('.stock-preselect-btn');
         if (btn) {
             e.stopPropagation();
-            const stockIdentity = btn.dataset.stockKey || btn.dataset.stockName || btn.closest('tr')?.dataset?.stockName;
-            const isNowPreselected = togglePreselectStock(stockIdentity);
-            btn.classList.toggle('active', isNowPreselected);
-            const star = btn.parentElement?.querySelector('.star-icon');
-            if (star) star.textContent = isNowPreselected ? '★' : '☆';
-            syncPreselectButtons(stockIdentity, isNowPreselected);
+            const stockName = btn.dataset.preselectStock;
+            if (!stockName) return;
+            const isNowPreselected = togglePreselectStock(stockName);
+            document.querySelectorAll('.stock-preselect-btn').forEach(b => {
+                if (b.dataset.preselectStock === stockName) {
+                    b.textContent = isNowPreselected ? '取消' : '预选';
+                    b.classList.toggle('preselected', isNowPreselected);
+                }
+            });
+            document.querySelectorAll('#leaderContent .leader-item').forEach(item => {
+                if (item.dataset.stock === stockName) {
+                    item.classList.toggle('leader-preselected', isNowPreselected);
+                }
+            });
             return;
         }
         // 股票行点击：同今日推荐页签效果（板块详情 + 关联板块 + 个股行情）
