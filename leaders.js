@@ -234,9 +234,6 @@ function calcTodayLeaders() {
     const filtered = LEADER_FILTER_INFLOW_ONLY
         ? leaders.filter(l => l.netYi != null && l.netYi > 0)
         : leaders;
-    console.log('[只看流入] 开关:', LEADER_FILTER_INFLOW_ONLY, '过滤前:', leaders.length, '过滤后:', filtered.length,
-        'pos:', leaders.filter(l => l.netYi != null && l.netYi > 0).length,
-        'neg:', leaders.filter(l => l.netYi != null && l.netYi <= 0).length);
 
     _todayLeadersCache = {
         dateFile: currentDateFile,
