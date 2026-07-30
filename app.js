@@ -437,12 +437,23 @@ function initEventListeners() {
             syncPreselectButtons(stockIdentity, isNowPreselected);
             return;
         }
-        // 股票行点击：打开个股行情
+        // 股票行点击：同今日推荐页签效果（板块详情 + 关联板块 + 个股行情）
         const tr = e.target.closest('tr[data-stock-name]');
         if (!tr) return;
         const stockName = tr.dataset.stockName;
-        const stockCode = tr.dataset.stockCode || '';
-        openStockQuote(stockName, stockCode);
+        const stockKey = tr.dataset.stockKey;
+        if (!stockName) return;
+        const identity = stockKey || resolveStockKey(stockName);
+        const sectors = buildStockSectorsMap().get(identity) || [];
+        if (sectors.length > 0) {
+            const allList = e.currentTarget;
+            const scrollTop = allList.scrollTop;
+            showStockLeader(stockName, sectors);
+            _selectedStockName = stockName;
+            _selectedFocusKey = null;
+            switchStockPanelTab('all');
+            allList.scrollTop = scrollTop;
+        }
     });
 
     // 股票面板表头排序委托（涉及股票 / 今日推荐）
