@@ -20,6 +20,7 @@ const DATE_BUTTON_LIMIT = 10;      // 日期选择器默认只展示最近10个�
 const STOCK_CHART_SOURCE = 'sina_chart'; // 个股图表默认数据源：'sina_chart'（新浪图片） | 'tradingview'（TV嵌入）
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024; // Excel 上传上限（20 MiB，与服务端默认值一致）
 const CLOSE_OPEN_RATIO_MAX = 1.03; // 今日推荐条件：收盘价/开盘价上限（防尾盘拉高出货或大幅高开低走）
+let LEADER_COND_AVG5_GE_AVG10 = true; // 今日推荐条件：5日均价 >= 10日均价（设为false可关闭此条件）
 
 // ===== 通用工具函数 =====
 
@@ -112,7 +113,7 @@ let _sortedDateFileList = null;
 // 计算缓存（随数据/选中日期变化而失效）
 let _consecutiveInflowCache = null;  // Map<"板块|type", days>
 let _stockDaysCache = null;          // Map<stockKey, days>
-let _stockFieldIndex = null;         // { [stockKey]: { [dateFile]: { volume, net, amount(亿,数值), change, code, high, open, low, close } } }
+let _stockFieldIndex = null;         // { [stockKey]: { [dateFile]: { volume, net, amount(亿,数值), change, code, high, open, low, close, avg5, avg10 } } }
 let _stockKeysByDate = {};            // { [dateFile]: stockKey[] }，用于增量覆盖单个日期时精准清理旧索引
 let _stockNameKeyIndex = null;       // Map<股票名称, stockKey>，兼容旧名称型交互和 localStorage
 let _sectorFilterCache = null;       // Map<"日期|类型", Array>，当前日期板块筛选结果

@@ -120,7 +120,9 @@ function storeDataForDate(filename, data, opts, state) {
                     high: stock.high,
                     open: stock.open,
                     low: stock.low,
-                    close: stock.close
+                    close: stock.close,
+                    avg5: stock.avg5,
+                    avg10: stock.avg10
                 };
             }
             stockKeys.add(stockKey);

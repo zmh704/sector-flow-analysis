@@ -119,7 +119,9 @@
             high: parsePrice(stock.high),
             open: parsePrice(stock.open),
             low: parsePrice(stock.low),
-            close: parsePrice(stock.close)
+            close: parsePrice(stock.close),
+            avg5: parsePrice(stock.avg5),
+            avg10: parsePrice(stock.avg10)
         };
     }
 

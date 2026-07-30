@@ -10,7 +10,7 @@ function fixture() {
         stockKey: 'SZ:000001', name: '平安银行', code: '000001',
         amountText: '2.00亿', netText: '+1.00亿', changeText: '+1.00%', volumeText: '10万手',
         amountYi: 2, netYi: 1, changePct: 1, volumeWanShou: 10,
-        high: 12, open: 11, low: 10, close: 11.5
+        high: 12, open: 11, low: 10, close: 11.5, avg5: 11.2, avg10: 10.8
     };
     return {
         schemaVersion: 2,

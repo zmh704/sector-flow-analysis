@@ -13,6 +13,13 @@ function clampFloatingNotePosition(note, left, top) {
     };
 }
 
+const NOTE_DATE_PATTERN = /\d{1,2}月\d{1,2}日/g;
+
+function formatTodayNoteDate() {
+    const now = new Date();
+    return (now.getMonth() + 1) + '月' + now.getDate() + '日';
+}
+
 /** 初始化可编辑、可拖动并自动保存的悬浮便签 */
 function initFloatingNote() {
     const note = document.getElementById('floatingNote');
@@ -31,7 +38,8 @@ function initFloatingNote() {
 
     const hasLocalText = typeof saved.text === 'string';
     let noteEdited = false;
-    textarea.value = hasLocalText ? saved.text : '';
+    const todayDateStr = formatTodayNoteDate();
+    textarea.value = (hasLocalText ? saved.text : '').replace(NOTE_DATE_PATTERN, todayDateStr);
     note.classList.toggle('collapsed', saved.collapsed === true);
     toggle.textContent = saved.collapsed === true ? '+' : '−';
     toggle.title = saved.collapsed === true ? '展开便签' : '折叠便签';
@@ -92,7 +100,7 @@ function initFloatingNote() {
             .then(response => response.ok ? response.json() : null)
             .then(payload => {
                 if (!noteEdited && payload && typeof payload.text === 'string') {
-                    textarea.value = payload.text;
+                    textarea.value = payload.text.replace(NOTE_DATE_PATTERN, formatTodayNoteDate());
                     localStorage.setItem(FLOATING_NOTE_STORAGE_KEY, JSON.stringify({
                         text: payload.text,
                         left: Math.round(readPosition().left),
@@ -312,6 +320,15 @@ function initEventListeners() {
     // 收盘/开盘比条件开关
     document.getElementById('toggleCondCloseOpenRatio').addEventListener('change', function(e) {
         LEADER_COND_CLOSE_OPEN_RATIO = e.target.checked;
+        _todayLeadersCache = null;
+        updateCharts();
+        const leaderPanel = document.getElementById('stockPanelLeaderContent');
+        if (leaderPanel?.classList.contains('active')) renderLeaderPanel();
+    });
+
+    // 5日均价>=10日均价条件开关
+    document.getElementById('toggleCondAvg5GeAvg10').addEventListener('change', function(e) {
+        LEADER_COND_AVG5_GE_AVG10 = e.target.checked;
         _todayLeadersCache = null;
         updateCharts();
         const leaderPanel = document.getElementById('stockPanelLeaderContent');

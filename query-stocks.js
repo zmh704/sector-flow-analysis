@@ -50,7 +50,7 @@ function loadConfig(configPath) {
 
 const VALID_FIELDS = new Set([
     'netYi', 'changePct', 'amountYi', 'volumeWanShou',
-    'high', 'open', 'low', 'close', 'date'
+    'high', 'open', 'low', 'close', 'avg5', 'avg10', 'date'
 ]);
 
 const FIELD_LABELS = {
@@ -62,6 +62,8 @@ const FIELD_LABELS = {
     open: '开盘价',
     low: '最低价',
     close: '收盘价',
+    avg5: '5日均价',
+    avg10: '10日均价',
     date: '日期'
 };
 
@@ -76,7 +78,7 @@ function formatFieldValue(field, value) {
     if (field === 'volumeWanShou') {
         return value.toFixed(0) + '万手';
     }
-    if (['high', 'open', 'low', 'close', 'price'].includes(field)) {
+    if (['high', 'open', 'low', 'close', 'price', 'avg5', 'avg10'].includes(field)) {
         return value.toFixed(2);
     }
     return String(value);

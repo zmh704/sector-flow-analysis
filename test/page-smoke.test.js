@@ -105,6 +105,15 @@ test('原页面包含可编辑、可拖动并持久化的悬浮便签', () => {
     assert.match(css, /touch-action:\s*none/);
 });
 
+test('便签自动识别M月D日格式并替换为当天日期', () => {
+    const app = read('app.js');
+    assert.match(app, /NOTE_DATE_PATTERN = \/\\d\{1,2\}月\\d\{1,2\}日\/g/);
+    assert.match(app, /function formatTodayNoteDate/);
+    assert.match(app, /\.replace\(NOTE_DATE_PATTERN, todayDateStr\)/);
+    assert.match(app, /syncNoteToServer\(textarea\.value\)/);
+    assert.doesNotMatch(app, /\{\{date\}\}/);
+});
+
 test('今日推荐关联关注板块开关可切换并刷新推荐结果', () => {
     const html = read('index.html');
     const app = read('app.js');
@@ -133,6 +142,20 @@ test('今日推荐收盘/开盘比开关可切换并刷新推荐结果', () => {
     assert.match(leaders, /closeOpenRatio: LEADER_COND_CLOSE_OPEN_RATIO/);
     assert.match(app, /toggleCondCloseOpenRatio.*addEventListener\('change'/);
     assert.match(app, /LEADER_COND_CLOSE_OPEN_RATIO = e\.target\.checked;/);
+});
+
+test('今日推荐5日均价>=10日均价开关可切换并刷新推荐结果', () => {
+    const html = read('index.html');
+    const app = read('app.js');
+    const config = read('config.js');
+    const leaders = read('leaders.js');
+    assert.match(html, /id=["']toggleCondAvg5GeAvg10["']/);
+    assert.match(config, /let LEADER_COND_AVG5_GE_AVG10 = true;/);
+    assert.match(leaders, /leaderCondAvg5GeAvg10/);
+    assert.match(leaders, /avg5GeAvg10 === LEADER_COND_AVG5_GE_AVG10/);
+    assert.match(leaders, /avg5GeAvg10: LEADER_COND_AVG5_GE_AVG10/);
+    assert.match(app, /toggleCondAvg5GeAvg10.*addEventListener\('change'/);
+    assert.match(app, /LEADER_COND_AVG5_GE_AVG10 = e\.target\.checked;/);
 });
 
 test('list.json 全部指向可读取且结构有效的 schema v3 数据', () => {

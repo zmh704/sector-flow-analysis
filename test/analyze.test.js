@@ -107,7 +107,9 @@ test('旧模板产出旧涉及股票和新增股票明细，列名单位参与�
         high: null,
         open: null,
         low: null,
-        close: null
+        close: null,
+        avg5: null,
+        avg10: null
     });
 });
 

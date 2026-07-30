@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-07-28T10:13:33.412Z",
+  "generatedAt": "2026-07-30T08:43:54.313Z",
   "files": [
     {
       "path": "data/2026-06-18_板块资金流向.v3.json",
@@ -173,6 +173,18 @@
     {
       "path": "data/2026-07-28_板块资金流向.v3.json",
       "tradingDate": "2026-07-28",
+      "schemaVersion": 3,
+      "hasPriceData": true
+    },
+    {
+      "path": "data/2026-07-29_板块资金流向.v3.json",
+      "tradingDate": "2026-07-29",
+      "schemaVersion": 3,
+      "hasPriceData": true
+    },
+    {
+      "path": "data/2026-07-30_板块资金流向.v3.json",
+      "tradingDate": "2026-07-30",
       "schemaVersion": 3,
       "hasPriceData": true
     }

@@ -139,7 +139,9 @@ function detectColumns(rows) {
         high: ['最高价', '最高价.前复权', '最高'],
         open: ['开盘价', '开盘价.前复权', '开盘'],
         low: ['最低价', '最低价.前复权', '最低'],
-        close: ['收盘价', '收盘价.前复权', '收盘']
+        close: ['收盘价', '收盘价.前复权', '收盘'],
+        avg5: ['现价5日均值', '现价5日均价', '5日均价', '5日均值', 'ma5'],
+        avg10: ['现价10日均值', '现价10日均价', '10日均价', '10日均值', 'ma10']
     };
     const cols = Object.keys(rows[0]);
     const normalized = new Map(cols.map(col => [col, String(col).normalize('NFKC').trim().toLowerCase()]));
@@ -346,6 +348,8 @@ function analyzeFundFlow(workbook, options = {}) {
             const open = readPrice('open');
             const low = readPrice('low');
             const close = readPrice('close');
+            const avg5 = readPrice('avg5');
+            const avg10 = readPrice('avg10');
 
             const detail = {
                 stockKey,
@@ -362,7 +366,9 @@ function analyzeFundFlow(workbook, options = {}) {
                 high,
                 open,
                 low,
-                close
+                close,
+                avg5,
+                avg10
             };
             const stock = {
                 detail,

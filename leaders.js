@@ -92,6 +92,12 @@ function leaderCondCloseOpenRatio(stockName) {
     return isStockCloseOpenRatioOk(stockName);
 }
 
+/** 条件L：5日均价 >= 10日均价（由 LEADER_COND_AVG5_GE_AVG10 控制开关） */
+function leaderCondAvg5GeAvg10(stockName) {
+    if (!LEADER_COND_AVG5_GE_AVG10) return true;
+    return isStockAvg5GeAvg10(stockName);
+}
+
 /**
  * 今日推荐股票的完整筛选逻辑（加星逻辑也复用此函数，保持一致）
  * 修改下方任一条件的注释状态，今日推荐与加星会自动同步
@@ -113,6 +119,7 @@ function passesLeaderConditions(stockName, stockDays, sectors, focusSectors, sec
     if (!leaderCondVolumeUpChangeLimited(stockName)) return false;          // 条件I
     if (!leaderCondHighHigher(stockName)) return false;                     // 条件J
     if (!leaderCondCloseOpenRatio(stockName)) return false;                  // 条件K
+    if (!leaderCondAvg5GeAvg10(stockName)) return false;                     // 条件L
     return true;
 }
 
@@ -163,7 +170,8 @@ function calcTodayLeaders() {
         && _todayLeadersCache.dateFile === currentDateFile
         && _todayLeadersCache.highHigher === LEADER_COND_HIGH_HIGHER
         && _todayLeadersCache.focusRequired === LEADER_COND_FOCUS_REQUIRED
-        && _todayLeadersCache.closeOpenRatio === LEADER_COND_CLOSE_OPEN_RATIO) {
+        && _todayLeadersCache.closeOpenRatio === LEADER_COND_CLOSE_OPEN_RATIO
+        && _todayLeadersCache.avg5GeAvg10 === LEADER_COND_AVG5_GE_AVG10) {
         return _todayLeadersCache.value;
     }
     const activeData = getActiveData();
@@ -224,6 +232,7 @@ function calcTodayLeaders() {
         highHigher: LEADER_COND_HIGH_HIGHER,
         focusRequired: LEADER_COND_FOCUS_REQUIRED,
         closeOpenRatio: LEADER_COND_CLOSE_OPEN_RATIO,
+        avg5GeAvg10: LEADER_COND_AVG5_GE_AVG10,
         value: leaders
     };
     return leaders;
