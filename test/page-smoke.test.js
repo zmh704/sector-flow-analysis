@@ -158,6 +158,20 @@ test('今日推荐5日均价>=10日均价开关可切换并刷新推荐结果', 
     assert.match(app, /LEADER_COND_AVG5_GE_AVG10 = e\.target\.checked;/);
 });
 
+test('今日推荐只看流入开关可切换并过滤结果', () => {
+    const html = read('index.html');
+    const app = read('app.js');
+    const config = read('config.js');
+    const leaders = read('leaders.js');
+    assert.match(html, /id=["']toggleFilterInflowOnly["']/);
+    assert.match(config, /let LEADER_FILTER_INFLOW_ONLY = false;/);
+    assert.match(leaders, /LEADER_FILTER_INFLOW_ONLY/);
+    assert.match(leaders, /inflowOnly === LEADER_FILTER_INFLOW_ONLY/);
+    assert.match(leaders, /inflowOnly: LEADER_FILTER_INFLOW_ONLY/);
+    assert.match(app, /toggleFilterInflowOnly.*addEventListener\('change'/);
+    assert.match(app, /LEADER_FILTER_INFLOW_ONLY = e\.target\.checked;/);
+});
+
 test('list.json 全部指向可读取且结构有效的 schema v3 数据', () => {
     const manifest = JSON.parse(read('list.json'));
     assert.ok(Array.isArray(manifest.files) && manifest.files.length > 0);

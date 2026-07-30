@@ -15,7 +15,8 @@ function loadLeadersContext() {
         code: '000001',
         net: '1亿',
         change: '+1.00%',
-        changePct: 1
+        changePct: 1,
+        netYi: 1
     };
     const sectors = [{ name: '测试行业', type: '行业', days: 1 }];
     const context = {
@@ -30,6 +31,7 @@ function loadLeadersContext() {
         LEADER_COND_FOCUS_REQUIRED: true,
         LEADER_COND_CLOSE_OPEN_RATIO: true,
         LEADER_COND_AVG5_GE_AVG10: true,
+        LEADER_FILTER_INFLOW_ONLY: false,
         currentDateFile: 'd2',
         _todayLeadersCache: null,
         getActiveData: () => ({
@@ -132,4 +134,22 @@ test('5日均价>=10日均价开关切换后重新计算推荐结果', () => {
     context.LEADER_COND_AVG5_GE_AVG10 = true;
     assert.equal(context.calcTodayLeaders().length, 0, '重新开启均价条件时应排除不满足条件的股票');
     assert.equal(context._todayLeadersCache.avg5GeAvg10, true);
+});
+
+test('只看流入开关切换后过滤主力净流出股票', () => {
+    const context = loadLeadersContext();
+    context.LEADER_COND_HIGH_HIGHER = false; // 关闭其他限制条件
+
+    // 默认关闭只看流入，应显示所有（测试股票 netYi=1 > 0，能显示）
+    assert.equal(context.calcTodayLeaders().length, 1, '关闭只看流入时应显示所有股票');
+    assert.equal(context._todayLeadersCache.inflowOnly, false);
+
+    // 开启只看流入，测试股票 netYi > 0，仍应显示
+    context.LEADER_FILTER_INFLOW_ONLY = true;
+    assert.equal(context.calcTodayLeaders().length, 1, '开启只看流入时主力净流入股票应显示');
+    assert.equal(context._todayLeadersCache.inflowOnly, true);
+
+    // 关闭只看流入，恢复
+    context.LEADER_FILTER_INFLOW_ONLY = false;
+    assert.equal(context.calcTodayLeaders().length, 1, '关闭只看流入时应恢复显示所有');
 });

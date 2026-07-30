@@ -171,7 +171,8 @@ function calcTodayLeaders() {
         && _todayLeadersCache.highHigher === LEADER_COND_HIGH_HIGHER
         && _todayLeadersCache.focusRequired === LEADER_COND_FOCUS_REQUIRED
         && _todayLeadersCache.closeOpenRatio === LEADER_COND_CLOSE_OPEN_RATIO
-        && _todayLeadersCache.avg5GeAvg10 === LEADER_COND_AVG5_GE_AVG10) {
+        && _todayLeadersCache.avg5GeAvg10 === LEADER_COND_AVG5_GE_AVG10
+        && _todayLeadersCache.inflowOnly === LEADER_FILTER_INFLOW_ONLY) {
         return _todayLeadersCache.value;
     }
     const activeData = getActiveData();
@@ -219,6 +220,7 @@ function calcTodayLeaders() {
             net: info.net || '',
             change: info.change || '',
             changePct: info.changePct,
+            netYi: info.netYi,
             stockDays: stockDays,
             sectors: sectorNames,
             _allSectors: sectors
@@ -227,15 +229,22 @@ function calcTodayLeaders() {
 
     // 按股票连续天数降序排列
     leaders.sort((a, b) => b.stockDays - a.stockDays || a.name.localeCompare(b.name));
+
+    // 只看流入过滤
+    const filtered = LEADER_FILTER_INFLOW_ONLY
+        ? leaders.filter(l => l.netYi != null && l.netYi > 0)
+        : leaders;
+
     _todayLeadersCache = {
         dateFile: currentDateFile,
         highHigher: LEADER_COND_HIGH_HIGHER,
         focusRequired: LEADER_COND_FOCUS_REQUIRED,
         closeOpenRatio: LEADER_COND_CLOSE_OPEN_RATIO,
         avg5GeAvg10: LEADER_COND_AVG5_GE_AVG10,
-        value: leaders
+        inflowOnly: LEADER_FILTER_INFLOW_ONLY,
+        value: filtered
     };
-    return leaders;
+    return filtered;
 }
 
 function updateLeaderArea(activeData) {
