@@ -1069,6 +1069,13 @@ footer {
     display: flex;
 }
 
+.all-stock-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 6px;
+    padding: 6px 10px 2px;
+    border-bottom: 1px solid #eee;
+}
 .stock-panel-title {
     font-size: 13px;
     padding: 8px 14px 4px;

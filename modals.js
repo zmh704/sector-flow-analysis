@@ -528,7 +528,7 @@ function renderFocusPanel() {
     panelList.appendChild(table);
 }
 
-/** 渲染弹窗【全部股票】页签，显示当日所有股票，点击跳转个股行情 */
+/** 渲染弹窗【全部股票】页签，显示当日所有股票，支持7个可勾选筛选条件 */
 function renderAllStocksPanel() {
     const panelList = document.getElementById('stockPanelAllList');
     if (!panelList) return;
@@ -552,11 +552,46 @@ function renderAllStocksPanel() {
             }
         }
     }
-    const allStocks = [...stockMap.values()];
+    let allStocks = [...stockMap.values()];
 
     if (allStocks.length === 0) {
         panelList.innerHTML = renderEmptyState('📋', '暂无股票数据', '请切换日期或加载数据');
         return;
+    }
+
+    // 读取筛选条件
+    const chk = id => { const el = document.getElementById(id); return el ? el.checked : false; };
+    const fAvg5 = chk('filterAllAvg5');
+    const fInflow = chk('filterAllInflow');
+    const fAmount = chk('filterAllAmount');
+    const fGap = chk('filterAllGap');
+    const fVolChange = chk('filterAllVolChange');
+    const fHigh = chk('filterAllHigh');
+    const fCloseOpen = chk('filterAllCloseOpen');
+
+    const anyFilter = fAvg5 || fInflow || fAmount || fGap || fVolChange || fHigh || fCloseOpen;
+    if (anyFilter) {
+        const stockDaysMap = calcStockConsecutiveDays();
+        const stockSectorsMap = buildStockSectorsMap();
+
+        allStocks = allStocks.filter(stock => {
+            const identity = stock.stockKey || resolveStockKey(stock.name);
+
+            if (fAvg5 && !isStockAvg5GeAvg10(identity)) return false;
+            if (fInflow && !(stock.netYi != null && stock.netYi > 0)) return false;
+            if (fAmount && !isStockAmountNotTooHigh(identity)) return false;
+            if (fGap) {
+                const stockDays = stockDaysMap.get(identity) || 0;
+                const sectors = stockSectorsMap.get(identity) || [];
+                if (sectors.length === 0) return false;
+                const maxSectorDays = Math.max(...sectors.map(s => s.days));
+                if (stockDays < maxSectorDays - LEADER_GAP || stockDays > maxSectorDays) return false;
+            }
+            if (fVolChange && !isStockVolumeUpChangeLimited(identity)) return false;
+            if (fHigh && !isStockHighHigherThanPrev(identity)) return false;
+            if (fCloseOpen && !isStockCloseOpenRatioOk(identity)) return false;
+            return true;
+        });
     }
 
     const stockDaysMap = calcStockConsecutiveDays();

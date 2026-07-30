@@ -480,6 +480,13 @@ function initEventListeners() {
         switchStockPanelTab('all');
     });
 
+    // 全部股票筛选条件 change 事件
+    document.querySelectorAll('#allStockFilters input[type="checkbox"]').forEach(cb => {
+        cb.addEventListener('change', function() {
+            renderAllStocksPanel();
+        });
+    });
+
     // 关注板块页签表格行点击：打开该板块趋势弹窗（同首页关注板块点击效果）
     document.getElementById('stockPanelFocusList').addEventListener('click', function(e) {
         // 表头点击：排序
