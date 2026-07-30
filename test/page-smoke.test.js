@@ -15,7 +15,7 @@ test('页面关键 DOM 和脚本加载顺序完整', () => {
     const html = read('index.html');
     const requiredIds = [
         'dateButtons', 'industryChart', 'conceptChart', 'leaderContent', 'focusContent',
-        'modalOverlay', 'trendModalOverlay', 'stockPanelList', 'loadStatus'
+        'modalOverlay', 'trendModalOverlay', 'stockPanelList', 'stockPanelAllList', 'loadStatus'
     ];
     for (const id of requiredIds) assert.match(html, new RegExp(`id=["']${id}["']`));
 

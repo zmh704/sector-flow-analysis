@@ -437,11 +437,14 @@ function switchStockPanelTab(tab) {
     document.getElementById('stockPanelStocksTabBtn').classList.toggle('active', tab === 'stocks');
     document.getElementById('stockPanelLeaderTabBtn').classList.toggle('active', tab === 'leaders');
     document.getElementById('stockPanelFocusTabBtn').classList.toggle('active', tab === 'focus');
+    document.getElementById('stockPanelAllTabBtn').classList.toggle('active', tab === 'all');
     document.getElementById('stockPanelStocksContent').classList.toggle('active', tab === 'stocks');
     document.getElementById('stockPanelLeaderContent').classList.toggle('active', tab === 'leaders');
     document.getElementById('stockPanelFocusContent').classList.toggle('active', tab === 'focus');
+    document.getElementById('stockPanelAllContent').classList.toggle('active', tab === 'all');
     if (tab === 'leaders') renderLeaderPanel();
     if (tab === 'focus') renderFocusPanel();
+    if (tab === 'all') renderAllStocksPanel();
 }
 
 /** 渲染弹窗【今日推荐】页签（与首页今日推荐同一筛选逻辑，保证股票一致） */
@@ -523,6 +526,42 @@ function renderFocusPanel() {
     table.appendChild(tbody);
     panelList.innerHTML = '';
     panelList.appendChild(table);
+}
+
+/** 渲染弹窗【全部股票】页签，显示当日所有股票，点击跳转个股行情 */
+function renderAllStocksPanel() {
+    const panelList = document.getElementById('stockPanelAllList');
+    if (!panelList) return;
+
+    const activeData = getActiveData();
+    if (!activeData) {
+        panelList.innerHTML = renderEmptyState('📭', '暂无数据', '请先加载数据文件');
+        return;
+    }
+
+    // 收集当日所有去重股票
+    const stockMap = new Map();
+    const allSectors = [...(activeData.行业板块资金流向 || []), ...(activeData.概念板块资金流向 || [])];
+    for (const sector of allSectors) {
+        if (!condNotPlaceholder(sector)) continue;
+        const stocks = getSectorStocks(sector);
+        for (const stock of stocks) {
+            if (!stock.stockKey || !stock.name) continue;
+            if (!stockMap.has(stock.stockKey)) {
+                stockMap.set(stock.stockKey, stock);
+            }
+        }
+    }
+    const allStocks = [...stockMap.values()];
+
+    if (allStocks.length === 0) {
+        panelList.innerHTML = renderEmptyState('📋', '暂无股票数据', '请切换日期或加载数据');
+        return;
+    }
+
+    const stockDaysMap = calcStockConsecutiveDays();
+    const starSet = calcLeaderStarSet(allStocks, stockDaysMap);
+    renderStockTable(panelList, allStocks, null, starSet, stockDaysMap);
 }
 
 /** 处理关注板块表格表头点击排序（同列再次点击翻转升降序） */

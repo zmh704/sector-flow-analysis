@@ -424,6 +424,26 @@ function initEventListeners() {
     }
     document.getElementById('stockPanelList').addEventListener('click', handleStockPanelClick);
     document.getElementById('stockPanelLeaderList').addEventListener('click', handleStockPanelClick);
+    document.getElementById('stockPanelAllList').addEventListener('click', function(e) {
+        // 预选按钮
+        const btn = e.target.closest('.stock-preselect-btn');
+        if (btn) {
+            e.stopPropagation();
+            const stockIdentity = btn.dataset.stockKey || btn.dataset.stockName || btn.closest('tr')?.dataset?.stockName;
+            const isNowPreselected = togglePreselectStock(stockIdentity);
+            btn.classList.toggle('active', isNowPreselected);
+            const star = btn.parentElement?.querySelector('.star-icon');
+            if (star) star.textContent = isNowPreselected ? '★' : '☆';
+            syncPreselectButtons(stockIdentity, isNowPreselected);
+            return;
+        }
+        // 股票行点击：打开个股行情
+        const tr = e.target.closest('tr[data-stock-name]');
+        if (!tr) return;
+        const stockName = tr.dataset.stockName;
+        const stockCode = tr.dataset.stockCode || '';
+        openStockQuote(stockName, stockCode);
+    });
 
     // 股票面板表头排序委托（涉及股票 / 今日推荐）
     function handleStockHeaderSort(e) {
@@ -433,6 +453,7 @@ function initEventListeners() {
     }
     document.getElementById('stockPanelList').addEventListener('click', handleStockHeaderSort);
     document.getElementById('stockPanelLeaderList').addEventListener('click', handleStockHeaderSort);
+    document.getElementById('stockPanelAllList').addEventListener('click', handleStockHeaderSort);
 
     // 股票面板页签切换（涉及股票 / 今日推荐 / 关注板块）
     document.getElementById('stockPanelStocksTabBtn').addEventListener('click', function() {
@@ -443,6 +464,9 @@ function initEventListeners() {
     });
     document.getElementById('stockPanelFocusTabBtn').addEventListener('click', function() {
         switchStockPanelTab('focus');
+    });
+    document.getElementById('stockPanelAllTabBtn').addEventListener('click', function() {
+        switchStockPanelTab('all');
     });
 
     // 关注板块页签表格行点击：打开该板块趋势弹窗（同首页关注板块点击效果）
