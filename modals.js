@@ -701,7 +701,7 @@ function renderAllStocksPanel() {
                 const ss = stockSectorsMap.get(identity) || [];
                 if (fTopSector && top3InflowSet) {
                     const inTop = ss.some(s => top3InflowSet.has(s.type + '|' + s.name));
-                    if (!inTop) return false;
+                    if (inTop) return false;
                 }
                 if (fBotSector && top3OutflowSet) {
                     const inBot = ss.some(s => top3OutflowSet.has(s.type + '|' + s.name));
