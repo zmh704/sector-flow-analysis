@@ -331,7 +331,7 @@ function updateTrendBarChart(existingChart, ctx, trendData, field) {
 /** 渲染股票表格（精简：股票名称、主力净额、连续流入天数、操作）
  *  @param {Object|null} sortState - {key:'net'|'days', asc:bool}；null=默认加星置顶分组排序
  */
-function renderStockTable(panelList, stocks, bgSet, starSet, stockDaysMap, sortState) {
+function renderStockTable(panelList, stocks, bgSet, starSet, stockDaysMap, sortState, nextDayChangeMap) {
     panelList.innerHTML = '';
     if (!stocks || stocks.length === 0) {
         panelList.innerHTML = renderEmptyState('📊', '无涉及股票数据');
@@ -343,7 +343,7 @@ function renderStockTable(panelList, stocks, bgSet, starSet, stockDaysMap, sortS
     const sdm = stockDaysMap || new Map();
 
     // 缓存渲染上下文，供点击表头重排时复用（排序状态除外）
-    _stockTableCtx.set(panelList.id, { stocks, bgSet, starSet, stockDaysMap, sortState: sortState || null });
+    _stockTableCtx.set(panelList.id, { stocks, bgSet, starSet, stockDaysMap, sortState: sortState || null, nextDayChangeMap });
 
     let sortedStocks;
     if (sortState) {
@@ -354,6 +354,9 @@ function renderStockTable(panelList, stocks, bgSet, starSet, stockDaysMap, sortS
             if (sortState.key === 'days') {
                 va = sdm.get(a.stockKey || resolveStockKey(a.name)) || 0;
                 vb = sdm.get(b.stockKey || resolveStockKey(b.name)) || 0;
+            } else if (sortState.key === 'nextday') {
+                va = (nextDayChangeMap && nextDayChangeMap.get(a.stockKey || resolveStockKey(a.name))) ?? -Infinity;
+                vb = (nextDayChangeMap && nextDayChangeMap.get(b.stockKey || resolveStockKey(b.name))) ?? -Infinity;
             } else { // net
                 va = a.netYi == null ? -Infinity : a.netYi;
                 vb = b.netYi == null ? -Infinity : b.netYi;
@@ -379,7 +382,9 @@ function renderStockTable(panelList, stocks, bgSet, starSet, stockDaysMap, sortS
     const table = document.createElement('table');
     table.className = 'stock-table';
     const thead = document.createElement('thead');
-    thead.innerHTML = `<tr><th>股票名称</th><th class="th-sortable" data-sort="net" style="cursor:pointer;">主力净额<span class="sort-arrow">${netArrow}</span></th><th class="th-sortable" data-sort="days" style="cursor:pointer;">天数<span class="sort-arrow">${daysArrow}</span></th><th class="th-action">操作</th></tr>`;
+    const hasNextDay = nextDayChangeMap && nextDayChangeMap.size > 0;
+    const nextDayHeader = hasNextDay ? '<th class="th-sortable" data-sort="nextday" style="cursor:pointer;">次日涨跌幅</th>' : '';
+    thead.innerHTML = `<tr><th>股票名称</th><th class="th-sortable" data-sort="net" style="cursor:pointer;">主力净额<span class="sort-arrow">${netArrow}</span></th>${nextDayHeader}<th class="th-sortable" data-sort="days" style="cursor:pointer;">天数<span class="sort-arrow">${daysArrow}</span></th><th class="th-action">操作</th></tr>`;
     table.appendChild(thead);
     const tbody = document.createElement('tbody');
     sortedStocks.forEach((stock, i) => {
@@ -401,9 +406,24 @@ function renderStockTable(panelList, stocks, bgSet, starSet, stockDaysMap, sortS
         const stockDays = sdm.get(stockIdentity) || 0;
         const daysCls = stockDays >= 3 ? 'stock-days-high' : 'stock-days-normal';
         const isPreselected = isStockPreselected(stock.name);
+
+        // 次日涨跌幅
+        let nextDayCell = '';
+        if (hasNextDay) {
+            const nd = nextDayChangeMap.get(stockIdentity);
+            if (nd != null) {
+                const ndColor = nd >= 0 ? '#e53935' : '#43a047';
+                const ndSign = nd >= 0 ? '+' : '';
+                nextDayCell = `<td style="color:${ndColor};font-weight:600;">${ndSign}${nd.toFixed(2)}%</td>`;
+            } else {
+                nextDayCell = '<td style="color:#999;">-</td>';
+            }
+        }
+
         tr.innerHTML = `
             <td>${isStarred ? '⭐ ' : ''}${escapeHtml(stock.name)}${changeBadge}</td>
             <td class="${changeCls}">${escapeHtml(stock.net)}</td>
+            ${nextDayCell}
             <td class="stock-days ${daysCls}">${stockDays > 0 ? stockDays + '天' : '-'}</td>
             <td><span class="stock-preselect-btn ${isPreselected ? 'preselected' : ''}" data-preselect-stock="${escapeHtml(stock.name)}">${isPreselected ? '取消' : '预选'}</span></td>
         `;
@@ -429,7 +449,7 @@ function sortStockTable(panelList, key) {
     } else {
         asc = false; // 首次点击默认降序
     }
-    renderStockTable(panelList, ctx.stocks, ctx.bgSet, ctx.starSet, ctx.stockDaysMap, { key, asc });
+    renderStockTable(panelList, ctx.stocks, ctx.bgSet, ctx.starSet, ctx.stockDaysMap, { key, asc }, ctx.nextDayChangeMap);
 }
 
 
@@ -647,7 +667,25 @@ function renderAllStocksPanel() {
 
     const stockDaysMap = calcStockConsecutiveDays();
     const starSet = calcLeaderStarSet(allStocks, stockDaysMap);
-    renderStockTable(panelList, allStocks, null, starSet, stockDaysMap);
+
+    // 历史日期：计算次日涨跌幅
+    let nextDayChangeMap = null;
+    const sorted = sortDateFileList();
+    const currentIdx = sorted.indexOf(currentDateFile);
+    if (currentIdx >= 0 && currentIdx < sorted.length - 1) {
+        const nextDateFile = sorted[currentIdx + 1];
+        nextDayChangeMap = new Map();
+        for (const stock of allStocks) {
+            const sk = stock.stockKey || resolveStockKey(stock.name);
+            const perDate = _stockFieldIndex[sk];
+            const nextEntry = perDate && perDate[nextDateFile];
+            if (nextEntry && Number.isFinite(nextEntry.change)) {
+                nextDayChangeMap.set(sk, nextEntry.change);
+            }
+        }
+    }
+
+    renderStockTable(panelList, allStocks, null, starSet, stockDaysMap, null, nextDayChangeMap);
 }
 
 /** 处理关注板块表格表头点击排序（同列再次点击翻转升降序） */
