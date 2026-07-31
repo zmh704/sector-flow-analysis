@@ -640,8 +640,9 @@ function renderAllStocksPanel() {
     const fHigh = chk('filterAllHigh');
     const fCloseOpen = chk('filterAllCloseOpen');
     const fPriceAbove5 = chk('filterAllPriceAbove5');
+    const fOutflowStrong = chk('filterAllOutflowStrong');
 
-    const anyFilter = fAvg5 || fInflow || fAmount || fGap || fVolChange || fHigh || fCloseOpen || fPriceAbove5;
+    const anyFilter = fAvg5 || fInflow || fAmount || fGap || fVolChange || fHigh || fCloseOpen || fPriceAbove5 || fOutflowStrong;
     if (anyFilter) {
         const stockDaysMap = calcStockConsecutiveDays();
         const stockSectorsMap = buildStockSectorsMap();
@@ -663,6 +664,12 @@ function renderAllStocksPanel() {
             if (fHigh && !isStockHighHigherThanPrev(identity)) return false;
             if (fCloseOpen && !isStockCloseOpenRatioOk(identity)) return false;
             if (fPriceAbove5 && !isStockCloseAboveAvg5(identity)) return false;
+            if (fOutflowStrong) {
+                const nyi = stock.netYi;
+                const amt = stock.amountYi;
+                if (nyi == null || amt == null || amt <= 0) return false;
+                if (!(nyi < -1 && Math.abs(nyi) / amt > 0.03)) return false;
+            }
             return true;
         });
     }
