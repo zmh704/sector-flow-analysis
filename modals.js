@@ -533,7 +533,9 @@ function renderPreselectedPanel() {
 
     const stockDaysMap = calcStockConsecutiveDays();
     const starSet = calcLeaderStarSet(preselectedStocks, stockDaysMap);
-    renderStockTable(panelList, preselectedStocks, null, starSet, stockDaysMap);
+    const prevCtx = _stockTableCtx.get(panelList.id);
+    const savedSort = prevCtx && prevCtx.sortState;
+    renderStockTable(panelList, preselectedStocks, null, starSet, stockDaysMap, savedSort);
 }
 
 /** 渲染弹窗【关注板块】页签（与首页关注板块同一数据，点击行同首页点击效果） */
@@ -685,7 +687,10 @@ function renderAllStocksPanel() {
         }
     }
 
-    renderStockTable(panelList, allStocks, null, starSet, stockDaysMap, null, nextDayChangeMap);
+    const prevCtx = _stockTableCtx.get(panelList.id);
+    const savedSort = prevCtx && prevCtx.sortState;
+
+    renderStockTable(panelList, allStocks, null, starSet, stockDaysMap, savedSort, nextDayChangeMap);
 }
 
 /** 处理关注板块表格表头点击排序（同列再次点击翻转升降序） */
