@@ -47,6 +47,7 @@
                     <span>最高价突破</span>
                 </label>
                 <span id="condHighHigherHint" style="font-size:11px;color:#9ca3af;"></span>
+                <button class="leader-cond-toggle" id="openAllStocksBtn" style="padding:2px 8px;cursor:pointer;border:1px solid #d0d0d0;border-radius:4px;background:#f5f5f5;font-size:12px;" title="打开全部股票列表">📋 查看全部</button>
             </div>
             <div class="leader-content" id="leaderContent"></div>
         </div>
@@ -182,20 +183,13 @@
                     </div>
                     <div class="trend-right">
                         <div class="stock-panel-tabs">
-                            <button class="stock-panel-tab-btn active" id="stockPanelStocksTabBtn">📊 涉及股票</button>
-                            <button class="stock-panel-tab-btn" id="stockPanelPreselectedTabBtn">⭐ 我的预选</button>
-                            <button class="stock-panel-tab-btn" id="stockPanelFocusTabBtn">📌 关注板块</button>
+                            <button class="stock-panel-tab-btn active" id="stockPanelPreselectedTabBtn">⭐ 我的预选</button>
                             <button class="stock-panel-tab-btn" id="stockPanelAllTabBtn">📋 全部股票</button>
+                            <button class="stock-panel-tab-btn" id="stockPanelStocksTabBtn">📊 涉及股票</button>
+                            <button class="stock-panel-tab-btn" id="stockPanelFocusTabBtn">📌 关注板块</button>
                         </div>
-                        <div class="stock-panel-content active" id="stockPanelStocksContent">
-                            <div class="stock-panel-title" id="stockPanelTitle"></div>
-                            <div class="stock-panel-list" id="stockPanelList"></div>
-                        </div>
-                        <div class="stock-panel-content" id="stockPanelPreselectedContent">
+                        <div class="stock-panel-content active" id="stockPanelPreselectedContent">
                             <div class="stock-panel-list" id="stockPanelPreselectedList"></div>
-                        </div>
-                        <div class="stock-panel-content" id="stockPanelFocusContent">
-                            <div class="stock-panel-list" id="stockPanelFocusList"></div>
                         </div>
                         <div class="stock-panel-content" id="stockPanelAllContent">
                             <div class="all-stock-filters" id="allStockFilters">
@@ -209,6 +203,13 @@
                                 <label class="leader-cond-toggle" title="收盘价/开盘价 < 1.03"><input type="checkbox" id="filterAllCloseOpen" checked><span>收盘比</span></label>
                             </div>
                             <div class="stock-panel-list" id="stockPanelAllList"></div>
+                        </div>
+                        <div class="stock-panel-content" id="stockPanelStocksContent">
+                            <div class="stock-panel-title" id="stockPanelTitle"></div>
+                            <div class="stock-panel-list" id="stockPanelList"></div>
+                        </div>
+                        <div class="stock-panel-content" id="stockPanelFocusContent">
+                            <div class="stock-panel-list" id="stockPanelFocusList"></div>
                         </div>
                     </div>
                 </div>

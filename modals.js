@@ -844,6 +844,13 @@ function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, c
     document.getElementById('trendModalOverlay').classList.add('active');
 }
 
+/** 直接打开弹窗并切换到全部股票页签 */
+function openAllStocksModal() {
+    document.getElementById('trendModalOverlay').classList.add('active');
+    switchTrendChartTab('stock');
+    switchStockPanelTab('all');
+}
+
 function closeTrendModal(event) {
     if (event && event.target !== event.currentTarget) return;
     document.getElementById('trendModalOverlay').classList.remove('active');

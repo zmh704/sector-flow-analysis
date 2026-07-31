@@ -343,6 +343,11 @@ function initEventListeners() {
         updateCharts();
     });
 
+    // 查看全部股票按钮
+    document.getElementById('openAllStocksBtn').addEventListener('click', function() {
+        openAllStocksModal();
+    });
+
     // 龙头标签事件委托
     document.getElementById('leaderContent').addEventListener('click', function(e) {
         const item = e.target.closest('.leader-item.leader-clickable');
