@@ -30,6 +30,7 @@ function loadLeadersContext() {
         LEADER_COND_FOCUS_REQUIRED: true,
         LEADER_COND_CLOSE_OPEN_RATIO: true,
         LEADER_COND_AVG5_GE_AVG10: true,
+        LEADER_COND_CLOSE_ABOVE_AVG5: true,
         currentDateFile: 'd2',
         _todayLeadersCache: null,
         getActiveData: () => ({
@@ -49,6 +50,7 @@ function loadLeadersContext() {
         isStockHighHigherThanPrev: () => false,
         isStockCloseOpenRatioOk: () => true,
         isStockAvg5GeAvg10: () => true,
+        isStockCloseAboveAvg5: () => true,
         resolveStockKey: value => value,
         document: { getElementById: () => null },
         renderEmptyState: () => '',
@@ -132,4 +134,25 @@ test('5日均价>=10日均价开关切换后重新计算推荐结果', () => {
     context.LEADER_COND_AVG5_GE_AVG10 = true;
     assert.equal(context.calcTodayLeaders().length, 0, '重新开启均价条件时应排除不满足条件的股票');
     assert.equal(context._todayLeadersCache.avg5GeAvg10, true);
+});
+
+test('价>5日线开关切换后重新计算推荐结果', () => {
+    const context = loadLeadersContext();
+    context.LEADER_COND_HIGH_HIGHER = false;
+
+    // 默认开启，模拟通过
+    context.isStockCloseAboveAvg5 = () => true;
+    assert.equal(context.calcTodayLeaders().length, 1, '开启价>5日线时应保留符合条件股票');
+    assert.equal(context._todayLeadersCache.closeAboveAvg5, true);
+
+    // 关闭条件
+    context.LEADER_COND_CLOSE_ABOVE_AVG5 = false;
+    context.isStockCloseAboveAvg5 = () => false;
+    assert.equal(context.calcTodayLeaders().length, 1, '关闭价>5日线时不应因该条件排除');
+    assert.equal(context._todayLeadersCache.closeAboveAvg5, false);
+
+    // 重新开启
+    context.LEADER_COND_CLOSE_ABOVE_AVG5 = true;
+    assert.equal(context.calcTodayLeaders().length, 0, '重新开启价>5日线时应排除不满足条件的股票');
+    assert.equal(context._todayLeadersCache.closeAboveAvg5, true);
 });

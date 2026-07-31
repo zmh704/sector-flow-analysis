@@ -158,6 +158,20 @@ test('今日推荐5日均价>=10日均价开关可切换并刷新推荐结果', 
     assert.match(app, /LEADER_COND_AVG5_GE_AVG10 = e\.target\.checked;/);
 });
 
+test('今日推荐价>5日线开关可切换并刷新推荐结果', () => {
+    const html = read('index.html');
+    const app = read('app.js');
+    const config = read('config.js');
+    const leaders = read('leaders.js');
+    assert.match(html, /id=["']toggleCondCloseAboveAvg5["']/);
+    assert.match(config, /let LEADER_COND_CLOSE_ABOVE_AVG5 = true;/);
+    assert.match(leaders, /leaderCondCloseAboveAvg5/);
+    assert.match(leaders, /closeAboveAvg5 === LEADER_COND_CLOSE_ABOVE_AVG5/);
+    assert.match(leaders, /closeAboveAvg5: LEADER_COND_CLOSE_ABOVE_AVG5/);
+    assert.match(app, /toggleCondCloseAboveAvg5.*addEventListener\('change'/);
+    assert.match(app, /LEADER_COND_CLOSE_ABOVE_AVG5 = e\.target\.checked;/);
+});
+
 test('list.json 全部指向可读取且结构有效的 schema v3 数据', () => {
     const manifest = JSON.parse(read('list.json'));
     assert.ok(Array.isArray(manifest.files) && manifest.files.length > 0);
