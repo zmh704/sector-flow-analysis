@@ -641,11 +641,38 @@ function renderAllStocksPanel() {
     const fCloseOpen = chk('filterAllCloseOpen');
     const fPriceAbove5 = chk('filterAllPriceAbove5');
     const fOutflowStrong = chk('filterAllOutflowStrong');
+    const fTopSector = chk('filterAllTopSector');
+    const fBotSector = chk('filterAllBotSector');
 
-    const anyFilter = fAvg5 || fInflow || fAmount || fGap || fVolChange || fHigh || fCloseOpen || fPriceAbove5 || fOutflowStrong;
+    const anyFilter = fAvg5 || fInflow || fAmount || fGap || fVolChange || fHigh || fCloseOpen || fPriceAbove5 || fOutflowStrong || fTopSector || fBotSector;
     if (anyFilter) {
         const stockDaysMap = calcStockConsecutiveDays();
         const stockSectorsMap = buildStockSectorsMap();
+
+        // 计算行业/概念板块净流入前3和净流出前3
+        let top3InflowSet = null, top3OutflowSet = null;
+        if (fTopSector || fBotSector) {
+            const activeData = getActiveData();
+            const indList = (activeData.行业板块资金流向 || []).filter(s => condNotPlaceholder(s));
+            const conList = (activeData.概念板块资金流向 || []).filter(s => condNotPlaceholder(s));
+
+            if (fTopSector) {
+                const top3Ind = [...indList].sort((a, b) => Number(b.主力净额) - Number(a.主力净额)).slice(0, 3);
+                const top3Con = [...conList].sort((a, b) => Number(b.主力净额) - Number(a.主力净额)).slice(0, 3);
+                top3InflowSet = new Set([
+                    ...top3Ind.map(s => '行业|' + s.板块),
+                    ...top3Con.map(s => '概念|' + s.板块)
+                ]);
+            }
+            if (fBotSector) {
+                const bot3Ind = [...indList].sort((a, b) => Number(a.主力净额) - Number(b.主力净额)).slice(0, 3);
+                const bot3Con = [...conList].sort((a, b) => Number(a.主力净额) - Number(b.主力净额)).slice(0, 3);
+                top3OutflowSet = new Set([
+                    ...bot3Ind.map(s => '行业|' + s.板块),
+                    ...bot3Con.map(s => '概念|' + s.板块)
+                ]);
+            }
+        }
 
         allStocks = allStocks.filter(stock => {
             const identity = stock.stockKey || resolveStockKey(stock.name);
@@ -669,6 +696,17 @@ function renderAllStocksPanel() {
                 const amt = stock.amountYi;
                 if (nyi == null || amt == null || amt <= 0) return false;
                 if (!(nyi < -1 && Math.abs(nyi) / amt > 0.03)) return false;
+            }
+            if (fTopSector || fBotSector) {
+                const ss = stockSectorsMap.get(identity) || [];
+                if (fTopSector && top3InflowSet) {
+                    const inTop = ss.some(s => top3InflowSet.has(s.type + '|' + s.name));
+                    if (!inTop) return false;
+                }
+                if (fBotSector && top3OutflowSet) {
+                    const inBot = ss.some(s => top3OutflowSet.has(s.type + '|' + s.name));
+                    if (!inBot) return false;
+                }
             }
             return true;
         });
