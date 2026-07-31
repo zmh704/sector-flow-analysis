@@ -435,14 +435,14 @@ function sortStockTable(panelList, key) {
 
 function switchStockPanelTab(tab) {
     document.getElementById('stockPanelStocksTabBtn').classList.toggle('active', tab === 'stocks');
-    document.getElementById('stockPanelLeaderTabBtn').classList.toggle('active', tab === 'leaders');
+    document.getElementById('stockPanelPreselectedTabBtn').classList.toggle('active', tab === 'preselected');
     document.getElementById('stockPanelFocusTabBtn').classList.toggle('active', tab === 'focus');
     document.getElementById('stockPanelAllTabBtn').classList.toggle('active', tab === 'all');
     document.getElementById('stockPanelStocksContent').classList.toggle('active', tab === 'stocks');
-    document.getElementById('stockPanelLeaderContent').classList.toggle('active', tab === 'leaders');
+    document.getElementById('stockPanelPreselectedContent').classList.toggle('active', tab === 'preselected');
     document.getElementById('stockPanelFocusContent').classList.toggle('active', tab === 'focus');
     document.getElementById('stockPanelAllContent').classList.toggle('active', tab === 'all');
-    if (tab === 'leaders') renderLeaderPanel();
+    if (tab === 'preselected') renderPreselectedPanel();
     if (tab === 'focus') renderFocusPanel();
     if (tab === 'all') renderAllStocksPanel();
 }
@@ -465,6 +465,55 @@ function renderLeaderPanel() {
 
     const stockDaysMap = calcStockConsecutiveDays();
     renderStockTable(panelList, leaders, null, null, stockDaysMap);
+}
+
+/** 渲染弹窗【我的预选】页签，显示所有已预选股票，点击跳转个股行情 */
+function renderPreselectedPanel() {
+    const panelList = document.getElementById('stockPanelPreselectedList');
+    if (!panelList) return;
+
+    const preselectedKeys = getPreselectedStocks();
+    if (preselectedKeys.length === 0) {
+        panelList.innerHTML = renderEmptyState('⭐', '暂无预选股票', '在表格中点击「预选」按钮添加');
+        return;
+    }
+
+    const activeData = getActiveData();
+    if (!activeData) {
+        panelList.innerHTML = renderEmptyState('📭', '暂无数据', '请先加载数据文件');
+        return;
+    }
+
+    // 遍历当日所有股票，匹配预选 key
+    const stockMap = new Map();
+    const allSectors = [...(activeData.行业板块资金流向 || []), ...(activeData.概念板块资金流向 || [])];
+    for (const sector of allSectors) {
+        if (!condNotPlaceholder(sector)) continue;
+        const stocks = getSectorStocks(sector);
+        for (const stock of stocks) {
+            if (!stock.stockKey || !stock.name) continue;
+            if (!stockMap.has(stock.stockKey)) {
+                stockMap.set(stock.stockKey, stock);
+            }
+        }
+    }
+
+    // 匹配预选列表中的股票
+    const preselectedStocks = [];
+    for (const key of preselectedKeys) {
+        const resolved = resolveStockKey(key);
+        const stock = stockMap.get(resolved) || stockMap.get(key);
+        if (stock) preselectedStocks.push(stock);
+    }
+
+    if (preselectedStocks.length === 0) {
+        panelList.innerHTML = renderEmptyState('⭐', '当日数据中暂无已预选股票', '预选股票可能不在当前日期的成交额排行中');
+        return;
+    }
+
+    const stockDaysMap = calcStockConsecutiveDays();
+    const starSet = calcLeaderStarSet(preselectedStocks, stockDaysMap);
+    renderStockTable(panelList, preselectedStocks, null, starSet, stockDaysMap);
 }
 
 /** 渲染弹窗【关注板块】页签（与首页关注板块同一数据，点击行同首页点击效果） */

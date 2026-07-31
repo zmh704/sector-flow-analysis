@@ -313,8 +313,6 @@ function initEventListeners() {
         LEADER_COND_FOCUS_REQUIRED = e.target.checked;
         _todayLeadersCache = null;
         updateCharts();
-        const leaderPanel = document.getElementById('stockPanelLeaderContent');
-        if (leaderPanel?.classList.contains('active')) renderLeaderPanel();
     });
 
     // 收盘/开盘比条件开关
@@ -322,8 +320,6 @@ function initEventListeners() {
         LEADER_COND_CLOSE_OPEN_RATIO = e.target.checked;
         _todayLeadersCache = null;
         updateCharts();
-        const leaderPanel = document.getElementById('stockPanelLeaderContent');
-        if (leaderPanel?.classList.contains('active')) renderLeaderPanel();
     });
 
     // 5日均价>=10日均价条件开关
@@ -331,8 +327,6 @@ function initEventListeners() {
         LEADER_COND_AVG5_GE_AVG10 = e.target.checked;
         _todayLeadersCache = null;
         updateCharts();
-        const leaderPanel = document.getElementById('stockPanelLeaderContent');
-        if (leaderPanel?.classList.contains('active')) renderLeaderPanel();
     });
 
     // 最高价突破条件开关
@@ -340,8 +334,6 @@ function initEventListeners() {
         LEADER_COND_HIGH_HIGHER = e.target.checked;
         _todayLeadersCache = null;
         updateCharts();
-        const leaderPanel = document.getElementById('stockPanelLeaderContent');
-        if (leaderPanel?.classList.contains('active')) renderLeaderPanel();
     });
 
     // 龙头标签事件委托
@@ -399,20 +391,18 @@ function initEventListeners() {
         const stockKey = tr.dataset.stockKey;
         const stockCode = tr.dataset.stockCode;
         if (!stockName) return;
-        // 今日推荐页签：板块详情、窗口标题、关联板块整体跟随该股票更新（同首页今日推荐点击）
-        if (e.currentTarget.id === 'stockPanelLeaderList') {
+        // 预选页签：同全部股票页签效果（板块详情 + 关联板块 + 个股行情）
+        if (e.currentTarget.id === 'stockPanelPreselectedList') {
             const identity = stockKey || resolveStockKey(stockName);
             const sectors = buildStockSectorsMap().get(identity) || [];
             if (sectors.length > 0) {
-                const leaderList = e.currentTarget;
-                const scrollTop = leaderList.scrollTop;
+                const list = e.currentTarget;
+                const scrollTop = list.scrollTop;
                 showStockLeader(stockName, sectors);
-                // 记录选中股票（须在 showStockLeader 之后，避免被其内部重置覆盖）
                 _selectedStockName = stockName;
                 _selectedFocusKey = null;
-                // 保持停留在今日推荐页签并恢复滚动位置
-                switchStockPanelTab('leaders');
-                leaderList.scrollTop = scrollTop;
+                switchStockPanelTab('preselected');
+                list.scrollTop = scrollTop;
                 return;
             }
         }
@@ -423,7 +413,7 @@ function initEventListeners() {
         openStockQuote(stockName, stockCode || '');
     }
     document.getElementById('stockPanelList').addEventListener('click', handleStockPanelClick);
-    document.getElementById('stockPanelLeaderList').addEventListener('click', handleStockPanelClick);
+    document.getElementById('stockPanelPreselectedList').addEventListener('click', handleStockPanelClick);
     document.getElementById('stockPanelAllList').addEventListener('click', function(e) {
         // 预选按钮
         const btn = e.target.closest('.stock-preselect-btn');
@@ -471,15 +461,15 @@ function initEventListeners() {
         sortStockTable(e.currentTarget, th.dataset.sort);
     }
     document.getElementById('stockPanelList').addEventListener('click', handleStockHeaderSort);
-    document.getElementById('stockPanelLeaderList').addEventListener('click', handleStockHeaderSort);
+    document.getElementById('stockPanelPreselectedList').addEventListener('click', handleStockHeaderSort);
     document.getElementById('stockPanelAllList').addEventListener('click', handleStockHeaderSort);
 
     // 股票面板页签切换（涉及股票 / 今日推荐 / 关注板块）
     document.getElementById('stockPanelStocksTabBtn').addEventListener('click', function() {
         switchStockPanelTab('stocks');
     });
-    document.getElementById('stockPanelLeaderTabBtn').addEventListener('click', function() {
-        switchStockPanelTab('leaders');
+    document.getElementById('stockPanelPreselectedTabBtn').addEventListener('click', function() {
+        switchStockPanelTab('preselected');
     });
     document.getElementById('stockPanelFocusTabBtn').addEventListener('click', function() {
         switchStockPanelTab('focus');
