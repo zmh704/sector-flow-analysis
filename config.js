@@ -19,7 +19,7 @@ const MAX_LOADED_DATES = 20;      // 已加载日期 LRU 上限，控制长期�
 const DATE_BUTTON_LIMIT = 10;      // 日期选择器默认只展示最近10个交易日
 const STOCK_CHART_SOURCE = 'sina_chart'; // 个股图表默认数据源：'sina_chart'（新浪图片） | 'tradingview'（TV嵌入）
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024; // Excel 上传上限（20 MiB，与服务端默认值一致）
-const CLOSE_OPEN_RATIO_MAX = 1.015; // 今日推荐条件：收盘价/开盘价上限（防尾盘拉高出货或大幅高开低走）
+const CLOSE_OPEN_RATIO_MAX = 1.03; // 今日推荐条件：收盘价/开盘价上限（防尾盘拉高出货或大幅高开低走）
 let LEADER_COND_AVG5_GE_AVG10 = true; // 今日推荐条件：5日均价 >= 10日均价（设为false可关闭此条件）
 let LEADER_COND_CLOSE_ABOVE_AVG5 = true; // 今日推荐条件：收盘价 > 5日均价（设为false可关闭此条件）
 
