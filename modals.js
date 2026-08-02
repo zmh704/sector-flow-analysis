@@ -920,7 +920,8 @@ function showSingleTrendModal(sectorName, type, label, matchedSectors, stocks, c
             // 加星逻辑：复用今日推荐的完整筛选逻辑（passesLeaderConditions），自动同步条件开关
             const stockDaysMap = calcStockConsecutiveDays();
             const starSet = calcLeaderStarSet(stocks, stockDaysMap);
-            renderStockTable(panelList, stocks, commonStockNames, starSet, stockDaysMap);
+            const nextDayChangeMap = buildNextDayChangeMap(stocks);
+            renderStockTable(panelList, stocks, commonStockNames, starSet, stockDaysMap, null, nextDayChangeMap);
         }
     } else {
         showStocksInPanel(sectorName, type);
