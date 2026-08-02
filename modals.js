@@ -576,8 +576,8 @@ function renderFocusPanel() {
 
     // 合并行业+概念
     const rows = [
-        ...industries.map(s => ({ name: s.name, type: '行业', dataType: '行业板块资金流向', days: s.days })),
-        ...concepts.map(s => ({ name: s.name, type: '概念', dataType: '概念板块资金流向', days: s.days }))
+        ...industries.map(s => ({ name: s.name, type: '行业', dataType: '行业板块资金流向', days: s.days, net: s.net })),
+        ...concepts.map(s => ({ name: s.name, type: '概念', dataType: '概念板块资金流向', days: s.days, net: s.net }))
     ];
 
     // 排序：默认按天数降序；点击表头后按指定列排序
@@ -587,6 +587,9 @@ function renderFocusPanel() {
             if (_focusSortState.key === 'type') {
                 return a.type.localeCompare(b.type) * dir || b.days - a.days;
             }
+            if (_focusSortState.key === 'net') {
+                return ((Number(b.net) || 0) - (Number(a.net) || 0)) * dir;
+            }
             return (a.days - b.days) * dir; // days
         });
     } else {
@@ -595,10 +598,11 @@ function renderFocusPanel() {
 
     const typeArrow = _focusSortState && _focusSortState.key === 'type' ? (_focusSortState.asc ? ' ▲' : ' ▼') : '';
     const daysArrow = _focusSortState && _focusSortState.key === 'days' ? (_focusSortState.asc ? ' ▲' : ' ▼') : '';
+    const netArrow = _focusSortState && _focusSortState.key === 'net' ? (_focusSortState.asc ? ' ▲' : ' ▼') : '';
 
     const table = document.createElement('table');
     table.className = 'stock-table';
-    table.innerHTML = `<thead><tr><th>板块</th><th class="th-sortable" data-sort="type" style="cursor:pointer;text-align:center;">类型<span class="sort-arrow">${typeArrow}</span></th><th class="th-sortable" data-sort="days" style="cursor:pointer;text-align:center;">净流入天数<span class="sort-arrow">${daysArrow}</span></th></tr></thead>`;
+    table.innerHTML = `<thead><tr><th>板块</th><th class="th-sortable" data-sort="type" style="cursor:pointer;text-align:center;">类型<span class="sort-arrow">${typeArrow}</span></th><th class="th-sortable" data-sort="net" style="cursor:pointer;text-align:center;">主力净额<span class="sort-arrow">${netArrow}</span></th><th class="th-sortable" data-sort="days" style="cursor:pointer;text-align:center;">净流入天数<span class="sort-arrow">${daysArrow}</span></th></tr></thead>`;
     const tbody = document.createElement('tbody');
     rows.forEach(row => {
         const tr = document.createElement('tr');
@@ -608,9 +612,13 @@ function renderFocusPanel() {
         if (_selectedFocusKey === row.name + '|' + row.dataType) tr.classList.add('row-selected');
         const typeColor = row.type === '行业' ? '#2563eb' : '#7c3aed';
         const daysColor = row.days >= HIGHLIGHT_MIN_DAYS ? '#dc2626' : '#555';
+        const netNum = Number(row.net);
+        const netColor = Number.isFinite(netNum) ? (netNum >= 0 ? '#e53935' : '#43a047') : '#999';
+        const netText = Number.isFinite(netNum) ? (netNum > 0 ? '+' : '') + netNum.toFixed(2) + '亿' : '-';
         tr.innerHTML =
             `<td style="color:${typeColor};font-weight:600;">${escapeHtml(row.name)}</td>` +
             `<td style="text-align:center;color:${typeColor};">${row.type}</td>` +
+            `<td style="text-align:center;color:${netColor};font-weight:600;">${netText}</td>` +
             `<td style="text-align:center;color:${daysColor};font-weight:700;">${row.days}天</td>`;
         tbody.appendChild(tr);
     });

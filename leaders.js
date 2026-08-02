@@ -344,6 +344,7 @@ function calcFocusSectorsData(activeData) {
     const industries = filterSectors(industryList, '行业板块资金流向').map(i => ({
         name: i.板块,
         days: calcConsecutiveInflow(i.板块, '行业板块资金流向'),
+        net: i.主力净额,
         stocks: new Map(getSectorStocks(i).map(s => [s.stockKey, s])),
         stockStr: i.涉及股票
     }));
@@ -351,6 +352,7 @@ function calcFocusSectorsData(activeData) {
     const concepts = filterSectors(conceptList, '概念板块资金流向').map(c => ({
         name: c.板块,
         days: calcConsecutiveInflow(c.板块, '概念板块资金流向'),
+        net: c.主力净额,
         stocks: new Map(getSectorStocks(c).map(s => [s.stockKey, s])),
         stockStr: c.涉及股票
     }));
