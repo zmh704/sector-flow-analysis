@@ -328,6 +328,25 @@ function updateTrendBarChart(existingChart, ctx, trendData, field) {
     return chart;
 }
 
+/** 为一批股票构建次日涨跌幅 Map（历史日期时使用，最新日期返回 null） */
+function buildNextDayChangeMap(stocks) {
+    const sorted = sortDateFileList();
+    const currentIdx = sorted.indexOf(currentDateFile);
+    if (currentIdx < 0 || currentIdx >= sorted.length - 1) return null;
+
+    const nextDateFile = sorted[currentIdx + 1];
+    const map = new Map();
+    for (const stock of stocks) {
+        const sk = stock.stockKey || resolveStockKey(stock.name);
+        const perDate = _stockFieldIndex[sk];
+        const nextEntry = perDate && perDate[nextDateFile];
+        if (nextEntry && Number.isFinite(nextEntry.change)) {
+            map.set(sk, nextEntry.change);
+        }
+    }
+    return map;
+}
+
 /** 渲染股票表格（精简：股票名称、主力净额、连续流入天数、操作）
  *  @param {Object|null} sortState - {key:'net'|'days', asc:bool}；null=默认加星置顶分组排序
  */
@@ -535,7 +554,8 @@ function renderPreselectedPanel() {
     const starSet = calcLeaderStarSet(preselectedStocks, stockDaysMap);
     const prevCtx = _stockTableCtx.get(panelList.id);
     const savedSort = prevCtx && prevCtx.sortState;
-    renderStockTable(panelList, preselectedStocks, null, starSet, stockDaysMap, savedSort);
+    const nextDayChangeMap = buildNextDayChangeMap(preselectedStocks);
+    renderStockTable(panelList, preselectedStocks, null, starSet, stockDaysMap, savedSort, nextDayChangeMap);
 }
 
 /** 渲染弹窗【关注板块】页签（与首页关注板块同一数据，点击行同首页点击效果） */
@@ -715,22 +735,7 @@ function renderAllStocksPanel() {
     const stockDaysMap = calcStockConsecutiveDays();
     const starSet = calcLeaderStarSet(allStocks, stockDaysMap);
 
-    // 历史日期：计算次日涨跌幅
-    let nextDayChangeMap = null;
-    const sorted = sortDateFileList();
-    const currentIdx = sorted.indexOf(currentDateFile);
-    if (currentIdx >= 0 && currentIdx < sorted.length - 1) {
-        const nextDateFile = sorted[currentIdx + 1];
-        nextDayChangeMap = new Map();
-        for (const stock of allStocks) {
-            const sk = stock.stockKey || resolveStockKey(stock.name);
-            const perDate = _stockFieldIndex[sk];
-            const nextEntry = perDate && perDate[nextDateFile];
-            if (nextEntry && Number.isFinite(nextEntry.change)) {
-                nextDayChangeMap.set(sk, nextEntry.change);
-            }
-        }
-    }
+    const nextDayChangeMap = buildNextDayChangeMap(allStocks);
 
     const prevCtx = _stockTableCtx.get(panelList.id);
     const savedSort = prevCtx && prevCtx.sortState;
@@ -777,8 +782,9 @@ function showStocksInPanel(sectorName, type, commonStockNames) {
     // 加星逻辑：复用今日推荐的完整筛选逻辑（passesLeaderConditions），自动同步条件开关
     const stockDaysMap = calcStockConsecutiveDays();
     const starSet = calcLeaderStarSet(stocks, stockDaysMap);
+    const nextDayChangeMap = buildNextDayChangeMap(stocks);
 
-    renderStockTable(panelList, stocks, commonStockNames, starSet, stockDaysMap);
+    renderStockTable(panelList, stocks, commonStockNames, starSet, stockDaysMap, null, nextDayChangeMap);
 }
 
 /** 切换趋势弹窗的图表和股票面板到指定板块 */
