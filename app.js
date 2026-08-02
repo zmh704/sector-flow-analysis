@@ -336,6 +336,12 @@ function initEventListeners() {
         updateCharts();
     });
 
+    // 关注板块排除热门开关
+    document.getElementById('toggleFocusExcludeHot').addEventListener('change', function(e) {
+        FOCUS_EXCLUDE_HOT = e.target.checked;
+        updateCharts();
+    });
+
     // 最高价突破条件开关
     document.getElementById('toggleCondHighHigher').addEventListener('change', function(e) {
         LEADER_COND_HIGH_HIGHER = e.target.checked;

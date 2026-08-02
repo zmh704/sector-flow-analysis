@@ -402,7 +402,18 @@ function updateFocusArea(activeData) {
 
     const { industries, concepts } = calcFocusSectorsData(activeData);
 
-    if (industries.length === 0 && concepts.length === 0) {
+    // 排除热门：过滤掉行业/概念净流入前3名的板块
+    let filteredIndustries = industries, filteredConcepts = concepts;
+    if (FOCUS_EXCLUDE_HOT) {
+        const indList = (activeData.行业板块资金流向 || []).filter(s => condNotPlaceholder(s));
+        const conList = (activeData.概念板块资金流向 || []).filter(s => condNotPlaceholder(s));
+        const hotInd = new Set([...indList].sort((a, b) => Number(b.主力净额) - Number(a.主力净额)).slice(0, 3).map(s => s.板块));
+        const hotCon = new Set([...conList].sort((a, b) => Number(b.主力净额) - Number(a.主力净额)).slice(0, 3).map(s => s.板块));
+        filteredIndustries = industries.filter(i => !hotInd.has(i.name));
+        filteredConcepts = concepts.filter(c => !hotCon.has(c.name));
+    }
+
+    if (filteredIndustries.length === 0 && filteredConcepts.length === 0) {
         container.innerHTML = renderEmptyState('📌', '暂无符合条件的关注板块', '尝试切换日期或调整筛选条件');
         return;
     }
@@ -412,7 +423,7 @@ function updateFocusArea(activeData) {
         const indSection = document.createElement('div');
         indSection.style.marginBottom = '10px';
 
-        industries.sort((a, b) => b.days - a.days).forEach(item => {
+        filteredIndustries.sort((a, b) => b.days - a.days).forEach(item => {
             const div = document.createElement('div');
             div.className = 'pair clickable';
             div.style.display = 'inline-block';
@@ -430,7 +441,7 @@ function updateFocusArea(activeData) {
     {
         const conSection = document.createElement('div');
 
-        concepts.sort((a, b) => b.days - a.days).forEach(item => {
+        filteredConcepts.sort((a, b) => b.days - a.days).forEach(item => {
             const div = document.createElement('div');
             div.className = 'pair clickable';
             div.style.display = 'inline-block';

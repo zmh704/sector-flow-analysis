@@ -172,6 +172,19 @@ test('今日推荐价>5日线开关可切换并刷新推荐结果', () => {
     assert.match(app, /LEADER_COND_CLOSE_ABOVE_AVG5 = e\.target\.checked;/);
 });
 
+test('首页关注板块排除热门开关可切换', () => {
+    const html = read('index.html');
+    const app = read('app.js');
+    const config = read('config.js');
+    const leaders = read('leaders.js');
+    assert.match(html, /id=["']toggleFocusExcludeHot["']/);
+    assert.match(config, /let FOCUS_EXCLUDE_HOT = false;/);
+    assert.match(leaders, /FOCUS_EXCLUDE_HOT/);
+    assert.match(leaders, /filteredIndustries/);
+    assert.match(app, /toggleFocusExcludeHot.*addEventListener\('change'/);
+    assert.match(app, /FOCUS_EXCLUDE_HOT = e\.target\.checked;/);
+});
+
 test('list.json 全部指向可读取且结构有效的 schema v3 数据', () => {
     const manifest = JSON.parse(read('list.json'));
     assert.ok(Array.isArray(manifest.files) && manifest.files.length > 0);
