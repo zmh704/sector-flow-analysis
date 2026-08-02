@@ -243,7 +243,7 @@ function isStockAvg5GeAvg10(stockIdentity) {
     return avg5 >= avg10;
 }
 
-/** 判断股票当日收盘价 > 5日均价，缺失数据时返回 false */
+/** 判断股票当日收盘价 > 5日均价。阴线时不限制（始终通过），阳线时严格要求 */
 function isStockCloseAboveAvg5(stockIdentity) {
     const perDate = (_stockFieldIndex && _stockFieldIndex[resolveStockKey(stockIdentity)]) || {};
     const curr = perDate[currentDateFile];
@@ -253,6 +253,11 @@ function isStockCloseAboveAvg5(stockIdentity) {
     const avg5 = curr.avg5;
     if (!Number.isFinite(closeVal) || !Number.isFinite(avg5)) return false;
 
+    const openVal = curr.open;
+    // 阴线（收盘 <= 开盘）→ 不限制，直接通过
+    if (Number.isFinite(openVal) && closeVal <= openVal) return true;
+
+    // 阳线 → 必须收盘价 > 5日均价
     return closeVal > avg5;
 }
 
