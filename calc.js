@@ -194,7 +194,7 @@ function isStockAmountNotTooHigh(stockIdentity) {
     const curr = perDate[sorted[currentIdx]]?.amount;
     if (curr == null || prev == null) return false;
 
-    return curr < prev * RATIO_TURNOVER_HIGH;
+    return curr > prev * RATIO_TURNOVER_LOW && curr < prev * RATIO_TURNOVER_HIGH;
 }
 
 /** 判断股票当日最高价是否大于前一日最高价
