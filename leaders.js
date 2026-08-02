@@ -28,7 +28,21 @@ function leaderCondAmountNotTooHigh(stockName) {
 function buildLeaderSectorMaps() {
     const activeData = getActiveData();
     const prevDayData = getPrevDayData();
+
+    // 行业/概念净流入前3名（排除热门条件使用）
+    const top3 = (list) => new Set(
+        (list || []).filter(s => condNotPlaceholder(s) && Number.isFinite(Number(s.主力净额)))
+            .sort((a, b) => Number(b.主力净额) - Number(a.主力净额))
+            .slice(0, 3)
+            .map(s => s.板块)
+    );
+    const hot = {
+        ind: top3(activeData['行业板块资金流向']),
+        con: top3(activeData['概念板块资金流向'])
+    };
+
     return {
+        hot,
         '行业板块资金流向': {
             curr: buildSectorMap(activeData['行业板块资金流向'] || []),
             prev: buildSectorMap(prevDayData?.['行业板块资金流向'] || [])
@@ -104,6 +118,19 @@ function leaderCondCloseAboveAvg5(stockName) {
     return isStockCloseAboveAvg5(stockName);
 }
 
+/** 条件N：排除所属板块在行业/概念净流入前3名的股票（由 LEADER_COND_EXCLUDE_HOT 控制开关） */
+function leaderCondExcludeHot(stockName, sectors, sectorMaps) {
+    if (!LEADER_COND_EXCLUDE_HOT) return true;
+    if (!sectors || sectors.length === 0) return true;
+    const hot = sectorMaps && sectorMaps.hot;
+    if (!hot) return true;
+    const inHot = sectors.some(s => {
+        const set = s.type === '行业' ? hot.ind : hot.con;
+        return set && set.has(s.name);
+    });
+    return !inHot;
+}
+
 /**
  * 今日推荐股票的完整筛选逻辑（加星逻辑也复用此函数，保持一致）
  * 修改下方任一条件的注释状态，今日推荐与加星会自动同步
@@ -127,6 +154,7 @@ function passesLeaderConditions(stockName, stockDays, sectors, focusSectors, sec
     if (!leaderCondCloseOpenRatio(stockName)) return false;                  // 条件K
     if (!leaderCondAvg5GeAvg10(stockName)) return false;                     // 条件L
     if (!leaderCondCloseAboveAvg5(stockName)) return false;                 // 条件M
+    if (!leaderCondExcludeHot(stockName, sectors, sectorMaps)) return false; // 条件N
     return true;
 }
 
@@ -179,7 +207,8 @@ function calcTodayLeaders() {
         && _todayLeadersCache.focusRequired === LEADER_COND_FOCUS_REQUIRED
         && _todayLeadersCache.closeOpenRatio === LEADER_COND_CLOSE_OPEN_RATIO
         && _todayLeadersCache.avg5GeAvg10 === LEADER_COND_AVG5_GE_AVG10
-        && _todayLeadersCache.closeAboveAvg5 === LEADER_COND_CLOSE_ABOVE_AVG5) {
+        && _todayLeadersCache.closeAboveAvg5 === LEADER_COND_CLOSE_ABOVE_AVG5
+        && _todayLeadersCache.excludeHot === LEADER_COND_EXCLUDE_HOT) {
         return _todayLeadersCache.value;
     }
     const activeData = getActiveData();
@@ -242,6 +271,7 @@ function calcTodayLeaders() {
         closeOpenRatio: LEADER_COND_CLOSE_OPEN_RATIO,
         avg5GeAvg10: LEADER_COND_AVG5_GE_AVG10,
         closeAboveAvg5: LEADER_COND_CLOSE_ABOVE_AVG5,
+        excludeHot: LEADER_COND_EXCLUDE_HOT,
         value: leaders
     };
     return leaders;

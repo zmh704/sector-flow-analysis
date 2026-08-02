@@ -46,6 +46,10 @@
                     <input type="checkbox" id="toggleCondHighHigher" checked>
                     <span>最高价突破</span>
                 </label>
+                <label class="leader-cond-toggle" title="排除所属板块在行业/概念净流入前3名的股票">
+                    <input type="checkbox" id="toggleCondExcludeHot" checked>
+                    <span>排除热门</span>
+                </label>
                 <span id="condHighHigherHint" style="font-size:11px;color:#9ca3af;"></span>
                 <button class="leader-cond-toggle" id="openAllStocksBtn" style="padding:2px 8px;cursor:pointer;border:1px solid #d0d0d0;border-radius:4px;background:#f5f5f5;font-size:12px;" title="打开全部股票列表">📋 查看全部</button>
             </div>
@@ -54,7 +58,7 @@
         <div class="focus-section" id="focusSection">
             <div class="focus-header">📌 关注板块
                 <label class="leader-cond-toggle" title="排除行业/概念净流入前3名的板块">
-                    <input type="checkbox" id="toggleFocusExcludeHot">
+                    <input type="checkbox" id="toggleFocusExcludeHot" checked>
                     <span>排除热门</span>
                 </label>
             </div>

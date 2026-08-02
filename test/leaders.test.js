@@ -31,6 +31,7 @@ function loadLeadersContext() {
         LEADER_COND_CLOSE_OPEN_RATIO: true,
         LEADER_COND_AVG5_GE_AVG10: true,
         LEADER_COND_CLOSE_ABOVE_AVG5: true,
+        LEADER_COND_EXCLUDE_HOT: true,
         currentDateFile: 'd2',
         _todayLeadersCache: null,
         getActiveData: () => ({
@@ -155,4 +156,28 @@ test('价>5日线开关切换后重新计算推荐结果', () => {
     context.LEADER_COND_CLOSE_ABOVE_AVG5 = true;
     assert.equal(context.calcTodayLeaders().length, 0, '重新开启价>5日线时应排除不满足条件的股票');
     assert.equal(context._todayLeadersCache.closeAboveAvg5, true);
+});
+
+test('排除热门条件开关切换后重新计算推荐结果', () => {
+    const context = loadLeadersContext();
+    context.LEADER_COND_HIGH_HIGHER = false;
+
+    // 默认开启且股票所属板块在热门中 → 应排除
+    context.buildLeaderSectorMaps = () => ({
+        hot: { ind: new Set(['测试行业']), con: new Set() }
+    });
+    assert.equal(context.calcTodayLeaders().length, 0, '开启排除热门时热门板块股票应被排除');
+    assert.equal(context._todayLeadersCache.excludeHot, true);
+
+    // 关闭条件 → 不过滤
+    context.LEADER_COND_EXCLUDE_HOT = false;
+    assert.equal(context.calcTodayLeaders().length, 1, '关闭排除热门时不应排除');
+    assert.equal(context._todayLeadersCache.excludeHot, false);
+
+    // 重新开启但板块不在热门中 → 应保留
+    context.LEADER_COND_EXCLUDE_HOT = true;
+    context.buildLeaderSectorMaps = () => ({
+        hot: { ind: new Set(['其他行业']), con: new Set() }
+    });
+    assert.equal(context.calcTodayLeaders().length, 1, '板块不在热门中时应保留');
 });

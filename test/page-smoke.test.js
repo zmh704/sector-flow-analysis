@@ -185,6 +185,20 @@ test('首页关注板块排除热门开关可切换', () => {
     assert.match(app, /FOCUS_EXCLUDE_HOT = e\.target\.checked;/);
 });
 
+test('今日推荐排除热门开关可切换并刷新推荐结果', () => {
+    const html = read('index.html');
+    const app = read('app.js');
+    const config = read('config.js');
+    const leaders = read('leaders.js');
+    assert.match(html, /id=["']toggleCondExcludeHot["']/);
+    assert.match(config, /let LEADER_COND_EXCLUDE_HOT = true;/);
+    assert.match(leaders, /leaderCondExcludeHot/);
+    assert.match(leaders, /excludeHot === LEADER_COND_EXCLUDE_HOT/);
+    assert.match(leaders, /excludeHot: LEADER_COND_EXCLUDE_HOT/);
+    assert.match(app, /toggleCondExcludeHot.*addEventListener\('change'/);
+    assert.match(app, /LEADER_COND_EXCLUDE_HOT = e\.target\.checked;/);
+});
+
 test('list.json 全部指向可读取且结构有效的 schema v3 数据', () => {
     const manifest = JSON.parse(read('list.json'));
     assert.ok(Array.isArray(manifest.files) && manifest.files.length > 0);

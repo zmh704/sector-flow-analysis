@@ -342,6 +342,13 @@ function initEventListeners() {
         updateCharts();
     });
 
+    // 今日推荐排除热门条件开关
+    document.getElementById('toggleCondExcludeHot').addEventListener('change', function(e) {
+        LEADER_COND_EXCLUDE_HOT = e.target.checked;
+        _todayLeadersCache = null;
+        updateCharts();
+    });
+
     // 最高价突破条件开关
     document.getElementById('toggleCondHighHigher').addEventListener('change', function(e) {
         LEADER_COND_HIGH_HIGHER = e.target.checked;
