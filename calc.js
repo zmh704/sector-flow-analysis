@@ -254,8 +254,11 @@ function isStockCloseAboveAvg5(stockIdentity) {
     if (!Number.isFinite(closeVal) || !Number.isFinite(avg5)) return false;
 
     const openVal = curr.open;
-    // 阴线（收盘 <= 开盘）→ 不限制，直接通过
-    if (Number.isFinite(openVal) && closeVal <= openVal) return true;
+    const lowVal = curr.low;
+    // 阴线（收盘 <= 开盘）→ 最低价必须 <= 5日均价
+    if (Number.isFinite(openVal) && closeVal <= openVal) {
+        return Number.isFinite(lowVal) && lowVal <= avg5;
+    }
 
     // 阳线 → 必须收盘价 > 5日均价
     return closeVal > avg5;
