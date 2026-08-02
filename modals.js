@@ -613,8 +613,9 @@ function renderFocusPanel() {
         const typeColor = row.type === '行业' ? '#2563eb' : '#7c3aed';
         const daysColor = row.days >= HIGHLIGHT_MIN_DAYS ? '#dc2626' : '#555';
         const netNum = Number(row.net);
-        const netColor = Number.isFinite(netNum) ? (netNum >= 0 ? '#e53935' : '#43a047') : '#999';
-        const netText = Number.isFinite(netNum) ? (netNum > 0 ? '+' : '') + netNum.toFixed(2) + '亿' : '-';
+        const netYi = Number.isFinite(netNum) ? netNum / 100000000 : null; // 板块主力净额单位为元，转为亿
+        const netColor = netYi != null ? (netYi >= 0 ? '#e53935' : '#43a047') : '#999';
+        const netText = netYi != null ? (netYi > 0 ? '+' : '') + netYi.toFixed(2) + '亿' : '-';
         tr.innerHTML =
             `<td style="color:${typeColor};font-weight:600;">${escapeHtml(row.name)}</td>` +
             `<td style="text-align:center;color:${typeColor};">${row.type}</td>` +
