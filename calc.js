@@ -182,7 +182,8 @@ function isStockTurnoverNotTooLow(stockIdentity) {
     return curr > prev * RATIO_TURNOVER_LOW;
 }
 
-/** 判断股票当日成交额是否 < 前一日成交额 * RATIO_TURNOVER_HIGH（防止放量过快）
+/** 判断股票当日成交额是否满足：昨日 × RATIO_TURNOVER_LOW < 当日 < 昨日 × RATIO_TURNOVER_HIGH
+ *  （防止缩量过快，同时防止放量过快）
  *  无前一天数据时返回 false，避免新进入股票绕过限制 */
 function isStockAmountNotTooHigh(stockIdentity) {
     const sorted = sortDateFileList();

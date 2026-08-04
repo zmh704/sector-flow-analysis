@@ -147,7 +147,7 @@ function passesLeaderConditions(stockName, stockDays, sectors, focusSectors, sec
     if (!leaderCondAmountNotTooHigh(stockName)) return false;               // 条件D
     // if (!leaderCondAllSectorsDecreased(stockName, sectors, sectorMaps)) return false; // 条件E：板块成交额放量检查（已注释，该逻辑属于关注板块筛选，今日推荐不重复检查）
     // if (!leaderCondHighDaysSectorsAbove090(stockName, stockDays, sectors, sectorMaps)) return false; // 条件F：高天数板块成交额 > 板块前一日 * 0.9
-    if (!leaderCondDaysWithinGap(stockDays, sectors)) return false;         // 条件G
+    // if (!leaderCondDaysWithinGap(stockDays, sectors)) return false;       // 条件G：股票天数在板块最大天数 ±1 范围内（暂时关闭）
     // if (!leaderCondVolumeDecreased(stockName)) return false;             // 条件H：股票当日成交量 < 近5日内最大成交量
     if (!leaderCondVolumeUpChangeLimited(stockName)) return false;          // 条件I
     if (!leaderCondHighHigher(stockName)) return false;                     // 条件J
