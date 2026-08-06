@@ -137,7 +137,7 @@ function leaderCondExcludeHot(stockName, sectors, sectorMaps) {
  * @param {Object} sectorMaps - 预构建的板块 Maps（由 buildLeaderSectorMaps() 生成），避免每次条件判断重复构建
  */
 function passesLeaderConditions(stockName, stockDays, sectors, focusSectors, sectorMaps) {
-    if (!leaderCondMinDays(stockDays)) return false;
+    // if (!leaderCondMinDays(stockDays)) return false;                     // 条件A：股票连续主力净流入天数 ≥ LEADER_STOCK_MIN_DAYS（暂时关闭）
     // 条件B：至少一个所属板块在关注板块中（可由 LEADER_COND_FOCUS_REQUIRED 开关关闭）
     if (LEADER_COND_FOCUS_REQUIRED) {
         const inFocus = sectors.some(s => focusSectors.has(s.type + '|' + s.name));
