@@ -89,7 +89,7 @@ function leaderCondVolumeDecreased(stockName) {
     return isStockVolumeDecreased(stockName);
 }
 
-/** 条件I：当日成交量 > 昨日成交量时，涨跌幅绝对值必须 < 5% */
+/** 条件I：当日成交量 > 昨日成交量（放量）时，涨幅必须 < 5%（放量大跌不限制） */
 function leaderCondVolumeUpChangeLimited(stockName) {
     return isStockVolumeUpChangeLimited(stockName);
 }
@@ -149,7 +149,7 @@ function passesLeaderConditions(stockName, stockDays, sectors, focusSectors, sec
     // if (!leaderCondHighDaysSectorsAbove090(stockName, stockDays, sectors, sectorMaps)) return false; // 条件F：高天数板块成交额 > 板块前一日 * 0.9
     // if (!leaderCondDaysWithinGap(stockDays, sectors)) return false;       // 条件G：股票天数在板块最大天数 ±1 范围内（暂时关闭）
     // if (!leaderCondVolumeDecreased(stockName)) return false;             // 条件H：股票当日成交量 < 近5日内最大成交量
-    if (!leaderCondVolumeUpChangeLimited(stockName)) return false;          // 条件I
+    if (!leaderCondVolumeUpChangeLimited(stockName)) return false;          // 条件I（放量时涨幅<5%，放量大跌不限制）
     if (!leaderCondHighHigher(stockName)) return false;                     // 条件J
     if (!leaderCondCloseOpenRatio(stockName)) return false;                  // 条件K
     if (!leaderCondAvg5GeAvg10(stockName)) return false;                     // 条件L

@@ -265,7 +265,7 @@ function isStockCloseAboveAvg5(stockIdentity) {
     return closeVal > avg5;
 }
 
-/** 判断股票：如果当日成交量 > 昨日成交量，则涨跌幅绝对值必须 < 5%（放量冲高或放量大跌均排除）
+/** 判断股票：如果当日成交量 > 昨日成交量（放量），则涨幅必须 < 5%（放量冲高排除，放量大跌不限制）
  *  无前一天数据或关键字段缺失时返回 false，避免新进入股票绕过限制 */
 function isStockVolumeUpChangeLimited(stockIdentity) {
     const sorted = sortDateFileList();
@@ -284,10 +284,10 @@ function isStockVolumeUpChangeLimited(stockIdentity) {
     // 成交量未放大 → 不限制
     if (currVol <= prevVol) return true;
 
-    // 成交量放大 → 检查涨跌幅绝对值 < 5%
+    // 成交量放大 → 检查涨幅 < 5%（仅限制上涨，下跌不限制）
     const changeNum = curr.change;
     if (!Number.isFinite(changeNum)) return false;
-    return Math.abs(changeNum) < CHANGE_LIMIT_PCT;
+    return changeNum < CHANGE_LIMIT_PCT;
 }
 
 /** 计算板块从当天往前连续主力净额>0的天数（带缓存） */
