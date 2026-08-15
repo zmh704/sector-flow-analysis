@@ -678,7 +678,7 @@ function renderAllStocksPanel() {
         const stockDaysMap = calcStockConsecutiveDays();
         const stockSectorsMap = buildStockSectorsMap();
 
-        // 计算行业/概念板块净流入前3和净流出前3
+        // 计算行业/概念板块净流入前2和净流出前3
         let top3InflowSet = null, top3OutflowSet = null;
         if (fTopSector || fBotSector) {
             const activeData = getActiveData();
@@ -686,11 +686,11 @@ function renderAllStocksPanel() {
             const conList = (activeData.概念板块资金流向 || []).filter(s => condNotPlaceholder(s));
 
             if (fTopSector) {
-                const top3Ind = [...indList].sort((a, b) => Number(b.主力净额) - Number(a.主力净额)).slice(0, 3);
-                const top3Con = [...conList].sort((a, b) => Number(b.主力净额) - Number(a.主力净额)).slice(0, 3);
+                const top2Ind = [...indList].sort((a, b) => Number(b.主力净额) - Number(a.主力净额)).slice(0, 2);
+                const top2Con = [...conList].sort((a, b) => Number(b.主力净额) - Number(a.主力净额)).slice(0, 2);
                 top3InflowSet = new Set([
-                    ...top3Ind.map(s => '行业|' + s.板块),
-                    ...top3Con.map(s => '概念|' + s.板块)
+                    ...top2Ind.map(s => '行业|' + s.板块),
+                    ...top2Con.map(s => '概念|' + s.板块)
                 ]);
             }
             if (fBotSector) {

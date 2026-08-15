@@ -29,16 +29,16 @@ function buildLeaderSectorMaps() {
     const activeData = getActiveData();
     const prevDayData = getPrevDayData();
 
-    // 行业/概念净流入前3名（排除热门条件使用）
-    const top3 = (list) => new Set(
+    // 行业/概念净流入前2名（排除热门条件使用）
+    const top2 = (list) => new Set(
         (list || []).filter(s => condNotPlaceholder(s) && Number.isFinite(Number(s.主力净额)))
             .sort((a, b) => Number(b.主力净额) - Number(a.主力净额))
-            .slice(0, 3)
+            .slice(0, 2)
             .map(s => s.板块)
     );
     const hot = {
-        ind: top3(activeData['行业板块资金流向']),
-        con: top3(activeData['概念板块资金流向'])
+        ind: top2(activeData['行业板块资金流向']),
+        con: top2(activeData['概念板块资金流向'])
     };
 
     return {
@@ -118,7 +118,7 @@ function leaderCondCloseAboveAvg5(stockName) {
     return isStockCloseAboveAvg5(stockName);
 }
 
-/** 条件N：排除所属板块在行业/概念净流入前3名的股票（由 LEADER_COND_EXCLUDE_HOT 控制开关） */
+/** 条件N：排除所属板块在行业/概念净流入前2名的股票（由 LEADER_COND_EXCLUDE_HOT 控制开关） */
 function leaderCondExcludeHot(stockName, sectors, sectorMaps) {
     if (!LEADER_COND_EXCLUDE_HOT) return true;
     if (!sectors || sectors.length === 0) return true;
@@ -434,13 +434,13 @@ function updateFocusArea(activeData) {
 
     const { industries, concepts } = calcFocusSectorsData(activeData);
 
-    // 排除热门：过滤掉行业/概念净流入前3名的板块
+    // 排除热门：过滤掉行业/概念净流入前2名的板块
     let filteredIndustries = industries, filteredConcepts = concepts;
     if (FOCUS_EXCLUDE_HOT) {
         const indList = (activeData.行业板块资金流向 || []).filter(s => condNotPlaceholder(s));
         const conList = (activeData.概念板块资金流向 || []).filter(s => condNotPlaceholder(s));
-        const hotInd = new Set([...indList].sort((a, b) => Number(b.主力净额) - Number(a.主力净额)).slice(0, 3).map(s => s.板块));
-        const hotCon = new Set([...conList].sort((a, b) => Number(b.主力净额) - Number(a.主力净额)).slice(0, 3).map(s => s.板块));
+        const hotInd = new Set([...indList].sort((a, b) => Number(b.主力净额) - Number(a.主力净额)).slice(0, 2).map(s => s.板块));
+        const hotCon = new Set([...conList].sort((a, b) => Number(b.主力净额) - Number(a.主力净额)).slice(0, 2).map(s => s.板块));
         filteredIndustries = industries.filter(i => !hotInd.has(i.name));
         filteredConcepts = concepts.filter(c => !hotCon.has(c.name));
     }

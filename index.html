@@ -46,7 +46,7 @@
                     <input type="checkbox" id="toggleCondHighHigher" checked>
                     <span>最高价突破</span>
                 </label>
-                <label class="leader-cond-toggle" title="排除所属板块在行业/概念净流入前3名的股票">
+                <label class="leader-cond-toggle" title="排除所属板块在行业/概念净流入前2名的股票">
                     <input type="checkbox" id="toggleCondExcludeHot" checked>
                     <span>排除热门</span>
                 </label>
@@ -57,7 +57,7 @@
         </div>
         <div class="focus-section" id="focusSection">
             <div class="focus-header">📌 关注板块
-                <label class="leader-cond-toggle" title="排除行业/概念净流入前3名的板块">
+                <label class="leader-cond-toggle" title="排除行业/概念净流入前2名的板块">
                     <input type="checkbox" id="toggleFocusExcludeHot" checked>
                     <span>排除热门</span>
                 </label>
@@ -204,12 +204,12 @@
                             <div class="all-stock-filters" id="allStockFilters">
                                 <label class="leader-cond-toggle" title="5日均价 >= 10日均价"><input type="checkbox" id="filterAllAvg5" checked><span>5日≥10日均价</span></label>
                                 <label class="leader-cond-toggle" title="阳线:收盘>5日线 阴线:最低≤5日线"><input type="checkbox" id="filterAllPriceAbove5" checked><span>5日线限制</span></label>
-                                <label class="leader-cond-toggle" title="主力净额 > 0"><input type="checkbox" id="filterAllInflow"><span>只看流入</span></label>
-                                <label class="leader-cond-toggle" title="净流出>1亿 且 流出占比>3%"><input type="checkbox" id="filterAllOutflowStrong"><span>强流出</span></label>
-                                <label class="leader-cond-toggle" title="排除所属板块在行业/概念净流入前3名的股票"><input type="checkbox" id="filterAllTopSector" checked><span>排除热门</span></label>
-                                <label class="leader-cond-toggle" title="仅显示在行业/概念净流出前3名板块内的股票"><input type="checkbox" id="filterAllBotSector"><span>只看冷门</span></label>
+                                <label class="leader-cond-toggle" title="主力净额 > 0" style="display:none"><input type="checkbox" id="filterAllInflow"><span>只看流入</span></label>
+                                <label class="leader-cond-toggle" title="净流出>1亿 且 流出占比>3%" style="display:none"><input type="checkbox" id="filterAllOutflowStrong"><span>强流出</span></label>
+                                <label class="leader-cond-toggle" title="排除所属板块在行业/概念净流入前2名的股票"><input type="checkbox" id="filterAllTopSector" checked><span>排除热门</span></label>
+                                <label class="leader-cond-toggle" title="仅显示在行业/概念净流出前3名板块内的股票" style="display:none"><input type="checkbox" id="filterAllBotSector"><span>只看冷门</span></label>
                                 <label class="leader-cond-toggle" title="当日成交额: 昨日×0.9 ~ 昨日×1.6"><input type="checkbox" id="filterAllAmount" checked><span>成交额放量</span></label>
-                                <label class="leader-cond-toggle" title="天数在板块最大天数 ±1 范围内"><input type="checkbox" id="filterAllGap"><span>天数±1</span></label>
+                                <label class="leader-cond-toggle" title="天数在板块最大天数 ±1 范围内" style="display:none"><input type="checkbox" id="filterAllGap"><span>天数±1</span></label>
                                 <label class="leader-cond-toggle" title="成交量放大时涨跌幅 < 5%"><input type="checkbox" id="filterAllVolChange" checked><span>放量涨跌</span></label>
                                 <label class="leader-cond-toggle" title="当日最高价 > 昨日最高价"><input type="checkbox" id="filterAllHigh" checked><span>最高价突破</span></label>
                                 <label class="leader-cond-toggle" title="收盘价/开盘价 < 1.03"><input type="checkbox" id="filterAllCloseOpen" checked><span>收盘比</span></label>
