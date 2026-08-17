@@ -664,6 +664,7 @@ function renderAllStocksPanel() {
     const fAvg5 = chk('filterAllAvg5');
     const fInflow = chk('filterAllInflow');
     const fAmount = chk('filterAllAmount');
+    const fVolRange = chk('filterAllVolRange');
     const fGap = chk('filterAllGap');
     const fVolChange = chk('filterAllVolChange');
     const fHigh = chk('filterAllHigh');
@@ -673,7 +674,7 @@ function renderAllStocksPanel() {
     const fTopSector = chk('filterAllTopSector');
     const fBotSector = chk('filterAllBotSector');
 
-    const anyFilter = fAvg5 || fInflow || fAmount || fGap || fVolChange || fHigh || fCloseOpen || fPriceAbove5 || fOutflowStrong || fTopSector || fBotSector;
+    const anyFilter = fAvg5 || fInflow || fAmount || fVolRange || fGap || fVolChange || fHigh || fCloseOpen || fPriceAbove5 || fOutflowStrong || fTopSector || fBotSector;
     if (anyFilter) {
         const stockDaysMap = calcStockConsecutiveDays();
         const stockSectorsMap = buildStockSectorsMap();
@@ -709,6 +710,7 @@ function renderAllStocksPanel() {
             if (fAvg5 && !isStockAvg5GeAvg10(identity)) return false;
             if (fInflow && !(stock.netYi != null && stock.netYi > 0)) return false;
             if (fAmount && !isStockAmountNotTooHigh(identity)) return false;
+            if (fVolRange && !isStockVolumeInRange(identity)) return false;
             if (fGap) {
                 const stockDays = stockDaysMap.get(identity) || 0;
                 const sectors = stockSectorsMap.get(identity) || [];

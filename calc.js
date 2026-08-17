@@ -231,7 +231,7 @@ function isStockCloseOpenRatioOk(stockIdentity) {
     return closeVal / openVal < CLOSE_OPEN_RATIO_MAX;
 }
 
-/** 判断股票当日 5日均价 >= 10日均价，缺失数据时返回 false */
+/** 判断股票当日 5日均价 >= 10日均价 且 当日最低价 >= 10日均价，缺失数据时返回 false */
 function isStockAvg5GeAvg10(stockIdentity) {
     const perDate = (_stockFieldIndex && _stockFieldIndex[resolveStockKey(stockIdentity)]) || {};
     const curr = perDate[currentDateFile];
@@ -241,7 +241,11 @@ function isStockAvg5GeAvg10(stockIdentity) {
     const avg10 = curr.avg10;
     if (!Number.isFinite(avg5) || !Number.isFinite(avg10)) return false;
 
-    return avg5 >= avg10;
+    // 条件增强：5日均价 >= 10日均价 且 当日最低价 >= 10日均价（最低价不破10日线）
+    const lowVal = curr.low;
+    if (!Number.isFinite(lowVal)) return false;
+
+    return avg5 >= avg10 && lowVal >= avg10;
 }
 
 /** 判断股票当日收盘价 > 5日均价。阴线时不限制（始终通过），阳线时严格要求 */
@@ -256,9 +260,9 @@ function isStockCloseAboveAvg5(stockIdentity) {
 
     const openVal = curr.open;
     const lowVal = curr.low;
-    // 阴线（收盘 <= 开盘）→ 最低价必须 <= 5日均价
+    // 阴线（收盘 <= 开盘）→ 最低价必须 <= 5日均价 × LOW_AVG5_MAX_RATIO（允许小幅穿透）
     if (Number.isFinite(openVal) && closeVal <= openVal) {
-        return Number.isFinite(lowVal) && lowVal <= avg5;
+        return Number.isFinite(lowVal) && lowVal <= avg5 * LOW_AVG5_MAX_RATIO;
     }
 
     // 阳线 → 必须收盘价 > 5日均价
@@ -288,6 +292,26 @@ function isStockVolumeUpChangeLimited(stockIdentity) {
     const changeNum = curr.change;
     if (!Number.isFinite(changeNum)) return false;
     return changeNum < CHANGE_LIMIT_PCT;
+}
+
+/** 判断股票当日成交量是否满足：昨日 × RATIO_VOLUME_LOW < 当日 < 昨日 × RATIO_VOLUME_HIGH
+ *  （成交量保持在温和放大区间，过滤异常缩量/爆量）
+ *  无前一天数据或关键字段缺失时返回 false，避免新进入股票绕过限制 */
+function isStockVolumeInRange(stockIdentity) {
+    const sorted = sortDateFileList();
+    const currentIdx = sorted.indexOf(currentDateFile);
+    if (currentIdx <= 0) return false;
+
+    const perDate = (_stockFieldIndex && _stockFieldIndex[resolveStockKey(stockIdentity)]) || {};
+    const curr = perDate[sorted[currentIdx]];
+    const prev = perDate[sorted[currentIdx - 1]];
+    if (!curr || !prev) return false;
+
+    const currVol = curr.volume;
+    const prevVol = prev.volume;
+    if (currVol == null || prevVol == null || prevVol <= 0) return false;
+
+    return currVol > prevVol * RATIO_VOLUME_LOW && currVol < prevVol * RATIO_VOLUME_HIGH;
 }
 
 /** 计算板块从当天往前连续主力净额>0的天数（带缓存） */
