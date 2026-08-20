@@ -673,8 +673,9 @@ function renderAllStocksPanel() {
     const fOutflowStrong = chk('filterAllOutflowStrong');
     const fTopSector = chk('filterAllTopSector');
     const fBotSector = chk('filterAllBotSector');
+    const fBigBear = chk('filterAllBigBear');
 
-    const anyFilter = fAvg5 || fInflow || fAmount || fVolRange || fGap || fVolChange || fHigh || fCloseOpen || fPriceAbove5 || fOutflowStrong || fTopSector || fBotSector;
+    const anyFilter = fAvg5 || fInflow || fAmount || fVolRange || fGap || fVolChange || fHigh || fCloseOpen || fPriceAbove5 || fOutflowStrong || fTopSector || fBotSector || fBigBear;
     if (anyFilter) {
         const stockDaysMap = calcStockConsecutiveDays();
         const stockSectorsMap = buildStockSectorsMap();
@@ -721,6 +722,7 @@ function renderAllStocksPanel() {
             if (fVolChange && !isStockVolumeUpChangeLimited(identity)) return false;
             if (fHigh && !isStockHighHigherThanPrev(identity)) return false;
             if (fCloseOpen && !isStockCloseOpenRatioOk(identity)) return false;
+            if (fBigBear && !isStockBigBear(identity)) return false;
             if (fPriceAbove5 && !isStockCloseAboveAvg5(identity)) return false;
             if (fOutflowStrong) {
                 const nyi = stock.netYi;

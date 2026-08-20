@@ -231,6 +231,20 @@ function isStockCloseOpenRatioOk(stockIdentity) {
     return closeVal / openVal < CLOSE_OPEN_RATIO_MAX;
 }
 
+/** 判断股票是否为「大阴线」：开盘价/收盘价 > BIG_BEAR_RATIO（收盘较开盘跌超约3%）
+ *  数据缺失或收盘价非正时返回 false */
+function isStockBigBear(stockIdentity) {
+    const perDate = (_stockFieldIndex && _stockFieldIndex[resolveStockKey(stockIdentity)]) || {};
+    const curr = perDate[currentDateFile];
+    if (!curr) return false;
+
+    const closeVal = curr.close;
+    const openVal = curr.open;
+    if (!Number.isFinite(closeVal) || !Number.isFinite(openVal) || closeVal <= 0) return false;
+
+    return openVal / closeVal > BIG_BEAR_RATIO;
+}
+
 /** 判断股票当日 5日均价 >= 10日均价 且 当日最低价 >= 10日均价，缺失数据时返回 false */
 function isStockAvg5GeAvg10(stockIdentity) {
     const perDate = (_stockFieldIndex && _stockFieldIndex[resolveStockKey(stockIdentity)]) || {};
