@@ -509,6 +509,20 @@ function initEventListeners() {
             renderAllStocksPanel();
         });
     });
+    // 全部股票板块筛选可输入搜索框（防抖）
+    document.querySelectorAll('#filterAllIndustrySector, #filterAllConceptSector').forEach(input => {
+        input.addEventListener('input', debounce(renderAllStocksPanel, 200));
+    });
+    // 全部股票模糊搜索框（防抖）
+    const allStockSearch = document.getElementById('filterAllSearch');
+    if (allStockSearch) {
+        allStockSearch.addEventListener('input', debounce(renderAllStocksPanel, 200));
+    }
+    // 取消全部筛选勾选
+    document.getElementById('btnClearAllFilters').addEventListener('click', function() {
+        document.querySelectorAll('#allStockFilters input[type="checkbox"]').forEach(cb => { cb.checked = false; });
+        renderAllStocksPanel();
+    });
 
     // 关注板块页签表格行点击：打开该板块趋势弹窗（同首页关注板块点击效果）
     document.getElementById('stockPanelFocusList').addEventListener('click', function(e) {

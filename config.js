@@ -24,6 +24,8 @@ const STOCK_CHART_SOURCE = 'sina_chart'; // 个股图表默认数据源：'sina_
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024; // Excel 上传上限（20 MiB，与服务端默认值一致）
 const CLOSE_OPEN_RATIO_MAX = 1.03; // 今日推荐条件：收盘价/开盘价上限（防尾盘拉高出货或大幅高开低走）
 const BIG_BEAR_RATIO = 1.03;       // 大阴线判定：开盘价/收盘价 > 此值（收盘较开盘跌超约3%）
+const RATIO_NET_FLOW_LOW = 0.02;   // 大阴线附加条件：|主力净额|/成交额 下限
+const RATIO_NET_FLOW_HIGH = 0.15;  // 大阴线附加条件：|主力净额|/成交额 上限
 let LEADER_COND_AVG5_GE_AVG10 = true; // 今日推荐条件：5日均价 >= 10日均价（设为false可关闭此条件）
 let LEADER_COND_CLOSE_ABOVE_AVG5 = true; // 今日推荐条件：收盘价 > 5日均价（设为false可关闭此条件）
 let LEADER_COND_EXCLUDE_HOT = true; // 今日推荐条件：排除所属板块在行业/概念净流入前2名的股票

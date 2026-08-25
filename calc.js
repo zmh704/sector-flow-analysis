@@ -232,7 +232,8 @@ function isStockCloseOpenRatioOk(stockIdentity) {
 }
 
 /** 判断股票是否为「大阴线」：开盘价/收盘价 > BIG_BEAR_RATIO（收盘较开盘跌超约3%）
- *  数据缺失或收盘价非正时返回 false */
+ *  且 |主力净额|/成交额 在 (RATIO_NET_FLOW_LOW, RATIO_NET_FLOW_HIGH) 区间内
+ *  数据缺失时返回 false */
 function isStockBigBear(stockIdentity) {
     const perDate = (_stockFieldIndex && _stockFieldIndex[resolveStockKey(stockIdentity)]) || {};
     const curr = perDate[currentDateFile];
@@ -242,10 +243,19 @@ function isStockBigBear(stockIdentity) {
     const openVal = curr.open;
     if (!Number.isFinite(closeVal) || !Number.isFinite(openVal) || closeVal <= 0) return false;
 
-    return openVal / closeVal > BIG_BEAR_RATIO;
+    if (openVal / closeVal <= BIG_BEAR_RATIO) return false;
+
+    // 附加条件：0.02 < |主力净额|/成交额 < 0.1（主力资金相对活跃但未极端出货）
+    const netVal = curr.net;
+    const amountVal = curr.amount;
+    if (netVal == null || amountVal == null || amountVal <= 0) return false;
+    const flowRatio = Math.abs(netVal) / amountVal;
+    if (flowRatio <= RATIO_NET_FLOW_LOW || flowRatio >= RATIO_NET_FLOW_HIGH) return false;
+
+    return true;
 }
 
-/** 判断股票当日 5日均价 >= 10日均价 且 当日最低价 >= 10日均价，缺失数据时返回 false */
+/** 判断股票当日 5日均价 >= 10日均价，缺失数据时返回 false */
 function isStockAvg5GeAvg10(stockIdentity) {
     const perDate = (_stockFieldIndex && _stockFieldIndex[resolveStockKey(stockIdentity)]) || {};
     const curr = perDate[currentDateFile];
@@ -255,11 +265,12 @@ function isStockAvg5GeAvg10(stockIdentity) {
     const avg10 = curr.avg10;
     if (!Number.isFinite(avg5) || !Number.isFinite(avg10)) return false;
 
-    // 条件增强：5日均价 >= 10日均价 且 当日最低价 >= 10日均价（最低价不破10日线）
-    const lowVal = curr.low;
-    if (!Number.isFinite(lowVal)) return false;
+    // 条件增强（已注释）：当日最低价 >= 10日均价（最低价不破10日线）
+    // const lowVal = curr.low;
+    // if (!Number.isFinite(lowVal)) return false;
+    // return avg5 >= avg10 && lowVal >= avg10;
 
-    return avg5 >= avg10 && lowVal >= avg10;
+    return avg5 >= avg10;
 }
 
 /** 判断股票当日收盘价 > 5日均价。阴线时不限制（始终通过），阳线时严格要求 */
