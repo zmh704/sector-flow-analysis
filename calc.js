@@ -245,7 +245,7 @@ function isStockBigBear(stockIdentity) {
 
     if (openVal / closeVal <= BIG_BEAR_RATIO) return false;
 
-    // 附加条件：0.02 < |主力净额|/成交额 < 0.1（主力资金相对活跃但未极端出货）
+    // 附加条件：0.02 < |主力净额|/成交额 < 0.15（主力资金相对活跃但未极端出货）
     const netVal = curr.net;
     const amountVal = curr.amount;
     if (netVal == null || amountVal == null || amountVal <= 0) return false;
@@ -259,6 +259,7 @@ function isStockBigBear(stockIdentity) {
  *  1) 昨日开盘价/昨日收盘价 > PREV_BEAR_RATIO_MIN（昨日阴线，跌幅超阈值）
  *  2) 今日开盘价/今日收盘价 > TODAY_GAP_UP_MIN（今日阴线，跌幅超阈值）
  *  3) 今日开盘价/今日收盘价 > 昨日开盘价/昨日收盘价（今日跌幅 > 昨日跌幅）
+ *  4) |主力净额|/成交额 在 (RATIO_NET_FLOW_LOW, RATIO_NET_FLOW_HIGH) 区间内
  *  无前一日数据或价格缺失时返回 false */
 function isStockConsecutiveBear2(stockIdentity) {
     const sorted = sortDateFileList();
@@ -282,6 +283,14 @@ function isStockConsecutiveBear2(stockIdentity) {
     if (prevBearRatio <= PREV_BEAR_RATIO_MIN) return false;
     if (currBearRatio <= TODAY_GAP_UP_MIN) return false;
     if (currBearRatio <= prevBearRatio) return false;
+
+    // 附加条件：0.02 < |主力净额|/成交额 < 0.15（主力资金相对活跃但未极端出货）
+    const netVal = curr.net;
+    const amountVal = curr.amount;
+    if (netVal == null || amountVal == null || amountVal <= 0) return false;
+    const flowRatio = Math.abs(netVal) / amountVal;
+    if (flowRatio <= RATIO_NET_FLOW_LOW || flowRatio >= RATIO_NET_FLOW_HIGH) return false;
+
     return true;
 }
 
