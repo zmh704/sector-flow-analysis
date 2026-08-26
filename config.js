@@ -26,6 +26,8 @@ const CLOSE_OPEN_RATIO_MAX = 1.03; // 今日推荐条件：收盘价/开盘价�
 const BIG_BEAR_RATIO = 1.03;       // 大阴线判定：开盘价/收盘价 > 此值（收盘较开盘跌超约3%）
 const RATIO_NET_FLOW_LOW = 0.02;   // 大阴线附加条件：|主力净额|/成交额 下限
 const RATIO_NET_FLOW_HIGH = 0.15;  // 大阴线附加条件：|主力净额|/成交额 上限
+const PREV_BEAR_RATIO_MIN = 1.015; // 连续2日阴线：昨日开盘价/昨日收盘价 下限（昨日阴线跌幅）
+const TODAY_GAP_UP_MIN = 1.03;    // 连续2日阴线：今日开盘价/今日收盘价 下限（今日阴线跌幅）
 let LEADER_COND_AVG5_GE_AVG10 = true; // 今日推荐条件：5日均价 >= 10日均价（设为false可关闭此条件）
 let LEADER_COND_CLOSE_ABOVE_AVG5 = true; // 今日推荐条件：收盘价 > 5日均价（设为false可关闭此条件）
 let LEADER_COND_EXCLUDE_HOT = true; // 今日推荐条件：排除所属板块在行业/概念净流入前2名的股票

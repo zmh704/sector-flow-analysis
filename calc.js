@@ -255,6 +255,36 @@ function isStockBigBear(stockIdentity) {
     return true;
 }
 
+/** 判断股票是否为「连续2日阴线且今日跌幅更大」：
+ *  1) 昨日开盘价/昨日收盘价 > PREV_BEAR_RATIO_MIN（昨日阴线，跌幅超阈值）
+ *  2) 今日开盘价/今日收盘价 > TODAY_GAP_UP_MIN（今日阴线，跌幅超阈值）
+ *  3) 今日开盘价/今日收盘价 > 昨日开盘价/昨日收盘价（今日跌幅 > 昨日跌幅）
+ *  无前一日数据或价格缺失时返回 false */
+function isStockConsecutiveBear2(stockIdentity) {
+    const sorted = sortDateFileList();
+    const currentIdx = sorted.indexOf(currentDateFile);
+    if (currentIdx <= 0) return false;
+
+    const perDate = (_stockFieldIndex && _stockFieldIndex[resolveStockKey(stockIdentity)]) || {};
+    const prev = perDate[sorted[currentIdx - 1]];
+    const curr = perDate[sorted[currentIdx]];
+    if (!curr || !prev) return false;
+
+    const prevOpen = prev.open;
+    const prevClose = prev.close;
+    const currOpen = curr.open;
+    const currClose = curr.close;
+    if (!Number.isFinite(prevOpen) || !Number.isFinite(prevClose) || prevClose <= 0) return false;
+    if (!Number.isFinite(currOpen) || !Number.isFinite(currClose) || currClose <= 0) return false;
+
+    const prevBearRatio = prevOpen / prevClose;
+    const currBearRatio = currOpen / currClose;
+    if (prevBearRatio <= PREV_BEAR_RATIO_MIN) return false;
+    if (currBearRatio <= TODAY_GAP_UP_MIN) return false;
+    if (currBearRatio <= prevBearRatio) return false;
+    return true;
+}
+
 /** 判断股票当日 5日均价 >= 10日均价，缺失数据时返回 false */
 function isStockAvg5GeAvg10(stockIdentity) {
     const perDate = (_stockFieldIndex && _stockFieldIndex[resolveStockKey(stockIdentity)]) || {};
