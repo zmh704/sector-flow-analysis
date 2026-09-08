@@ -13,9 +13,9 @@ const RATIO_VOLUME_LOW = 0.7;     // 成交量限制：当日成交量必须 > �
 const RATIO_VOLUME_HIGH = 1.5;    // 成交量限制：当日成交量必须 < 前一日 × 此值
 const LOW_AVG5_MAX_RATIO = 1.01; // 5日线限制：阴线最低价可触及 5日线 × 此值（含小幅穿透容忍）
 const CHANGE_LIMIT_PCT = 5;        // 放量时涨幅限制（%）：仅限制上涨，放量大跌不排除
-let LEADER_COND_HIGH_HIGHER = true; // 今日推荐条件：当日最高价 > 前一日最高价（设为false可关闭此条件）
-let LEADER_COND_FOCUS_REQUIRED = true; // 今日推荐条件：至少一个所属板块进入关注板块（设为false可关闭此条件）
-let LEADER_COND_CLOSE_OPEN_RATIO = true; // 今日推荐条件：收盘价/开盘价 < CLOSE_OPEN_RATIO_MAX（设为false可关闭此条件）
+let LEADER_COND_HIGH_HIGHER = false; // 今日推荐条件：当日最高价 > 前一日最高价（设为true开启）
+let LEADER_COND_FOCUS_REQUIRED = false; // 今日推荐条件：至少一个所属板块进入关注板块（设为true开启）
+let LEADER_COND_CLOSE_OPEN_RATIO = false; // 今日推荐条件：收盘价/开盘价 < CLOSE_OPEN_RATIO_MAX（设为true开启）
 const TREND_CHART_DAYS = 10;      // 趋势图显示天数
 const DATA_ANALYSIS_DAYS = 12;    // 当前日期计算窗口；保持与原先“最近12日”业务口径一致
 const MAX_LOADED_DATES = 20;      // 已加载日期 LRU 上限，控制长期浏览的内存增长
@@ -28,9 +28,14 @@ const RATIO_NET_FLOW_LOW = 0.02;   // 大阴线附加条件：|主力净额|/成
 const RATIO_NET_FLOW_HIGH = 0.15;  // 大阴线附加条件：|主力净额|/成交额 上限
 const PREV_BEAR_RATIO_MIN = 1.015; // 连续2日阴线：昨日开盘价/昨日收盘价 下限（昨日阴线跌幅）
 const TODAY_GAP_UP_MIN = 1.03;    // 连续2日阴线：今日开盘价/今日收盘价 下限（今日阴线跌幅）
-let LEADER_COND_AVG5_GE_AVG10 = true; // 今日推荐条件：5日均价 >= 10日均价（设为false可关闭此条件）
-let LEADER_COND_CLOSE_ABOVE_AVG5 = true; // 今日推荐条件：收盘价 > 5日均价（设为false可关闭此条件）
-let LEADER_COND_EXCLUDE_HOT = true; // 今日推荐条件：排除所属板块在行业/概念净流入前2名的股票
+const SPIKE_FALL_HIGH_CLOSE_MIN = 1.025; // 冲高回落：最高价/收盘价 下限（盘中冲高后回落）
+const SPIKE_FALL_HIGH_OPEN_MIN = 1.025;  // 冲高回落：最高价/开盘价 下限（盘中冲高）
+const SPIKE_FALL_CLOSE_OPEN_MAX = 1.01; // 冲高回落：收盘价/开盘价 上限（收盘几乎回到开盘价）
+// 第4条件为动态比较：收盘价/最低价 < 最高价/收盘价（回撤深度小于冲高幅度），无独立常量
+let LEADER_COND_AVG5_GE_AVG10 = false; // 今日推荐条件：5日均价 >= 10日均价（设为true开启）
+let LEADER_COND_CLOSE_ABOVE_AVG5 = false; // 今日推荐条件：收盘价 > 5日均价（设为true开启）
+let LEADER_COND_EXCLUDE_HOT = false; // 今日推荐条件：排除所属板块在行业/概念净流入前2名的股票（设为true开启）
+let LEADER_COND_SPIKE_FALL = true; // 今日推荐条件：勾选后仅显示冲高回落形态股票（默认开启）
 let FOCUS_EXCLUDE_HOT = false; // 首页关注板块过滤：排除行业/概念净流入前2名的板块
 
 // ===== 通用工具函数 =====

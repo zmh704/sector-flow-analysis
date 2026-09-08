@@ -688,11 +688,12 @@ function renderAllStocksPanel() {
     const fBotSector = chk('filterAllBotSector');
     const fBigBear = chk('filterAllBigBear');
     const fConsecutiveBear2 = chk('filterAllConsecutiveBear2');
+    const fSpikeFall = chk('filterAllSpikeFall');
     const fIndustrySector = document.getElementById('filterAllIndustrySector')?.value || '';
     const fConceptSector = document.getElementById('filterAllConceptSector')?.value || '';
     const fSearch = (document.getElementById('filterAllSearch')?.value || '').trim().toLowerCase();
 
-    const anyFilter = fAvg5 || fInflow || fAmount || fVolRange || fGap || fVolChange || fHigh || fCloseOpen || fPriceAbove5 || fOutflowStrong || fTopSector || fBotSector || fBigBear || fConsecutiveBear2 || fIndustrySector || fConceptSector || fSearch;
+    const anyFilter = fAvg5 || fInflow || fAmount || fVolRange || fGap || fVolChange || fHigh || fCloseOpen || fPriceAbove5 || fOutflowStrong || fTopSector || fBotSector || fBigBear || fConsecutiveBear2 || fSpikeFall || fIndustrySector || fConceptSector || fSearch;
     if (anyFilter) {
         const stockDaysMap = calcStockConsecutiveDays();
         const stockSectorsMap = buildStockSectorsMap();
@@ -741,6 +742,7 @@ function renderAllStocksPanel() {
             if (fCloseOpen && !isStockCloseOpenRatioOk(identity)) return false;
             if (fBigBear && !isStockBigBear(identity)) return false;
             if (fConsecutiveBear2 && !isStockConsecutiveBear2(identity)) return false;
+            if (fSpikeFall && !isStockSpikeFall(identity)) return false;
             if (fPriceAbove5 && !isStockCloseAboveAvg5(identity)) return false;
             if (fOutflowStrong) {
                 const nyi = stock.netYi;

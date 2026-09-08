@@ -349,6 +349,13 @@ function initEventListeners() {
         updateCharts();
     });
 
+    // 冲高回落条件开关
+    document.getElementById('toggleCondSpikeFall').addEventListener('change', function(e) {
+        LEADER_COND_SPIKE_FALL = e.target.checked;
+        _todayLeadersCache = null;
+        updateCharts();
+    });
+
     // 最高价突破条件开关
     document.getElementById('toggleCondHighHigher').addEventListener('change', function(e) {
         LEADER_COND_HIGH_HIGHER = e.target.checked;

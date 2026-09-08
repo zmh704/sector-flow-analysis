@@ -131,6 +131,12 @@ function leaderCondExcludeHot(stockName, sectors, sectorMaps) {
     return !inHot;
 }
 
+/** 条件O：仅显示冲高回落形态股票（由 LEADER_COND_SPIKE_FALL 控制开关） */
+function leaderCondSpikeFall(stockName) {
+    if (!LEADER_COND_SPIKE_FALL) return true;
+    return isStockSpikeFall(stockName);
+}
+
 /**
  * 今日推荐股票的完整筛选逻辑（加星逻辑也复用此函数，保持一致）
  * 修改下方任一条件的注释状态，今日推荐与加星会自动同步
@@ -155,6 +161,7 @@ function passesLeaderConditions(stockName, stockDays, sectors, focusSectors, sec
     if (!leaderCondAvg5GeAvg10(stockName)) return false;                     // 条件L
     if (!leaderCondCloseAboveAvg5(stockName)) return false;                 // 条件M
     if (!leaderCondExcludeHot(stockName, sectors, sectorMaps)) return false; // 条件N
+    if (!leaderCondSpikeFall(stockName)) return false;                      // 条件O（排除冲高回落）
     return true;
 }
 
@@ -208,7 +215,8 @@ function calcTodayLeaders() {
         && _todayLeadersCache.closeOpenRatio === LEADER_COND_CLOSE_OPEN_RATIO
         && _todayLeadersCache.avg5GeAvg10 === LEADER_COND_AVG5_GE_AVG10
         && _todayLeadersCache.closeAboveAvg5 === LEADER_COND_CLOSE_ABOVE_AVG5
-        && _todayLeadersCache.excludeHot === LEADER_COND_EXCLUDE_HOT) {
+        && _todayLeadersCache.excludeHot === LEADER_COND_EXCLUDE_HOT
+        && _todayLeadersCache.spikeFall === LEADER_COND_SPIKE_FALL) {
         return _todayLeadersCache.value;
     }
     const activeData = getActiveData();
@@ -272,6 +280,7 @@ function calcTodayLeaders() {
         avg5GeAvg10: LEADER_COND_AVG5_GE_AVG10,
         closeAboveAvg5: LEADER_COND_CLOSE_ABOVE_AVG5,
         excludeHot: LEADER_COND_EXCLUDE_HOT,
+        spikeFall: LEADER_COND_SPIKE_FALL,
         value: leaders
     };
     return leaders;

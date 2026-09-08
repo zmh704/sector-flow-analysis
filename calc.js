@@ -294,6 +294,31 @@ function isStockConsecutiveBear2(stockIdentity) {
     return true;
 }
 
+/** 判断股票是否为「冲高回落」形态（盘中冲高后收盘几乎回到开盘价）：
+ *  1) 最高价/收盘价 > SPIKE_FALL_HIGH_CLOSE_MIN（盘中冲高明显）
+ *  2) 最高价/开盘价 > SPIKE_FALL_HIGH_OPEN_MIN（盘中冲高）
+ *  3) 收盘价/开盘价 < SPIKE_FALL_CLOSE_OPEN_MAX（收盘几乎回到开盘价）
+ *  4) 收盘价/最低价 < 最高价/收盘价（回撤深度小于冲高幅度）
+ *  数据缺失时返回 false */
+function isStockSpikeFall(stockIdentity) {
+    const perDate = (_stockFieldIndex && _stockFieldIndex[resolveStockKey(stockIdentity)]) || {};
+    const curr = perDate[currentDateFile];
+    if (!curr) return false;
+
+    const highVal = curr.high;
+    const closeVal = curr.close;
+    const openVal = curr.open;
+    const lowVal = curr.low;
+    if (![highVal, closeVal, openVal, lowVal].every(Number.isFinite)) return false;
+    if (closeVal <= 0 || openVal <= 0 || lowVal <= 0) return false;
+
+    if (highVal / closeVal <= SPIKE_FALL_HIGH_CLOSE_MIN) return false;
+    if (highVal / openVal <= SPIKE_FALL_HIGH_OPEN_MIN) return false;
+    if (closeVal / openVal >= SPIKE_FALL_CLOSE_OPEN_MAX) return false;
+    if (closeVal / lowVal >= highVal / closeVal) return false;
+    return true;
+}
+
 /** 判断股票当日 5日均价 >= 10日均价，缺失数据时返回 false */
 function isStockAvg5GeAvg10(stockIdentity) {
     const perDate = (_stockFieldIndex && _stockFieldIndex[resolveStockKey(stockIdentity)]) || {};

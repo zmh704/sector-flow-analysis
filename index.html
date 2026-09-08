@@ -27,28 +27,32 @@
             <div class="leader-header">
                 <span>🔥 今日推荐</span>
                 <label class="leader-cond-toggle" title="至少一个所属板块进入关注板块">
-                    <input type="checkbox" id="toggleCondFocusRequired" checked>
+                    <input type="checkbox" id="toggleCondFocusRequired">
                     <span>关联关注板块</span>
                 </label>
                 <label class="leader-cond-toggle" title="收盘价/开盘价 < 1.03，防尾盘拉高出货">
-                    <input type="checkbox" id="toggleCondCloseOpenRatio" checked>
+                    <input type="checkbox" id="toggleCondCloseOpenRatio">
                     <span>收盘/开盘比</span>
                 </label>
                 <label class="leader-cond-toggle" title="5日均价 >= 10日均价">
-                    <input type="checkbox" id="toggleCondAvg5GeAvg10" checked>
+                    <input type="checkbox" id="toggleCondAvg5GeAvg10">
                     <span>5日>=10日均价</span>
                 </label>
                 <label class="leader-cond-toggle" title="阳线:收盘>5日线 阴线:最低≤5日线">
-                    <input type="checkbox" id="toggleCondCloseAboveAvg5" checked>
+                    <input type="checkbox" id="toggleCondCloseAboveAvg5">
                     <span>5日线限制</span>
                 </label>
                 <label class="leader-cond-toggle" title="当日最高价 > 前一日最高价">
-                    <input type="checkbox" id="toggleCondHighHigher" checked>
+                    <input type="checkbox" id="toggleCondHighHigher">
                     <span>最高价突破</span>
                 </label>
                 <label class="leader-cond-toggle" title="排除所属板块在行业/概念净流入前2名的股票">
-                    <input type="checkbox" id="toggleCondExcludeHot" checked>
+                    <input type="checkbox" id="toggleCondExcludeHot">
                     <span>排除热门</span>
+                </label>
+                <label class="leader-cond-toggle" title="仅显示冲高回落形态的股票（盘中冲高后收盘几乎回到开盘价）">
+                    <input type="checkbox" id="toggleCondSpikeFall" checked>
+                    <span>冲高回落</span>
                 </label>
                 <span id="condHighHigherHint" style="font-size:11px;color:#9ca3af;"></span>
                 <button class="leader-cond-toggle" id="openAllStocksBtn" style="padding:2px 8px;cursor:pointer;border:1px solid #d0d0d0;border-radius:4px;background:#f5f5f5;font-size:12px;" title="打开全部股票列表">📋 查看全部</button>
@@ -220,6 +224,7 @@
                                 <label class="leader-cond-toggle" title="收盘价/开盘价 < 1.03"><input type="checkbox" id="filterAllCloseOpen" checked><span>收盘比</span></label>
                                 <label class="leader-cond-toggle" title="开盘价/收盘价 > 1.05（大阴线）"><input type="checkbox" id="filterAllBigBear"><span>大阴线</span></label>
                                 <label class="leader-cond-toggle" title="昨今两日均阴线且今日跌幅更大(昨跌>2% 今跌>3%)"><input type="checkbox" id="filterAllConsecutiveBear2"><span>连续2日阴线</span></label>
+                                <label class="leader-cond-toggle" title="仅显示冲高回落形态的股票（盘中冲高后收盘几乎回到开盘价）"><input type="checkbox" id="filterAllSpikeFall" checked><span>冲高回落</span></label>
                                 <div style="flex-basis:100%;display:flex;gap:6px;">
                                     <input type="text" id="filterAllSearch" placeholder="🔍 搜索股票代码/名称" autocomplete="off" style="flex:1;padding:4px 10px;border:1px solid #d0d0d0;border-radius:8px;background:#fff;font-size:12px;color:#333;box-sizing:border-box;">
                                     <button type="button" id="btnClearAllFilters" title="取消全部筛选条件的勾选" style="padding:4px 10px;border:1px solid #d0d0d0;border-radius:8px;background:#f5f5f5;font-size:12px;color:#555;cursor:pointer;white-space:nowrap;">取消全部勾选</button>
