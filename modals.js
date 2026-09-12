@@ -721,7 +721,7 @@ function fillSectorSelect(inputId, listId, sectorList) {
     list.innerHTML = names.map(n => `<option value="${escapeHtml(n)}"></option>`).join('');
 }
 
-/** 渲染弹窗【全部股票】页签，显示当日所有股票，支持7个可勾选筛选条件 */
+/** 渲染弹窗【全部股票】页签，显示当日所有股票，支持多个可勾选筛选条件 + 板块/关键词筛选 */
 function renderAllStocksPanel() {
     const panelList = document.getElementById('stockPanelAllList');
     if (!panelList) return;
@@ -770,6 +770,7 @@ function renderAllStocksPanel() {
     const fOutflowStrong = chk('filterAllOutflowStrong');
     const fTopSector = chk('filterAllTopSector');
     const fBotSector = chk('filterAllBotSector');
+    const fFocusSector = chk('filterAllFocusSector');
     const fBigBear = chk('filterAllBigBear');
     const fConsecutiveBear2 = chk('filterAllConsecutiveBear2');
     const fSpikeFall = chk('filterAllSpikeFall');
@@ -777,7 +778,7 @@ function renderAllStocksPanel() {
     const fConceptSector = document.getElementById('filterAllConceptSector')?.value || '';
     const fSearch = (document.getElementById('filterAllSearch')?.value || '').trim().toLowerCase();
 
-    const anyFilter = fAvg5 || fInflow || fAmount || fVolRange || fGap || fVolChange || fHigh || fCloseOpen || fPriceAbove5 || fOutflowStrong || fTopSector || fBotSector || fBigBear || fConsecutiveBear2 || fSpikeFall || fIndustrySector || fConceptSector || fSearch;
+    const anyFilter = fAvg5 || fInflow || fAmount || fVolRange || fGap || fVolChange || fHigh || fCloseOpen || fPriceAbove5 || fOutflowStrong || fTopSector || fBotSector || fFocusSector || fBigBear || fConsecutiveBear2 || fSpikeFall || fIndustrySector || fConceptSector || fSearch;
     if (anyFilter) {
         const stockDaysMap = calcStockConsecutiveDays();
         const stockSectorsMap = buildStockSectorsMap();
@@ -806,6 +807,9 @@ function renderAllStocksPanel() {
                 ]);
             }
         }
+
+        // 关联关注板块：关注板块集合（复用关注板块条件集合，与今日推荐条件B同源）
+        const focusSectorSet = fFocusSector ? getFocusSectors(getActiveData()) : null;
 
         allStocks = allStocks.filter(stock => {
             const identity = stock.stockKey || resolveStockKey(stock.name);
@@ -844,6 +848,11 @@ function renderAllStocksPanel() {
                     const inBot = ss.some(s => top3OutflowSet.has(s.type + '|' + s.name));
                     if (!inBot) return false;
                 }
+            }
+            // 关联关注板块：至少一个所属板块在关注板块集合中
+            if (fFocusSector && focusSectorSet) {
+                const ss = stockSectorsMap.get(identity) || [];
+                if (!ss.some(s => focusSectorSet.has(s.type + '|' + s.name))) return false;
             }
             // 板块筛选：股票所属行业/概念板块名包含输入关键词（支持模糊查询）
             if (fIndustrySector || fConceptSector) {

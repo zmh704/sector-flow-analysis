@@ -199,6 +199,21 @@ test('今日推荐排除热门开关可切换并刷新推荐结果', () => {
     assert.match(app, /LEADER_COND_EXCLUDE_HOT = e\.target\.checked;/);
 });
 
+test('全部股票关联关注板块开关可切换', () => {
+    const html = read('index.html');
+    const modals = read('modals.js');
+    const app = read('app.js');
+    assert.match(html, /id=["']filterAllFocusSector["']/);
+    // 必须位于 #allStockFilters 容器内，才能被通用 change 监听与「取消全部勾选」覆盖
+    const filters = html.match(/<div class="all-stock-filters" id="allStockFilters">([\s\S]*?)<\/div>\s*<div class="stock-panel-list" id="stockPanelAllList">/)?.[1] || '';
+    assert.match(filters, /id=["']filterAllFocusSector["']/);
+    assert.match(modals, /fFocusSector = chk\('filterAllFocusSector'\)/);
+    assert.match(modals, /focusSectorSet = fFocusSector \? getFocusSectors\(getActiveData\(\)\) : null/);
+    assert.match(modals, /focusSectorSet\.has\(s\.type \+ '\|' \+ s\.name\)/);
+    assert.match(modals, /fTopSector \|\| fBotSector \|\| fFocusSector/);
+    assert.match(app, /#allStockFilters input\[type="checkbox"\]/);
+});
+
 test('list.json 全部指向可读取且结构有效的 schema v3 数据', () => {
     const manifest = JSON.parse(read('list.json'));
     assert.ok(Array.isArray(manifest.files) && manifest.files.length > 0);
