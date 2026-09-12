@@ -547,6 +547,55 @@ function buildSectorMap(sectorList) {
     return map;
 }
 
+/** 计算板块综合排名 Map（4项之和：主力净额排名 + 成交额排名 + 平均主力净额排名 + 平均成交额排名）
+ *  股票数量=1 的板块不参与排名。行业、概念各自独立排名。
+ *  key: '行业|板块名' / '概念|板块名'
+ *  value: { total: 排名和, order: 按和升序的名次（1=和最小） } */
+function calcSectorRankTotalMap(activeData) {
+    if (_sectorRankCache && _sectorRankCache.dateFile === currentDateFile && _sectorRankCache.data === activeData) {
+        return _sectorRankCache.map;
+    }
+    const build = (list, type) => {
+        const items = (list || []).map(s => {
+            const n = Number(s.股票数量);
+            const net = Number(s.主力净额);
+            const tv = Number(s.成交额);
+            const pcts = getSectorStocks(s).map(st => Number(st.changePct)).filter(Number.isFinite);
+            return {
+                key: type + '|' + s.板块,
+                net, tv, n,
+                avgNet: n > 0 ? net / n : null,
+                avgTv: n > 0 ? tv / n : null
+            };
+        });
+        const rankable = items.filter(it => it.n > 1);
+        const assign = (sorted, field) => sorted.forEach((it, i) => { it[field] = i + 1; });
+        assign([...rankable].sort((a, b) => b.net - a.net), 'rankNet');
+        assign([...rankable].sort((a, b) => b.tv - a.tv), 'rankTv');
+        assign([...rankable].sort((a, b) => (b.avgNet == null ? -Infinity : b.avgNet) - (a.avgNet == null ? -Infinity : a.avgNet)), 'rankAvgNet');
+        assign([...rankable].sort((a, b) => (b.avgTv == null ? -Infinity : b.avgTv) - (a.avgTv == null ? -Infinity : a.avgTv)), 'rankAvgTv');
+        rankable.forEach(it => { it.total = it.rankNet + it.rankTv + it.rankAvgNet + it.rankAvgTv; });
+        assign([...rankable].sort((a, b) => a.total - b.total), 'order');
+        const map = new Map();
+        rankable.forEach(it => map.set(it.key, { total: it.total, order: it.order }));
+        return map;
+    };
+    const map = new Map([
+        ...build(activeData['行业板块资金流向'], '行业'),
+        ...build(activeData['概念板块资金流向'], '概念')
+    ]);
+    _sectorRankCache = { dateFile: currentDateFile, data: activeData, map };
+    return map;
+}
+
+/** 条件⑥：板块综合排名（按排名和升序）位于同类型板块前 RANK_TOP_N 名
+ *  @param {string} type - '行业板块资金流向' | '概念板块资金流向'（内部转换为 '行业'/'概念' 前缀） */
+function condRankTopN(sectorName, type, rankMap) {
+    const prefix = type === '行业板块资金流向' ? '行业' : '概念';
+    const rank = rankMap.get(prefix + '|' + sectorName);
+    return rank != null && rank.order <= RANK_TOP_N;
+}
+
 function getDailySectorMap(filename, type) {
     if (!filename) return new Map();
     const key = filename + '|' + type;
@@ -557,7 +606,7 @@ function getDailySectorMap(filename, type) {
 }
 
 /**
- * 通用板块筛选：对板块列表应用关注板块的全部条件（①~⑤）。
+ * 通用板块筛选：对板块列表应用关注板块的全部条件（①~⑥）。
  * 与 getFocusSectors()、updateFocusArea() 共享，保证条件一致。
  * 内部提前构建各日期板块 Map，避免条件函数重复 find()。
  * @param {Array} list  - 板块数据数组
@@ -579,12 +628,16 @@ function filterSectors(list, type) {
     const prev2Map = currentIdx >= 2 ? getDailySectorMap(sorted[currentIdx - 2], type) : null;
     const prev3Map = currentIdx >= 3 ? getDailySectorMap(sorted[currentIdx - 3], type) : null;
 
+    // 综合排名 Map（条件⑥依赖）
+    const rankMap = calcSectorRankTotalMap(getActiveData());
+
     const result = list.filter(s =>
-        condNotPlaceholder(s) &&
-        condNetPositive(s) &&
-        condAmountNotTooHigh(s.板块, currMap, prevMap) &&
-        condTurnoverTrend(s.板块, currMap, prevMap, prev2Map, prev3Map) &&
-        condMinDays(s.板块, type)
+        // condNotPlaceholder(s) &&                                     // 条件②：板块名 ≠ '所属行业' / '所属概念'（暂时关闭）
+        // condNetPositive(s) &&                                        // 条件①：主力净额 > 0（暂时关闭）
+        // condAmountNotTooHigh(s.板块, currMap, prevMap) &&            // 条件③：当日成交额 < 昨日 × RATIO_TURNOVER_HIGH（暂时关闭）
+        // condTurnoverTrend(s.板块, currMap, prevMap, prev2Map, prev3Map) // 条件④：成交额趋势（暂时关闭）
+        // && condMinDays(s.板块, type)                                 // 条件⑤：连续流入天数 >= FOCUS_MIN_DAYS（暂时关闭）
+        condRankTopN(s.板块, type, rankMap)                             // 条件⑥：综合排名前 RANK_TOP_N 名（唯一启用）
     );
     _sectorFilterCache.set(cacheKey, { dateFile: currentDateFile, list, value: result });
     return result;

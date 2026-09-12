@@ -2,6 +2,7 @@
 
 // 阈值常量（集中管理，避免散落不一致）
 const FOCUS_MIN_DAYS = 1;          // 关注板块 / 今日推荐条件②：板块连续流入最低天数
+const RANK_TOP_N = 5;              // 关注板块条件⑥：综合排名前 N 名
 const HIGHLIGHT_MIN_DAYS = 3;      // 板块标签红色高亮阈值
 const MODAL_DAYS_HIGHLIGHT = 3;    // 「查看全部」弹窗连续天数红色高亮阈值
 const LEADER_STOCK_MIN_DAYS = 1;   // 今日推荐：股票连续流入最低天数
@@ -135,6 +136,7 @@ let _stockNameKeyIndex = null;       // Map<股票名称, stockKey>，兼容旧�
 let _sectorFilterCache = null;       // Map<"日期|类型", Array>，当前日期板块筛选结果
 let _dailySectorMapCache = new Map(); // "日期|类型"→板块Map，趋势与筛选共享
 let _focusDataCache = null;          // { dateFile, data, value }，关注板块派生 view model
+let _sectorRankCache = null;         // { dateFile, data, map }，板块综合排名（4项之和）缓存
 let _todayLeadersCache = null;       // { dateFile, highHigher, focusRequired, closeOpenRatio, value }，今日推荐派生结果（含筛选开关状态）
 let _loadGeneration = 0;             // 数据加载代次，最后一次请求胜出
 let _loadAbortController = null;     // 取消上一轮数据 fetch

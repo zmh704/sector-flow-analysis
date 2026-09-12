@@ -161,7 +161,7 @@ function passesLeaderConditions(stockName, stockDays, sectors, focusSectors, sec
     if (!leaderCondAvg5GeAvg10(stockName)) return false;                     // 条件L
     if (!leaderCondCloseAboveAvg5(stockName)) return false;                 // 条件M
     if (!leaderCondExcludeHot(stockName, sectors, sectorMaps)) return false; // 条件N
-    if (!leaderCondSpikeFall(stockName)) return false;                      // 条件O（排除冲高回落）
+    if (!leaderCondSpikeFall(stockName)) return false;                      // 条件O（仅显示冲高回落）
     return true;
 }
 

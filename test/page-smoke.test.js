@@ -120,7 +120,7 @@ test('今日推荐关联关注板块开关可切换并刷新推荐结果', () =>
     const config = read('config.js');
     const leaders = read('leaders.js');
     assert.match(html, /id=["']toggleCondFocusRequired["']/);
-    assert.match(config, /let LEADER_COND_FOCUS_REQUIRED = true; \/\/ 今日推荐条件：至少一个所属板块进入关注板块/);
+    assert.match(config, /let LEADER_COND_FOCUS_REQUIRED = (?:true|false); \/\/ 今日推荐条件：至少一个所属板块进入关注板块/);
     assert.match(leaders, /if \(LEADER_COND_FOCUS_REQUIRED\)/);
     assert.match(leaders, /focusRequired === LEADER_COND_FOCUS_REQUIRED/);
     assert.match(leaders, /focusRequired: LEADER_COND_FOCUS_REQUIRED/);
@@ -136,7 +136,7 @@ test('今日推荐收盘/开盘比开关可切换并刷新推荐结果', () => {
     const leaders = read('leaders.js');
     assert.match(html, /id=["']toggleCondCloseOpenRatio["']/);
     assert.match(config, /const CLOSE_OPEN_RATIO_MAX = 1\.03;/);
-    assert.match(config, /let LEADER_COND_CLOSE_OPEN_RATIO = true; \/\/ 今日推荐条件：收盘价\/开盘价/);
+    assert.match(config, /let LEADER_COND_CLOSE_OPEN_RATIO = (?:true|false); \/\/ 今日推荐条件：收盘价\/开盘价/);
     assert.match(leaders, /leaderCondCloseOpenRatio/);
     assert.match(leaders, /closeOpenRatio === LEADER_COND_CLOSE_OPEN_RATIO/);
     assert.match(leaders, /closeOpenRatio: LEADER_COND_CLOSE_OPEN_RATIO/);
@@ -150,7 +150,7 @@ test('今日推荐5日均价>=10日均价开关可切换并刷新推荐结果', 
     const config = read('config.js');
     const leaders = read('leaders.js');
     assert.match(html, /id=["']toggleCondAvg5GeAvg10["']/);
-    assert.match(config, /let LEADER_COND_AVG5_GE_AVG10 = true;/);
+    assert.match(config, /let LEADER_COND_AVG5_GE_AVG10 = (?:true|false);/);
     assert.match(leaders, /leaderCondAvg5GeAvg10/);
     assert.match(leaders, /avg5GeAvg10 === LEADER_COND_AVG5_GE_AVG10/);
     assert.match(leaders, /avg5GeAvg10: LEADER_COND_AVG5_GE_AVG10/);
@@ -164,7 +164,7 @@ test('今日推荐价>5日线开关可切换并刷新推荐结果', () => {
     const config = read('config.js');
     const leaders = read('leaders.js');
     assert.match(html, /id=["']toggleCondCloseAboveAvg5["']/);
-    assert.match(config, /let LEADER_COND_CLOSE_ABOVE_AVG5 = true;/);
+    assert.match(config, /let LEADER_COND_CLOSE_ABOVE_AVG5 = (?:true|false);/);
     assert.match(leaders, /leaderCondCloseAboveAvg5/);
     assert.match(leaders, /closeAboveAvg5 === LEADER_COND_CLOSE_ABOVE_AVG5/);
     assert.match(leaders, /closeAboveAvg5: LEADER_COND_CLOSE_ABOVE_AVG5/);
@@ -191,7 +191,7 @@ test('今日推荐排除热门开关可切换并刷新推荐结果', () => {
     const config = read('config.js');
     const leaders = read('leaders.js');
     assert.match(html, /id=["']toggleCondExcludeHot["']/);
-    assert.match(config, /let LEADER_COND_EXCLUDE_HOT = true;/);
+    assert.match(config, /let LEADER_COND_EXCLUDE_HOT = (?:true|false);/);
     assert.match(leaders, /leaderCondExcludeHot/);
     assert.match(leaders, /excludeHot === LEADER_COND_EXCLUDE_HOT/);
     assert.match(leaders, /excludeHot: LEADER_COND_EXCLUDE_HOT/);

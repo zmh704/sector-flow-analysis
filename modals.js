@@ -30,7 +30,7 @@ function renderModalTable() {
     tbody.innerHTML = '';
 
     if (modalDataCache.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#999;padding:30px;">暂无数据</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:#999;padding:30px;">暂无数据</td></tr>';
         return;
     }
 
@@ -54,7 +54,7 @@ function renderModalTable() {
     }
 
     if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#999;padding:30px;">过滤后无数据，请取消「过滤无效」</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:#999;padding:30px;">过滤后无数据，请取消「过滤无效」</td></tr>';
         return;
     }
 
@@ -70,6 +70,21 @@ function renderModalTable() {
         } else if (modalSortState.key === 'turnover') {
             va = a._turnover;
             vb = b._turnover;
+        } else if (modalSortState.key === 'change') {
+            va = a._avgChange == null ? -999 : a._avgChange;
+            vb = b._avgChange == null ? -999 : b._avgChange;
+        } else if (modalSortState.key === 'nextChange') {
+            va = a._nextChange == null ? -999 : a._nextChange;
+            vb = b._nextChange == null ? -999 : b._nextChange;
+        } else if (modalSortState.key === 'avgTurnover') {
+            va = a._avgTurnover == null ? -999 : a._avgTurnover;
+            vb = b._avgTurnover == null ? -999 : b._avgTurnover;
+        } else if (modalSortState.key === 'avgNet') {
+            va = a._avgNet == null ? -999 : a._avgNet;
+            vb = b._avgNet == null ? -999 : b._avgNet;
+        } else if (modalSortState.key === 'rankTotal') {
+            va = a._rankTotal == null ? 9999 : a._rankTotal;
+            vb = b._rankTotal == null ? 9999 : b._rankTotal;
         } else if (modalSortState.key === 'days') {
             va = a._days === '-' ? -1 : a._days;
             vb = b._days === '-' ? -1 : b._days;
@@ -95,6 +110,31 @@ function renderModalTable() {
             ? 'color:#e53935;font-weight:700'
             : 'color:#555';
 
+        // 涨跌幅：红涨绿跌（A股惯例）
+        const avgChange = item._avgChange;
+        const changeText = avgChange == null ? '-' : (avgChange >= 0 ? '+' : '') + avgChange.toFixed(2) + '%';
+        const changeColor = avgChange == null ? '#999' : (avgChange >= 0 ? '#c62828' : '#2e7d32');
+        const changeWeight = avgChange == null ? 'normal' : '600';
+
+        // 次日涨跌幅：同款红涨绿跌样式
+        const nextChange = item._nextChange;
+        const nextText = nextChange == null ? '-' : (nextChange >= 0 ? '+' : '') + nextChange.toFixed(2) + '%';
+        const nextColor = nextChange == null ? '#999' : (nextChange >= 0 ? '#c62828' : '#2e7d32');
+        const nextWeight = nextChange == null ? 'normal' : '600';
+
+        // 平均成交额（亿元）：板块成交额 / 板块涉及股票数量
+        const avgTurnoverText = item._avgTurnover == null ? '-' : (item._avgTurnover / 100000000).toFixed(2);
+
+        // 平均主力净额（亿元）：红涨绿跌
+        const avgNet = item._avgNet;
+        const avgNetText = avgNet == null ? '-' : (avgNet >= 0 ? '+' : '') + (avgNet / 100000000).toFixed(2);
+        const avgNetColor = avgNet == null ? '#999' : (avgNet >= 0 ? '#c62828' : '#2e7d32');
+        const avgNetWeight = avgNet == null ? 'normal' : '600';
+
+        // 综合排名：前3名高亮；不参与排名（股票数=1）显示 '-'
+        const rankText = item._rankTotal == null ? '-' : item._rankTotal;
+        const rankStyle = item._rankTotal != null && item._rankTotal <= 3 ? 'color:#e53935;font-weight:700' : 'color:#555;font-weight:600';
+
         const tr = document.createElement('tr');
         // 添加 data-* 属性，支持点击行弹出板块详情
         tr.dataset.sectorName = item.板块;
@@ -105,8 +145,13 @@ function renderModalTable() {
 
         tr.innerHTML = `
             <td style="${sectorStyle}white-space:nowrap">${escapeHtml(item.板块)}</td>
+            <td style="text-align:center;white-space:nowrap;${rankStyle}">${rankText}</td>
             <td style="text-align:right;white-space:nowrap">${sign}${formattedVal} 亿</td>
+            <td style="text-align:right;white-space:nowrap;color:${avgNetColor};font-weight:${avgNetWeight}">${avgNetText} 亿</td>
             <td style="text-align:right;white-space:nowrap">${turnover} 亿</td>
+            <td style="text-align:right;white-space:nowrap">${avgTurnoverText} 亿</td>
+            <td style="text-align:right;white-space:nowrap;color:${changeColor};font-weight:${changeWeight}">${changeText}</td>
+            <td style="text-align:right;white-space:nowrap;color:${nextColor};font-weight:${nextWeight}">${nextText}</td>
             <td style="text-align:center;${daysStyle}white-space:nowrap">${item._days}</td>
             <td style="text-align:right;white-space:nowrap">${item.股票数量}</td>
             <td style="font-size:12px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(item.涉及股票 || item._parsedStocks.map(stock => stock.name).join(', ') || '-')}</td>
@@ -116,7 +161,7 @@ function renderModalTable() {
 
     tbody.replaceChildren(fragment);
 
-    ['name', 'net', 'turnover', 'days', 'count'].forEach(k => {
+    ['name', 'rankTotal', 'net', 'avgNet', 'turnover', 'avgTurnover', 'change', 'nextChange', 'days', 'count'].forEach(k => {
         const arrow = document.getElementById('sortArrow' + k.charAt(0).toUpperCase() + k.slice(1));
         if (arrow) {
             if (modalSortState.key === k) {
@@ -134,8 +179,8 @@ function sortModalTable(key) {
     if (modalSortState.key === key) {
         modalSortState.asc = !modalSortState.asc;
     } else {
-        modalSortState.key = key;
-        modalSortState.asc = key === 'net';
+            modalSortState.key = key;
+            modalSortState.asc = key === 'net' || key === 'rankTotal';
     }
     renderModalTable();
 }
@@ -169,6 +214,45 @@ function showAllData(type) {
             _highlighted: highlighted,
             _parsedStocks: getSectorStocks(item)
         };
+    });
+
+    // 计算板块涨跌幅：所有股票 changePct 的平均值（仅统计有效值）
+    modalDataCache.forEach(item => {
+        const pcts = item._parsedStocks
+            .map(stock => Number(stock.changePct))
+            .filter(v => Number.isFinite(v));
+        item._avgChange = pcts.length > 0 ? pcts.reduce((sum, v) => sum + v, 0) / pcts.length : null;
+    });
+
+    // 平均成交额：板块成交额 / 板块涉及股票数量
+    modalDataCache.forEach(item => {
+        item._avgTurnover = item._stockCount > 0 ? item._turnover / item._stockCount : null;
+    });
+
+    // 平均主力净额：板块主力净额 / 板块涉及股票数量
+    modalDataCache.forEach(item => {
+        item._avgNet = item._stockCount > 0 ? item._val / item._stockCount : null;
+    });
+
+    // 综合排名（4项之和）：主力净额排名 + 成交额排名 + 平均主力净额排名 + 平均成交额排名
+    // 复用共享函数 calcSectorRankTotalMap（股票数量=1 的板块不参与排名，显示 '-'）
+    const sectorRankMap = calcSectorRankTotalMap(activeData);
+    const rankPrefix = type === '行业板块资金流向' ? '行业|' : '概念|';
+    modalDataCache.forEach(item => {
+        const entry = sectorRankMap.get(rankPrefix + item.板块);
+        item._rankTotal = entry ? entry.total : null;
+    });
+
+    // 次日涨跌幅：下一交易日板块所有股票 change 的平均值（最新日期或下日数据未加载时为 null）
+    const allSectorStocks = [];
+    modalDataCache.forEach(item => allSectorStocks.push(...item._parsedStocks));
+    const nextDayMap = buildNextDayChangeMap(allSectorStocks);
+    modalDataCache.forEach(item => {
+        if (!nextDayMap) { item._nextChange = null; return; }
+        const vals = item._parsedStocks
+            .map(stock => nextDayMap.get(stock.stockKey))
+            .filter(v => Number.isFinite(v));
+        item._nextChange = vals.length > 0 ? vals.reduce((sum, v) => sum + v, 0) / vals.length : null;
     });
 
     // 第二步：对侧关注板块只构建一次股票 Set，再计算当前全部板块的关联

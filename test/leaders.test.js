@@ -32,6 +32,8 @@ function loadLeadersContext() {
         LEADER_COND_AVG5_GE_AVG10: true,
         LEADER_COND_CLOSE_ABOVE_AVG5: true,
         LEADER_COND_EXCLUDE_HOT: true,
+        LEADER_COND_SPIKE_FALL: false,
+        FOCUS_EXCLUDE_HOT: false,
         currentDateFile: 'd2',
         _todayLeadersCache: null,
         getActiveData: () => ({
@@ -52,6 +54,7 @@ function loadLeadersContext() {
         isStockCloseOpenRatioOk: () => true,
         isStockAvg5GeAvg10: () => true,
         isStockCloseAboveAvg5: () => true,
+        isStockSpikeFall: () => true,
         resolveStockKey: value => value,
         document: { getElementById: () => null },
         renderEmptyState: () => '',
